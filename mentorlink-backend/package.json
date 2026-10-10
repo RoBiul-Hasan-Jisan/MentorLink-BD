@@ -1,0 +1,32 @@
+{
+  "name": "mentorlink-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MentorLink BD backend (Phase 1: auth, universities, directory, demo seed)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "seed:universities": "node seed/seedUniversities.js",
+    "seed:demo": "node seed/seedDemo.js",
+    "token": "node scripts/token.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "firebase-admin": "^12.6.0",
+    "helmet": "^7.1.0",
+    "mongoose": "^8.6.0",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.0.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": { "testEnvironment": "node", "testTimeout": 120000 }
+}

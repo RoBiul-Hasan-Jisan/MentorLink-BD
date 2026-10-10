@@ -1,0 +1,22 @@
+[
+  { "name": "East Delta University", "shortName": "EDU", "city": "Chattogram",
+    "campus": { "type": "Point", "coordinates": [0, 0] },
+    "campusAddressText": "TODO", "emailDomains": [],
+    "_todo": "TODO: verify on Google Maps. coordinates are [longitude, latitude]" },
+  { "name": "Southern University Bangladesh", "shortName": "SU", "city": "Chattogram",
+    "campus": { "type": "Point", "coordinates": [0, 0] },
+    "campusAddressText": "TODO", "emailDomains": [],
+    "_todo": "TODO: verify on Google Maps. coordinates are [longitude, latitude]" },
+  { "name": "University of Dhaka", "shortName": "DU", "city": "Dhaka",
+    "campus": { "type": "Point", "coordinates": [0, 0] },
+    "campusAddressText": "TODO", "emailDomains": ["du.ac.bd"],
+    "_todo": "TODO: verify on Google Maps. coordinates are [longitude, latitude]" },
+  { "name": "BUET", "shortName": "BUET", "city": "Dhaka",
+    "campus": { "type": "Point", "coordinates": [0, 0] },
+    "campusAddressText": "TODO", "emailDomains": [],
+    "_todo": "TODO: verify on Google Maps. coordinates are [longitude, latitude]" },
+  { "name": "Chittagong University of Engineering and Technology", "shortName": "CUET", "city": "Chattogram",
+    "campus": { "type": "Point", "coordinates": [0, 0] },
+    "campusAddressText": "TODO", "emailDomains": [],
+    "_todo": "TODO: verify on Google Maps. coordinates are [longitude, latitude]" }
+]
