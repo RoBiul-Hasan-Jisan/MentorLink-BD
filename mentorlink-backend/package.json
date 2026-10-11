@@ -9,6 +9,7 @@
     "dev": "node --watch src/server.js",
     "test": "jest --runInBand",
     "seed:universities": "node seed/seedUniversities.js",
+    "seed:skills": "node seed/seedSkills.js",
     "seed:demo": "node seed/seedDemo.js",
     "token": "node scripts/token.js"
   },
