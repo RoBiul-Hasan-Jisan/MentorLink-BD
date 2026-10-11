@@ -20,6 +20,8 @@ function createApp() {
   app.use('/api/me', require('./routes/me'));
   app.use('/api/universities', require('./routes/universities'));
   app.use('/api/directory', require('./routes/directory'));
+  app.use('/api', require('./routes/catalog'));
+  app.use('/api/matches', require('./routes/matches'));
   app.use('/api/admin', require('./routes/admin'));
 
   app.use((req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }));
