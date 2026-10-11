@@ -1,0 +1,61 @@
+{
+  "skills": [
+    { "key": "sql", "nameEn": "SQL", "nameBn": "SQL", "hoursPerLevel": 6 },
+    { "key": "powerbi", "nameEn": "Power BI", "nameBn": "Power BI", "hoursPerLevel": 5 },
+    { "key": "python", "nameEn": "Python", "nameBn": "পাইথন", "hoursPerLevel": 6 },
+    { "key": "excel", "nameEn": "Excel", "nameBn": "এক্সেল", "hoursPerLevel": 4 },
+    { "key": "statistics", "nameEn": "Statistics", "nameBn": "পরিসংখ্যান", "hoursPerLevel": 5 },
+    { "key": "communication", "nameEn": "Communication", "nameBn": "যোগাযোগ দক্ষতা", "hoursPerLevel": 4 },
+    { "key": "javascript", "nameEn": "JavaScript", "nameBn": "জাভাস্ক্রিপ্ট", "hoursPerLevel": 8 },
+    { "key": "html_css", "nameEn": "HTML and CSS", "nameBn": "HTML ও CSS", "hoursPerLevel": 5 },
+    { "key": "git", "nameEn": "Git", "nameBn": "Git", "hoursPerLevel": 3 },
+    { "key": "testing", "nameEn": "Software testing", "nameBn": "সফটওয়্যার টেস্টিং", "hoursPerLevel": 6 },
+    { "key": "automation", "nameEn": "Test automation", "nameBn": "টেস্ট অটোমেশন", "hoursPerLevel": 8 },
+    { "key": "problem_solving", "nameEn": "Problem solving", "nameBn": "সমস্যা সমাধান", "hoursPerLevel": 6 },
+    { "key": "accounting", "nameEn": "Accounting", "nameBn": "হিসাববিজ্ঞান", "hoursPerLevel": 6 },
+    { "key": "banking_basics", "nameEn": "Banking basics", "nameBn": "ব্যাংকিং মৌলিক জ্ঞান", "hoursPerLevel": 6 },
+    { "key": "leadership", "nameEn": "Leadership", "nameBn": "নেতৃত্ব", "hoursPerLevel": 5 },
+    { "key": "teamwork", "nameEn": "Teamwork", "nameBn": "দলগত কাজ", "hoursPerLevel": 3 },
+    { "key": "research_writing", "nameEn": "Research writing", "nameBn": "গবেষণা লেখা", "hoursPerLevel": 6 },
+    { "key": "english", "nameEn": "English proficiency", "nameBn": "ইংরেজি দক্ষতা", "hoursPerLevel": 10 },
+    { "key": "interview_prep", "nameEn": "Interview preparation", "nameBn": "ইন্টারভিউ প্রস্তুতি", "hoursPerLevel": 3 }
+  ],
+  "roles": [
+    { "key": "junior-developer", "titleEn": "Junior Developer", "titleBn": "জুনিয়র ডেভেলপার",
+      "relatedRoleKeys": ["qa-engineer", "data-analyst"],
+      "requiredSkills": [
+        { "skillKey": "javascript", "weight": 5, "requiredLevel": 3 }, { "skillKey": "html_css", "weight": 3, "requiredLevel": 2 },
+        { "skillKey": "git", "weight": 3, "requiredLevel": 2 }, { "skillKey": "problem_solving", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "sql", "weight": 3, "requiredLevel": 2 }, { "skillKey": "communication", "weight": 2, "requiredLevel": 2 } ] },
+    { "key": "data-analyst", "titleEn": "Data Analyst", "titleBn": "ডেটা অ্যানালিস্ট",
+      "relatedRoleKeys": ["junior-developer", "management-trainee"],
+      "requiredSkills": [
+        { "skillKey": "sql", "weight": 5, "requiredLevel": 3 }, { "skillKey": "powerbi", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "python", "weight": 3, "requiredLevel": 2 }, { "skillKey": "excel", "weight": 3, "requiredLevel": 2 },
+        { "skillKey": "statistics", "weight": 3, "requiredLevel": 2 }, { "skillKey": "communication", "weight": 2, "requiredLevel": 2 } ] },
+    { "key": "qa-engineer", "titleEn": "QA Engineer", "titleBn": "কিউএ ইঞ্জিনিয়ার",
+      "relatedRoleKeys": ["junior-developer", "data-analyst"],
+      "requiredSkills": [
+        { "skillKey": "testing", "weight": 5, "requiredLevel": 3 }, { "skillKey": "automation", "weight": 3, "requiredLevel": 2 },
+        { "skillKey": "sql", "weight": 3, "requiredLevel": 2 }, { "skillKey": "git", "weight": 2, "requiredLevel": 2 },
+        { "skillKey": "communication", "weight": 3, "requiredLevel": 2 }, { "skillKey": "problem_solving", "weight": 3, "requiredLevel": 2 } ] },
+    { "key": "banking-trainee-officer", "titleEn": "Banking Trainee Officer", "titleBn": "ব্যাংকিং ট্রেইনি অফিসার",
+      "relatedRoleKeys": ["management-trainee"],
+      "requiredSkills": [
+        { "skillKey": "banking_basics", "weight": 5, "requiredLevel": 2 }, { "skillKey": "accounting", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "excel", "weight": 3, "requiredLevel": 2 }, { "skillKey": "communication", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "interview_prep", "weight": 3, "requiredLevel": 2 } ] },
+    { "key": "management-trainee", "titleEn": "Management Trainee", "titleBn": "ম্যানেজমেন্ট ট্রেইনি",
+      "relatedRoleKeys": ["banking-trainee-officer"],
+      "requiredSkills": [
+        { "skillKey": "communication", "weight": 5, "requiredLevel": 3 }, { "skillKey": "leadership", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "teamwork", "weight": 3, "requiredLevel": 2 }, { "skillKey": "excel", "weight": 3, "requiredLevel": 2 },
+        { "skillKey": "problem_solving", "weight": 3, "requiredLevel": 2 }, { "skillKey": "interview_prep", "weight": 3, "requiredLevel": 2 } ] },
+    { "key": "higher-study-applicant", "titleEn": "Higher-Study Applicant", "titleBn": "উচ্চশিক্ষা প্রার্থী",
+      "relatedRoleKeys": [],
+      "requiredSkills": [
+        { "skillKey": "english", "weight": 5, "requiredLevel": 3 }, { "skillKey": "research_writing", "weight": 4, "requiredLevel": 2 },
+        { "skillKey": "statistics", "weight": 2, "requiredLevel": 2 }, { "skillKey": "communication", "weight": 3, "requiredLevel": 2 },
+        { "skillKey": "interview_prep", "weight": 2, "requiredLevel": 2 } ] }
+  ]
+}
