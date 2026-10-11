@@ -49,4 +49,6 @@ router.patch('/users/:id/verification', asyncHandler(async (req, res) => {
   res.json({ id: String(user._id), verificationStatus });
 }));
 
+router.use('/', require('./adminOps')); // verification queue, scam review, audit, fairness, preview
+
 module.exports = router;

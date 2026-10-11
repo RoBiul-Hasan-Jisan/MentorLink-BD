@@ -22,12 +22,17 @@
     "helmet": "^7.1.0",
     "mongoose": "^8.6.0",
     "morgan": "^1.10.0",
+    "socket.io": "^4.8.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "jest": "^29.7.0",
     "mongodb-memory-server": "^10.0.0",
+    "socket.io-client": "^4.8.4",
     "supertest": "^7.0.0"
   },
-  "jest": { "testEnvironment": "node", "testTimeout": 120000 }
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 120000
+  }
 }

@@ -37,6 +37,7 @@ router.patch('/settings', asyncHandler(async (req, res) => {
   res.json({ language: req.user.language, lowDataMode: req.user.lowDataMode });
 }));
 
+router.use('/', require('./meSettings'));   // consents, outcome feedback
 router.use('/', require('./meCareer')); // goal, evidence, readiness, mentor-profile
 
 module.exports = router;

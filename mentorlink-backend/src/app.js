@@ -22,6 +22,19 @@ function createApp() {
   app.use('/api/directory', require('./routes/directory'));
   app.use('/api', require('./routes/catalog'));
   app.use('/api/matches', require('./routes/matches'));
+  app.use('/api/requests', require('./routes/requests'));
+  app.use('/api/sessions', require('./routes/sessions'));
+  app.use('/api/plan', require('./routes/plan'));
+  app.use('/api/chats', require('./routes/chats'));
+  app.use('/api/notifications', require('./routes/notifications'));
+  app.use('/api/cv', require('./routes/cv'));
+  app.use('/api/opportunities', require('./routes/opportunities'));
+  app.use('/api/applications', require('./routes/applications'));
+  app.use('/api/blocks', require('./routes/safety').blocks);
+  app.use('/api/reports', require('./routes/safety').reports);
+  app.use('/api/role-requests', require('./routes/roleRequests'));
+  app.use('/api/department', require('./routes/department'));
+  app.use('/api/mentor', require('./routes/mentor'));
   app.use('/api/admin', require('./routes/admin'));
 
   app.use((req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }));

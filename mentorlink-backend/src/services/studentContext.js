@@ -37,4 +37,15 @@ async function loadReadiness(userId) {
     },
   };
 }
-module.exports = { loadReadiness };
+
+// Levels only (no goal needed). Used for job fit and CV skills, loaded once per request (no N+1).
+async function loadLevels(userId) {
+  const [evidence, skills, profile] = await Promise.all([SkillEvidence.find({ studentId: userId }), Skill.find(), StudentProfile.findOne({ userId })]);
+  return {
+    levels: R.effectiveLevels(evidence.map((e) => ({ skillKey: e.skillKey, level: e.level, verified: e.verified }))),
+    names: Object.fromEntries(skills.map((s) => [s.key, { nameEn: s.nameEn, nameBn: s.nameBn }])),
+    hours: Object.fromEntries(skills.map((s) => [s.key, s.hoursPerLevel])),
+    weeklyHours: profile ? profile.weeklyHours : 0,
+  };
+}
+module.exports = { loadReadiness, loadLevels };

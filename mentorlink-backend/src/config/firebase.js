@@ -12,4 +12,10 @@ const getAuth = () => admin.auth();
 const verifyToken = (credential) => getAuth().verifyIdToken(credential); // -> { uid, ... }
 const getAuthUser = (uid) => getAuth().getUser(uid);                     // -> { email, displayName, ... }
 
-module.exports = { getAuth, verifyToken, getAuthUser };
+// FCM push. Data values must be strings.
+const sendMulticast = (tokens, { title, body, data = {} }) => admin.messaging().sendEachForMulticast({
+  tokens, notification: { title, body },
+  data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+});
+
+module.exports = { getAuth, verifyToken, getAuthUser, sendMulticast };

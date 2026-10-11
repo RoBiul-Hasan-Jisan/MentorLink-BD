@@ -10,6 +10,8 @@ module.exports = mongoose.model('MentorProfile', new mongoose.Schema({
   weeklyCapacity: { type: Number, default: 3 },
   activeMentees: { type: Number, default: 0 },      // server-maintained (Phase 3)
   paused: { type: Boolean, default: false },
+  capacityWeekStart: Date,                          // start of the week activeMentees refers to (see capacity.js)
+  ratingCount: { type: Number, default: 0 },
   availableSlots: { type: [String], default: [] },
   // Server-maintained stats: a mentor can NOT edit these through the API.
   responseRate: { type: Number, default: 0 },

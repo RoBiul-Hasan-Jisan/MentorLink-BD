@@ -6,6 +6,7 @@ const Match = require('../models/Match');
 const Block = require('../models/Block');
 const Skill = require('../models/Skill');
 const { loadReadiness } = require('../services/studentContext');
+const { effectiveActiveMentees } = require('../services/capacity');
 const { rankMentors } = require('../services/matching/rank');
 const asyncHandler = require('../utils/asyncHandler');
 const { AppError } = require('../utils/errors');
@@ -35,7 +36,7 @@ router.get('/', asyncHandler(async (req, res) => {
       mentorId: String(u._id), displayName: u.displayName, roleTitle: p.roleTitle, industry: p.industry,
       roleKeys: p.roleKeys, yearsExperience: p.yearsExperience, skills, languages: p.languages,
       availableSlots: p.availableSlots, sessionsCompleted: p.sessionsCompleted, acceptedRequests: p.acceptedRequests,
-      isRising: p.isRising, ratingAvg: p.ratingAvg, weeklyCapacity: p.weeklyCapacity, activeMentees: p.activeMentees,
+      isRising: p.isRising, ratingAvg: p.ratingAvg, weeklyCapacity: p.weeklyCapacity, activeMentees: effectiveActiveMentees(p),
       paused: p.paused, verified: true, blocked: blocked.has(String(u._id)),
       doc: [p.roleTitle, p.industry, ...p.roleKeys, ...p.expertiseSkills.map((s) => skillName(s.skillKey))].join(' '),
     };

@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema({
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
   showInDirectory: { type: Boolean, default: true },
   lowDataMode: { type: Boolean, default: false },
+  // Consent switches (every change is also written to consentRecords)
+  consents: {
+    departmentProgress: { type: Boolean, default: true },  // anonymous counts only
+    mentorOutcomes: { type: Boolean, default: false },     // lets my mentors see aggregate application outcomes
+  },
 }, { timestamps: true });
 
 userSchema.index({ universityId: 1, role: 1, verificationStatus: 1, showInDirectory: 1 });
