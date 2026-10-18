@@ -45,5 +45,20 @@
   "tasksDone": "পরিকল্পনার অগ্রগতি",
   "showInDirectory": "আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে আমাকে দেখান",
   "retry": "আবার চেষ্টা করুন",
-  "somethingWrong": "কিছু একটা ভুল হয়েছে"
+  "somethingWrong": "কিছু একটা ভুল হয়েছে",
+  "weeklyHours": "সাপ্তাহিক পড়ার সময় (ঘণ্টা)",
+  "requestTitle": "অনুরোধ",
+  "yourGoal": "আপনার লক্ষ্য",
+  "oneQuestion": "একটি প্রশ্ন",
+  "cancel": "বাতিল",
+  "requestSent": "অনুরোধ পাঠানো হয়েছে",
+  "noMentors": "এখনও কোনো মেন্টর নেই।",
+  "risingMentor": "উদীয়মান মেন্টর",
+  "applied": "আবেদন করা হয়েছে",
+  "reportedThanks": "রিপোর্ট করা হয়েছে। ধন্যবাদ।",
+  "noRequests": "এখনও কোনো অনুরোধ নেই।",
+  "students": "শিক্ষার্থী",
+  "applications": "আবেদন",
+  "withdrawn": "প্রত্যাহার করা হয়েছে",
+  "retryBtn": "আবার চেষ্টা"
 }
