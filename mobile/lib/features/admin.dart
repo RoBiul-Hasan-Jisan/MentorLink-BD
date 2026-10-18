@@ -29,8 +29,8 @@ class DeptOverview extends ConsumerWidget {
   const DeptOverview({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => AsyncBody(value: ref.watch(deptProvider), builder: (d) => ListView(padding: const EdgeInsets.all(16), children: [
-    Card(child: ListTile(title: const Text('Students'), trailing: Text('${d['students'] ?? '—'}'))),
-    Card(child: ListTile(title: const Text('Applications'), trailing: Text('${d['applications'] ?? '—'}'))),
+    Card(child: ListTile(title: Text(AppLocalizations.of(context).students), trailing: Text('${d['students'] ?? '—'}'))),
+    Card(child: ListTile(title: Text(AppLocalizations.of(context).applications), trailing: Text('${d['applications'] ?? '—'}'))),
     for (final g in d['careerGoals'] as List) Card(child: ListTile(title: Text(g['role']), trailing: Text('${g['count']}'))),
     Text(d['note'] ?? '', style: const TextStyle(fontSize: 12)),
   ]));
