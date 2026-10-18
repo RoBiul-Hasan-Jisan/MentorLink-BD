@@ -13,7 +13,7 @@ class MentorRequests extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     return AsyncBody(value: ref.watch(requestsProvider), onRetry: () => ref.invalidate(requestsProvider), builder: (d) {
       final list = d['requests'] as List;
-      if (list.isEmpty) return const Center(child: Text('No requests yet.'));
+      if (list.isEmpty) return Center(child: Text(AppLocalizations.of(context).noRequests));
       return ListView(padding: const EdgeInsets.all(16), children: [for (final r in list) Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(r['goalText'], style: Theme.of(context).textTheme.titleLarge),
         for (final q in r['questions'] as List) Text('• $q'),
