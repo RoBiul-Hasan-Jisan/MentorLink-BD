@@ -43,7 +43,7 @@ Future<void> showGoalSheet(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   final hours = TextEditingController(text: '6');
   await showModalBottomSheet(context: context, isScrollControlled: true, builder: (c) => Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(c).viewInsets.bottom + 16), child: Column(mainAxisSize: MainAxisSize.min, children: [
-    TextField(controller: hours, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weekly study hours')),
+    TextField(controller: hours, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: AppLocalizations.of(context).weeklyHours)),
     const SizedBox(height: 8),
     for (final r in roles) ListTile(title: Text(pick(c, r, 'titleEn', 'titleBn')), onTap: () async {
       try {
@@ -63,11 +63,11 @@ class MentorMatches extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     return AsyncBody(value: ref.watch(matchesProvider), onRetry: () => ref.invalidate(matchesProvider), builder: (d) {
       final list = d['matches'] as List;
-      if (list.isEmpty) return const Center(child: Text('No mentors available yet.'));
+      if (list.isEmpty) return Center(child: Text(AppLocalizations.of(context).noMentors));
       return ListView(padding: const EdgeInsets.all(16), children: [for (final m in list) Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [Expanded(child: Text(m['mentor']['name'], style: Theme.of(context).textTheme.titleLarge)), Pill('${m['score']}%')]),
         Text('${m['mentor']['roleTitle']} · ${m['mentor']['industry']}', style: const TextStyle(color: Brand.muted)),
-        if (m['mentor']['isRising'] == true) const Padding(padding: EdgeInsets.only(top: 6), child: Pill('Rising mentor', color: Brand.lightSaffron, fg: Brand.ink)),
+        if (m['mentor']['isRising'] == true) Padding(padding: const EdgeInsets.only(top: 6), child: Pill(AppLocalizations.of(context).risingMentor, color: Brand.lightSaffron, fg: Brand.ink)),
         const SizedBox(height: 8),
         Text(t.whyMatch, style: const TextStyle(fontWeight: FontWeight.w700)),
         for (final r in m['reasons'] as List) Text('• ${pick(context, r, 'en', 'bn')}'),
@@ -80,14 +80,14 @@ class MentorMatches extends ConsumerWidget {
   }
   Future<void> _request(BuildContext context, WidgetRef ref, String mentorId) async {
     final goal = TextEditingController(), q = TextEditingController();
-    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Request'), content: Column(mainAxisSize: MainAxisSize.min, children: [
-      TextField(controller: goal, decoration: const InputDecoration(labelText: 'Your goal')), const SizedBox(height: 8),
-      TextField(controller: q, decoration: const InputDecoration(labelText: 'One question')),
-    ]), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Send'))]));
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(AppLocalizations.of(context).requestTitle), content: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextField(controller: goal, decoration: InputDecoration(labelText: AppLocalizations.of(context).yourGoal)), const SizedBox(height: 8),
+      TextField(controller: q, decoration: InputDecoration(labelText: AppLocalizations.of(context).oneQuestion)),
+    ]), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: Text(AppLocalizations.of(context).cancel)), FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(AppLocalizations.of(context).send))]));
     if (ok != true) return;
     try {
       await ref.read(dioProvider).post('/requests', data: {'mentorId': mentorId, 'goalText': goal.text, 'questions': [q.text]});
-      if (context.mounted) toast(context, 'Request sent');
+      if (context.mounted) toast(context, AppLocalizations.of(context).requestSent);
     } catch (e) { if (context.mounted) toast(context, errorText(e)); }
   }
 }
@@ -139,7 +139,7 @@ class OpportunitiesScreen extends ConsumerWidget {
           ]))),
         ])),
         AsyncBody(value: ref.watch(applicationsProvider), builder: (d) => ListView(padding: const EdgeInsets.all(16), children: [
-          for (final a in d['applications'] as List) Card(child: ListTile(title: Text(a['opportunity']?['title'] ?? ''), subtitle: Text(a['statusMessage'] ?? ''), trailing: Pill(a['withdrawn'] == true ? 'Withdrawn' : a['stage']))),
+          for (final a in d['applications'] as List) Card(child: ListTile(title: Text(a['opportunity']?['title'] ?? ''), subtitle: Text(a['statusMessage'] ?? ''), trailing: Pill(a['withdrawn'] == true ? AppLocalizations.of(context).withdrawn : a['stage']))),
         ])),
       ])),
     ]));
@@ -150,7 +150,7 @@ class OpportunitiesScreen extends ConsumerWidget {
     bool consent = false;
     final go = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(builder: (c, set) => AlertDialog(
       content: CheckboxListTile(value: consent, title: Text(t.consent), onChanged: (v) => set(() => consent = v == true)),
-      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')), FilledButton(onPressed: consent ? () => Navigator.pop(c, true) : null, child: Text(t.apply))])));
+      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: Text(AppLocalizations.of(context).cancel)), FilledButton(onPressed: consent ? () => Navigator.pop(c, true) : null, child: Text(t.apply))])));
     if (go != true) return;
     try {
       final dio = ref.read(dioProvider);
@@ -158,11 +158,11 @@ class OpportunitiesScreen extends ConsumerWidget {
       if (cvs.isEmpty) { await dio.post('/me/cv', data: {'data': {'summary': 'Student at my university'}}); cvs = ((await dio.get('/me/cv')).data['versions'] as List); }
       await dio.post('/opportunities/$id/apply', data: {'cvVersionId': cvs.first['_id'], 'consent': true, 'sharedFields': ['name', 'cv']});
       ref.invalidate(applicationsProvider);
-      if (context.mounted) toast(context, 'Applied');
+      if (context.mounted) toast(context, AppLocalizations.of(context).applied);
     } catch (e) { if (context.mounted) toast(context, errorText(e)); }
   }
   Future<void> _report(BuildContext context, WidgetRef ref, String id) async {
-    try { await ref.read(dioProvider).post('/reports', data: {'targetType': 'opportunity', 'targetId': id, 'reason': 'Suspicious or asks for money'}); if (context.mounted) toast(context, 'Reported. Thank you.'); }
+    try { await ref.read(dioProvider).post('/reports', data: {'targetType': 'opportunity', 'targetId': id, 'reason': 'Suspicious or asks for money'}); if (context.mounted) toast(context, AppLocalizations.of(context).reportedThanks); }
     catch (e) { if (context.mounted) toast(context, errorText(e)); }
   }
 }

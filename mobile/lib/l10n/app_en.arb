@@ -45,5 +45,20 @@
   "tasksDone": "Plan progress",
   "showInDirectory": "Show me in my university directory",
   "retry": "Try again",
-  "somethingWrong": "Something went wrong"
+  "somethingWrong": "Something went wrong",
+  "weeklyHours": "Weekly study hours",
+  "requestTitle": "Request",
+  "yourGoal": "Your goal",
+  "oneQuestion": "One question",
+  "cancel": "Cancel",
+  "requestSent": "Request sent",
+  "noMentors": "No mentors available yet.",
+  "risingMentor": "Rising mentor",
+  "applied": "Applied",
+  "reportedThanks": "Reported. Thank you.",
+  "noRequests": "No requests yet.",
+  "students": "Students",
+  "applications": "Applications",
+  "withdrawn": "Withdrawn",
+  "retryBtn": "Retry"
 }
