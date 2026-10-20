@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/api.dart';
 import '../core/providers.dart';
-import '../l10n/app_localizations.dart';
+import '../core/theme.dart';
+import '../core/ui.dart';
 import 'widgets.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -29,7 +31,7 @@ class _Chat extends ConsumerState<ChatScreen> {
       socket = io.io(apiUrl, io.OptionBuilder().setTransports(['websocket']).setAuth({'token': credential}).build());
       socket!.onConnect((_) => socket!.emitWithAck('join', widget.requestId, ack: (_) {}));
       socket!.on('message', (m) { if (mounted) setState(() { if (!msgs.any((x) => x['_id'] == m['_id'])) msgs.add(Map<String, dynamic>.from(m)); }); });
-    } catch (e) { setState(() => error = errorText(e)); }
+    } catch (e) { if (mounted) setState(() => error = errorText(e)); }
   }
   Future<void> _send() async {
     final v = text.text.trim(); if (v.isEmpty) return;
@@ -41,13 +43,17 @@ class _Chat extends ConsumerState<ChatScreen> {
   void dispose() { socket?.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
     final myId = ref.watch(meProvider).valueOrNull?['id'];
-    return Scaffold(appBar: AppBar(title: Text(t.chat)), body: error != null ? Center(child: Text(error!)) : Column(children: [
-      Expanded(child: ListView(padding: const EdgeInsets.all(12), children: [for (final m in msgs) Align(
+    return Scaffold(body: Column(children: [
+      GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12), Text(tr(context, 'Chat', 'চ্যাট'), style: display(24, color: Colors.white))])),
+      Expanded(child: error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(error!, textAlign: TextAlign.center, style: body(16)))) : ListView(padding: const EdgeInsets.all(14), children: [for (final m in msgs) Align(
         alignment: m['senderId'] == myId ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(margin: const EdgeInsets.symmetric(vertical: 3), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: m['senderId'] == myId ? const Color(0xFFE3F1EB) : Colors.white, borderRadius: BorderRadius.circular(14)), child: Text(m['text'])))])),
-      SafeArea(child: Padding(padding: const EdgeInsets.all(8), child: Row(children: [Expanded(child: TextField(controller: text, decoration: InputDecoration(hintText: t.chat))), IconButton(onPressed: _send, icon: const Icon(Icons.send), tooltip: t.send)]))),
+        child: Container(constraints: const BoxConstraints(maxWidth: 300), margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: m['senderId'] == myId ? Brand.delta : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8E3))), child: Text(m['text'], style: body(16, color: m['senderId'] == myId ? Colors.white : Brand.ink))))])),
+      SafeArea(top: false, child: Padding(padding: const EdgeInsets.all(10), child: Row(children: [
+        Expanded(child: TextField(controller: text, onSubmitted: (_) => _send(), decoration: InputDecoration(hintText: tr(context, 'Write a message', 'বার্তা লিখুন'), contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14), border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none)))),
+        const SizedBox(width: 8),
+        IconButton.filled(style: IconButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(52, 52)), onPressed: _send, icon: const Icon(Icons.send)),
+      ]))),
     ]));
   }
 }

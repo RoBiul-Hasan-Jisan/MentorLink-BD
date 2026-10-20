@@ -34,3 +34,4 @@ final dirUniversitiesProvider = FutureProvider.autoDispose((ref) => getJson(ref,
 final queueProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/admin/verification-queue'));
 final deptProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/department/overview'));
 final membersProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/directory/universities/$id/members'));
+final sessionsProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/sessions'));

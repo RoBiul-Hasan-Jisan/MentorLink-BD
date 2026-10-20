@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
-import '../l10n/app_localizations.dart';
+import '../core/ui.dart';
 import 'widgets.dart';
 
 // PRIVACY: this screen never asks for device location and has no location permission.
@@ -14,10 +14,13 @@ class UniversityMapScreen extends ConsumerWidget {
   const UniversityMapScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    return Scaffold(appBar: AppBar(title: Text(t.campusMap)), body: AsyncBody(value: ref.watch(dirUniversitiesProvider), onRetry: () => ref.invalidate(dirUniversitiesProvider), builder: (d) {
-      final unis = (d['universities'] as List).cast<Map<String, dynamic>>();
+    return Scaffold(body: AsyncBody(value: ref.watch(dirUniversitiesProvider), onRetry: () => ref.invalidate(dirUniversitiesProvider), builder: (d) {
+      final unis = (d['universities'] as List).cast<Map>();
       return Column(children: [
+        GreenHeader(radius: 32, bottomPad: 22, child: Row(children: [
+          BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(tr(context, 'University map', 'বিশ্ববিদ্যালয় মানচিত্র'), style: display(24, color: Colors.white)), Text(tr(context, 'Campuses, not people', 'ক্যাম্পাস, মানুষ নয়'), style: body(14, color: Colors.white70))])),
+        ])),
         Expanded(flex: 3, child: FlutterMap(
           options: const MapOptions(initialCenter: LatLng(23.6850, 90.3563), initialZoom: 6.5),
           children: [
@@ -28,8 +31,11 @@ class UniversityMapScreen extends ConsumerWidget {
           ],
         )),
         Expanded(flex: 2, child: ListView(padding: const EdgeInsets.all(12), children: [
-          Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(t.privacyNote, style: const TextStyle(fontSize: 12, color: Brand.muted))),
-          for (final u in unis) Card(child: ListTile(title: Text(u['name']), subtitle: Text('${u['city']} · ${u['students']} students · ${u['mentors']} mentors'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/university/${u['id']}'))),
+          AppCard(color: Brand.lightGreen, border: Colors.transparent, padding: const EdgeInsets.all(12), child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest, size: 20), const SizedBox(width: 10), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(14, color: Brand.forest)))])),
+          for (final u in unis) AppCard(padding: const EdgeInsets.all(14), onTap: () => context.push('/university/${u['id']}'), child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(u['name'], style: display(17, color: Brand.ink)), Text('${u['city']} · ${u['students']} ${tr(context, 'students', 'শিক্ষার্থী')} · ${u['mentors']} ${tr(context, 'mentors', 'মেন্টর')}', style: body(14, color: Brand.muted))])),
+            const Icon(Icons.chevron_right),
+          ])),
         ])),
       ]);
     }));
@@ -41,11 +47,19 @@ class UniversityMembersScreen extends ConsumerWidget {
   final String id;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    return Scaffold(appBar: AppBar(title: Text(t.directory)), body: AsyncBody(value: ref.watch(membersProvider(id)), builder: (d) => ListView(padding: const EdgeInsets.all(16), children: [
-      Text(d['university']['name'], style: Theme.of(context).textTheme.titleLarge),
-      Text(t.privacyNote, style: const TextStyle(fontSize: 12, color: Brand.muted)),
-      for (final m in d['members'] as List) Card(child: ListTile(leading: CircleAvatar(child: Text((m['name'] as String).isEmpty ? '?' : (m['name'] as String)[0])), title: Text(m['name']), subtitle: Text('${m['role']} · ${m['department'] ?? ''} ${m['batchYear'] ?? ''}'))),
+    return Scaffold(body: AsyncBody(value: ref.watch(membersProvider(id)), builder: (d) => ListView(padding: EdgeInsets.zero, children: [
+      GreenHeader(radius: 32, bottomPad: 24, child: Row(children: [
+        BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(d['university']['name'], style: display(22, color: Colors.white)), Text(tr(context, 'Verified members who opted in', 'যাচাইকৃত ও সম্মতিদাতা সদস্য'), style: body(14, color: Colors.white70))])),
+      ])),
+      Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+        if ((d['members'] as List).isEmpty) AppCard(child: Text(tr(context, 'No members to show yet.', 'এখনও কোনো সদস্য নেই।'), style: body(16))),
+        for (final m in d['members'] as List) AppCard(padding: const EdgeInsets.all(14), child: Row(children: [
+          Avatar(m['name'], size: 46, bg: m['role'] == 'mentor' ? Brand.lightSaffron : Brand.lightGreen, fg: Brand.forest), const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(m['name'], style: display(18, color: Brand.ink)), Text('${m['department'] ?? ''} ${m['batchYear'] ?? ''}', style: body(14, color: Brand.muted))])),
+          Pill(m['role'], tone: m['role'] == 'mentor' ? Tone.saffron : Tone.green),
+        ])),
+      ])),
     ])));
   }
 }

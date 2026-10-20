@@ -4,8 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api.dart';
 import '../core/providers.dart';
-import '../l10n/app_localizations.dart';
+import '../core/theme.dart';
+import '../core/ui.dart';
 import 'widgets.dart';
+
+Widget _page(BuildContext context, {required String title, String? sub, required List<Widget> children, VoidCallback? back, List<Widget> actions = const []}) => Scaffold(
+      body: ListView(padding: EdgeInsets.zero, children: [
+        GreenHeader(radius: 36, bottomPad: 36, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [if (back != null) BackCircle(dark: true, onTap: back), const Spacer(), ...actions]),
+          const SizedBox(height: 12),
+          Text(title, style: display(32, color: Colors.white)),
+          if (sub != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(sub, style: body(16, color: Colors.white70))),
+        ])),
+        Padding(padding: const EdgeInsets.all(24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)),
+      ]),
+    );
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -17,31 +30,19 @@ class _SignIn extends ConsumerState<SignInScreen> {
   bool busy = false;
   Future<void> go() async {
     setState(() => busy = true);
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(email: email.text.trim(), password: pw.text);
-    } on FirebaseAuthException catch (e) {
-      if (mounted) toast(context, e.message ?? 'Sign-in failed');
-    } finally { if (mounted) setState(() => busy = false); }
+    try { await FirebaseAuth.instance.signInWithEmailAndPassword(email: email.text.trim(), password: pw.text); }
+    on FirebaseAuthException catch (e) { if (mounted) toast(context, e.message ?? 'Sign-in failed'); }
+    finally { if (mounted) setState(() => busy = false); }
   }
   @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    return Scaffold(body: SafeArea(child: ListView(padding: const EdgeInsets.all(24), children: [
-      const SizedBox(height: 40),
-      Text(t.appName, style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 24),
-      TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: t.email)),
-      const SizedBox(height: 12),
-      TextField(controller: pw, obscureText: true, decoration: InputDecoration(labelText: t.password)),
-      const SizedBox(height: 20),
-      FilledButton(onPressed: busy ? null : go, child: Text(t.signIn)),
-      TextButton(onPressed: () => context.go('/sign-up'), child: Text(t.signUp)),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        TextButton(onPressed: () => ref.read(localeProvider.notifier).state = 'bn', child: const Text('বাংলা')),
-        TextButton(onPressed: () => ref.read(localeProvider.notifier).state = 'en', child: const Text('English')),
-      ]),
-    ])));
-  }
+  Widget build(BuildContext context) => _page(context, title: tr(context, 'Welcome back', 'স্বাগতম'), sub: tr(context, 'Sign in to continue', 'চালিয়ে যেতে সাইন ইন করুন'), back: () => context.go('/welcome'), children: [
+        TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr(context, 'Email', 'ইমেইল'))),
+        const SizedBox(height: 12),
+        TextField(controller: pw, obscureText: true, decoration: InputDecoration(labelText: tr(context, 'Password', 'পাসওয়ার্ড'))),
+        const SizedBox(height: 20),
+        BigButton(tr(context, 'Sign in', 'সাইন ইন'), onPressed: busy ? null : go),
+        TextButton(onPressed: () => context.go('/sign-up'), child: Text(tr(context, 'Create an account', 'অ্যাকাউন্ট খুলুন'), style: body(16, color: Brand.delta, w: FontWeight.w700))),
+      ]);
 }
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -54,26 +55,19 @@ class _SignUp extends ConsumerState<SignUpScreen> {
   bool busy = false;
   Future<void> go() async {
     setState(() => busy = true);
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email.text.trim(), password: pw.text);
-      // the router now sends a new account to /complete-profile
-    } on FirebaseAuthException catch (e) {
-      if (mounted) toast(context, e.message ?? 'Could not create account');
-    } finally { if (mounted) setState(() => busy = false); }
+    try { await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email.text.trim(), password: pw.text); }
+    on FirebaseAuthException catch (e) { if (mounted) toast(context, e.message ?? 'Could not create account'); }
+    finally { if (mounted) setState(() => busy = false); }
   }
   @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    return Scaffold(appBar: AppBar(leading: BackButton(onPressed: () => context.go('/sign-in'))), body: ListView(padding: const EdgeInsets.all(24), children: [
-      Text(t.signUp, style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 20),
-      TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: t.email)),
-      const SizedBox(height: 12),
-      TextField(controller: pw, obscureText: true, decoration: InputDecoration(labelText: t.password)),
-      const SizedBox(height: 20),
-      FilledButton(onPressed: busy ? null : go, child: Text(t.signUp)),
-    ]));
-  }
+  Widget build(BuildContext context) => _page(context, title: tr(context, 'Create account', 'অ্যাকাউন্ট খুলুন'), sub: tr(context, 'Step 1 of 2', 'ধাপ ১/২'), back: () => context.go('/welcome'), children: [
+        TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr(context, 'Email', 'ইমেইল'))),
+        const SizedBox(height: 12),
+        TextField(controller: pw, obscureText: true, decoration: InputDecoration(labelText: tr(context, 'Password (6+ characters)', 'পাসওয়ার্ড (৬+ অক্ষর)'))),
+        const SizedBox(height: 20),
+        BigButton(tr(context, 'Continue', 'চালিয়ে যান'), onPressed: busy ? null : go),
+        TextButton(onPressed: () => context.go('/sign-in'), child: Text(tr(context, 'I already have an account', 'আমার অ্যাকাউন্ট আছে'), style: body(16, color: Brand.delta, w: FontWeight.w700))),
+      ]);
 }
 
 // Step 2: university is required. Role is never sent: new accounts are always students.
@@ -87,7 +81,7 @@ class _Complete extends ConsumerState<CompleteProfileScreen> {
   String? uni;
   bool busy = false;
   Future<void> save() async {
-    if (uni == null || name.text.trim().length < 2) { toast(context, AppLocalizations.of(context).chooseUniversity); return; }
+    if (uni == null || name.text.trim().length < 2) { toast(context, tr(context, 'Enter your name and choose your university', 'নাম লিখুন ও বিশ্ববিদ্যালয় বেছে নিন')); return; }
     setState(() => busy = true);
     try {
       await ref.read(dioProvider).post('/auth/register-profile', data: {'displayName': name.text.trim(), 'universityId': uni, if (dept.text.trim().isNotEmpty) 'department': dept.text.trim(), 'language': ref.read(localeProvider)});
@@ -97,21 +91,20 @@ class _Complete extends ConsumerState<CompleteProfileScreen> {
   }
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
     final unis = ref.watch(universitiesProvider);
-    return Scaffold(appBar: AppBar(actions: [TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: Text(t.signOut))]), body: ListView(padding: const EdgeInsets.all(24), children: [
-      TextField(controller: name, decoration: InputDecoration(labelText: t.name)),
+    return _page(context, title: tr(context, 'About you', 'আপনার পরিচয়'), sub: tr(context, 'Step 2 of 2', 'ধাপ ২/২'), actions: [TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: Text(tr(context, 'Sign out', 'সাইন আউট'), style: body(15, color: Colors.white)))], children: [
+      TextField(controller: name, decoration: InputDecoration(labelText: tr(context, 'Full name', 'পূর্ণ নাম'))),
       const SizedBox(height: 12),
-      AsyncBody(value: unis, builder: (list) => DropdownButtonFormField<String>(
-        initialValue: uni, hint: Text(t.chooseUniversity), isExpanded: true,
-        decoration: InputDecoration(labelText: t.university),
-        items: [for (final u in list) DropdownMenuItem(value: u['id'] as String, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))],
+      AsyncBody(value: unis, onRetry: () => ref.invalidate(universitiesProvider), builder: (list) => DropdownButtonFormField<String>(
+        initialValue: uni, isExpanded: true, hint: Text(tr(context, 'Choose your university', 'আপনার বিশ্ববিদ্যালয় বেছে নিন')),
+        decoration: InputDecoration(labelText: tr(context, 'University', 'বিশ্ববিদ্যালয়')),
+        items: [for (final u in list as List) DropdownMenuItem(value: u['id'] as String, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))],
         onChanged: (v) => setState(() => uni = v),
       )),
       const SizedBox(height: 12),
-      TextField(controller: dept, decoration: InputDecoration(labelText: t.department)),
+      TextField(controller: dept, decoration: InputDecoration(labelText: tr(context, 'Department', 'বিভাগ'))),
       const SizedBox(height: 20),
-      FilledButton(onPressed: busy ? null : save, child: Text(t.signUp)),
-    ]));
+      BigButton(tr(context, 'Finish', 'শেষ করুন'), onPressed: busy ? null : save),
+    ]);
   }
 }

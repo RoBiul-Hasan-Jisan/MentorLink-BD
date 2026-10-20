@@ -28,6 +28,11 @@ class MentorLinkApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       routerConfig: ref.watch(routerProvider),
+      // On web/desktop, show the app in a phone-sized column like the prototype.
+      builder: (context, child) => ColoredBox(
+        color: const Color(0xFFDDE5DF),
+        child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 430), child: ClipRect(child: child ?? const SizedBox()))),
+      ),
     );
   }
 }
