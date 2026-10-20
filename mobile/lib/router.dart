@@ -5,6 +5,9 @@ import 'core/providers.dart';
 import 'features/auth.dart';
 import 'features/shell.dart';
 import 'features/chat.dart';
+import 'features/jobs.dart';
+import 'features/skillgap.dart';
+import 'features/welcome.dart';
 import 'features/university.dart';
 
 // The router only decides WHERE you land. The server still checks the role on every API call.
@@ -19,15 +22,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
       if (auth.isLoading) return null;
-      if (auth.valueOrNull == null) return (loc == '/sign-in' || loc == '/sign-up') ? null : '/sign-in';
+      if (auth.valueOrNull == null) return (loc == '/sign-in' || loc == '/sign-up' || loc == '/welcome') ? null : '/welcome';
       final me = ref.read(meProvider).valueOrNull;
       if (me == null) return null;
       if (me['needsProfile'] == true) return loc == '/complete-profile' ? null : '/complete-profile';
-      if (loc == '/sign-in' || loc == '/sign-up' || loc == '/complete-profile') return '/';
+      if (loc == '/sign-in' || loc == '/sign-up' || loc == '/complete-profile' || loc == '/welcome') return '/';
       return null;
     },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const Shell()),
+      GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
+      GoRoute(path: '/skill-gap', builder: (_, __) => const SkillGapScreen()),
+      GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
       GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
       GoRoute(path: '/complete-profile', builder: (_, __) => const CompleteProfileScreen()),
