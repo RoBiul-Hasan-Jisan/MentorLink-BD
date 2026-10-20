@@ -24,7 +24,7 @@ ThemeData buildTheme() {
       headlineMedium: GoogleFonts.bricolageGrotesque(fontSize: 26, fontWeight: FontWeight.w800, color: Brand.forest),
       titleLarge: GoogleFonts.bricolageGrotesque(fontSize: 20, fontWeight: FontWeight.w700, color: Brand.forest),
     ),
-    cardTheme: CardTheme(color: Colors.white, elevation: 0, margin: const EdgeInsets.symmetric(vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+    cardTheme: CardThemeData(color: Colors.white, elevation: 0, margin: const EdgeInsets.symmetric(vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
     filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(44, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
     inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
     appBarTheme: const AppBarTheme(backgroundColor: Brand.paper, foregroundColor: Brand.forest, elevation: 0),
