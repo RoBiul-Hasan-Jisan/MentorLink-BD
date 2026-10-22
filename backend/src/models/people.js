@@ -31,6 +31,7 @@ const userSchema = new Schema(
       submittedAt: Date,
     },
     blockedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    deviceTokens: { type: [String], default: [] }, // FCM tokens. Never returned: every route maps explicit fields.
   },
   { timestamps: true }
 );

@@ -5,7 +5,7 @@ const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { audit, notify, toObjectId } = require('../utils/helpers');
-const { scamFlags, uiStage } = require('../services/scam');
+const { scamFlags, uiStage, canMove } = require('../services/scam');
 const { levelsFromEvidence } = require('../services/readiness');
 const env = require('../config/env');
 
@@ -54,10 +54,10 @@ module.exports = function opportunityRoutes(auth) {
   const publicOpp = (o, fit) => ({
     id: o._id, title: o.title, organization: o.organization, type: o.type, workplaceMode: o.workplaceMode, locationText: o.locationText,
     description: o.description, applicationDeadline: o.applicationDeadline, requiredSkills: o.requiredSkills,
-    labels: { source: o.sourceLabel, listingReviewed: o.listingReviewed, noFeeDeclared: o.noFeeConfirmed }, fit,
+    labels: { source: o.sourceLabel, organizationVerified: !!o.organizationId, listingReviewed: o.listingReviewed, noFeeDeclared: o.noFeeConfirmed }, fit,
   });
   r.get('/opportunities', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
-    const list = await Opportunity.find({ status: 'approved' }).sort({ createdAt: -1 }).limit(100);
+    const list = await Opportunity.find({ status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(100);
     let have = {};
     if (req.user.role === 'student') have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
     const fit = (o) => {
@@ -73,7 +73,7 @@ module.exports = function opportunityRoutes(auth) {
   const applySchema = z.object({ cvVersionId: z.string(), note: z.string().max(500).optional(), consent: z.literal(true), sharedFields: z.array(z.string().max(30)).max(10).default(['name', 'cv']) }).strict();
   r.post('/opportunities/:id/apply', ...student, validate(applySchema), async (req, res) => {
     toObjectId(req.params.id);
-    const opp = await Opportunity.findOne({ _id: req.params.id, status: 'approved' });
+    const opp = await Opportunity.findOne({ _id: req.params.id, status: 'approved', closed: { $ne: true } });
     if (!opp) throw notFound('This opportunity is not available.');
     if (opp.applicationDeadline && opp.applicationDeadline < new Date()) throw conflict('DEADLINE_PASSED', 'The deadline has passed.');
     toObjectId(req.body.cvVersionId, 'cv id');
@@ -121,6 +121,7 @@ module.exports = function opportunityRoutes(auth) {
     const opp = a && (await Opportunity.findById(a.opportunityId));
     if (!a || (req.user.role !== 'admin' && String(opp.postedBy) !== String(req.user._id))) throw notFound();
     if (a.stage === 'Withdrawn') throw conflict('WITHDRAWN', 'The student withdrew this application.');
+    if (!canMove(a.stage, req.body.stage)) throw conflict('INVALID_STAGE', `Cannot move from ${a.stage} to ${req.body.stage}.`);
     a.stage = req.body.stage; a.statusMessage = req.body.message || a.statusMessage;
     a.stageHistory.push({ stage: req.body.stage, by: req.user._id, message: req.body.message });
     await a.save();

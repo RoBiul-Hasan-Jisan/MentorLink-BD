@@ -41,7 +41,7 @@ function Login() {
   );
 }
 
-const TABS = ['Queue', 'Audit log', 'Fairness', 'Universities'];
+const TABS = ['Queue', 'Companies', 'Resources', 'Audit log', 'Fairness', 'Universities'];
 function Panel({ me }) {
   const [tab, setTab] = useState('Queue');
   return (
@@ -50,6 +50,8 @@ function Panel({ me }) {
       <div className="wrap">
         <div className="tabs">{TABS.map((t) => <button key={t} className={`tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
         {tab === 'Queue' && <Queue />}
+        {tab === 'Companies' && <Companies />}
+        {tab === 'Resources' && <Resources />}
         {tab === 'Audit log' && <Audit />}
         {tab === 'Fairness' && <Fairness />}
         {tab === 'Universities' && <Universities />}
@@ -119,6 +121,51 @@ function Universities() {
           <input placeholder="City" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} />
           <input placeholder="Latitude (e.g. 22.3726)" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} />
           <input placeholder="Longitude (e.g. 91.8076)" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} />
+          <button className="btn">Add</button>
+        </form></div>
+    </>
+  );
+}
+
+function Companies() {
+  const { data, err, reload } = useLoad('/admin/organizations');
+  const [msg, setMsg] = useState('');
+  async function act(id, decision) { setMsg(''); try { await api(`/admin/organizations/${id}/review`, { method: 'POST', body: { decision } }); reload(); } catch (e) { setMsg(e.message); } }
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  return (
+    <>
+      {msg && <div className="err">{msg}</div>}
+      {!data.organizations.length && <div className="card">No company requests.</div>}
+      {data.organizations.map((o) => (
+        <div className="card" key={o._id}>
+          <div className="row"><div><h3>{o.name}</h3><span className={`pill ${o.verificationStatus === 'verified' ? '' : 'warn'}`}>{o.verificationStatus}</span><span className="muted">{o.industry} · {o.city} · {o.workEmail}</span></div>
+            <div><button className="btn" onClick={() => act(o._id, 'verified')}>Verify</button> <button className="btn alt" onClick={() => act(o._id, 'rejected')}>Reject</button> <button className="btn red" onClick={() => act(o._id, 'suspended')}>Suspend</button></div></div>
+          <p className="muted">Website: {o.website || '-'}</p>
+          <p><b>Private proof (admins only):</b> {o.verificationEvidence}</p>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function Resources() {
+  const { data, err, reload } = useLoad('/resources');
+  const [f, setF] = useState({ title: '', url: '', skillKey: 'sql', language: 'bn' });
+  const [msg, setMsg] = useState('');
+  async function add(e) { e.preventDefault(); setMsg(''); try { await api('/admin/resources', { method: 'POST', body: f }); setF({ ...f, title: '', url: '' }); reload(); } catch (x) { setMsg(x.message); } }
+  async function hide(id) { try { await api(`/admin/resources/${id}`, { method: 'DELETE' }); reload(); } catch (x) { setMsg(x.message); } }
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  return (
+    <>
+      <div className="card"><table><thead><tr><th>Title</th><th>Skill</th><th>Lang</th><th></th></tr></thead><tbody>{data.resources.map((r) => <tr key={r.id}><td><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a></td><td>{r.skillKey}</td><td>{r.language}</td><td><button className="btn alt" onClick={() => hide(r.id)}>Hide</button></td></tr>)}</tbody></table></div>
+      <div className="card"><h3>Add a resource</h3><p className="muted">Links only (https). Add Bangla-language resources here.</p>{msg && <div className="err">{msg}</div>}
+        <form onSubmit={add}>
+          <input placeholder="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+          <input placeholder="https://…" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} />
+          <input placeholder="Skill key (sql, excel, python, statistics, dashboard, git…)" value={f.skillKey} onChange={(e) => setF({ ...f, skillKey: e.target.value })} />
+          <select value={f.language} onChange={(e) => setF({ ...f, language: e.target.value })}><option value="bn">Bangla</option><option value="en">English</option></select>
           <button className="btn">Add</button>
         </form></div>
     </>

@@ -9,7 +9,13 @@ async function audit(actorId, action, targetType, targetId, detail) {
 
 // In-app notification record. A push (Firebase Cloud Messaging) can be sent from here later.
 async function notify(userId, title, body = '', kind = 'info') {
-  return Notification.create({ userId, title, body, kind });
+  const n = await Notification.create({ userId, title, body, kind });
+  try {
+    const { User } = require('../models');
+    const u = await User.findById(userId);
+    if (u && u.deviceTokens.length) require('../config/firebase').sendPush(u.deviceTokens, title, body);
+  } catch { /* push is best effort */ }
+  return n;
 }
 
 function toObjectId(id, name = 'id') {

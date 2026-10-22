@@ -30,4 +30,7 @@ test('seeds all accounts, is idempotent, EDU and Southern differ', async () => {
   const su = await models.University.findOne({ shortName: 'SUB' });
   expect(edu.campus.coordinates).not.toEqual(su.campus.coordinates);
   expect((await models.User.findOne({ email: 'student.edu@demo.mentorlink.bd' })).displayName).toBe('Robiul');
+  expect(await models.Organization.countDocuments({ verificationStatus: 'verified' })).toBe(1);
+  expect(await models.OrganizationMember.countDocuments({ status: 'active' })).toBe(1);
+  expect(await models.Opportunity.countDocuments({ status: 'approved' })).toBe(2);
 });

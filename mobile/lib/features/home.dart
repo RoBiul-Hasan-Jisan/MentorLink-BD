@@ -34,6 +34,8 @@ class StudentHome extends ConsumerWidget {
               Text(name.split(' ').first, style: display(26, color: Colors.white)),
             ])),
             Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(24)), child: Text(tr(context, '$done tasks done', '$done টি কাজ শেষ'), style: display(14, color: Colors.white, w: FontWeight.w700))),
+            const SizedBox(width: 8),
+            InkWell(borderRadius: BorderRadius.circular(30), onTap: () => context.push('/notifications'), child: Container(width: 46, height: 46, decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle), child: const Icon(Icons.notifications_none, color: Colors.white))),
           ]),
           const SizedBox(height: 18),
           rd.when(

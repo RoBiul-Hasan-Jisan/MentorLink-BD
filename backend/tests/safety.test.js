@@ -27,7 +27,7 @@ test('mentor post pending until admin approves; labels are separate', async () =
   expect((await request(app).post(`/api/admin/opportunities/${opp._id}/review`).set(bearer('mnt')).send({ decision: 'approve' })).status).toBe(403);
   await request(app).post(`/api/admin/opportunities/${opp._id}/review`).set(bearer('adm')).send({ decision: 'approve' });
   const l = (await request(app).get('/api/opportunities').set(bearer('a'))).body.opportunities[0];
-  expect(l.labels).toEqual({ source: 'verified_alumni', listingReviewed: true, noFeeDeclared: true });
+  expect(l.labels).toEqual({ source: 'verified_alumni', organizationVerified: false, listingReviewed: true, noFeeDeclared: true });
 });
 test('apply needs consent, one application per post, 5-stage mapping, withdrawn separate', async () => {
   const cv = (await request(app).post('/api/me/cv').set(bearer('a')).send({ data: { summary: 'Hi' } })).body.cv;
@@ -37,11 +37,13 @@ test('apply needs consent, one application per post, 5-stage mapping, withdrawn 
   expect(ok.status).toBe(201);
   expect((await request(app).post(`/api/opportunities/${opp._id}/apply`).set(bearer('a')).send(ap)).status).toBe(409);
   const id = ok.body.application.id;
-  const st = await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage: 'Hired' });
-  expect(st.body.studentSees).toBe('Selected');
-  await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage: 'Under Review' });
-  expect((await request(app).get('/api/me/applications').set(bearer('a'))).body.applications[0].stage).toBe('Applied');
-  const list = await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('mnt'));
+  const bad = await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage: 'Hired' });
+  expect(bad.status).toBe(409); // cannot skip stages
+  for (const [stage, sees] of [['Under Review', 'Applied'], ['Shortlisted', 'Shortlisted'], ['Interview', 'Interview'], ['Offer', 'Selected']]) {
+    expect((await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage })).body.studentSees).toBe(sees);
+  }
+  expect((await request(app).get('/api/me/applications').set(bearer('a'))).body.applications[0].stage).toBe('Selected');
+    const list = await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('mnt'));
   expect(list.body.applications[0].department).toBeUndefined(); // not consented
   expect((await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('b'))).status).toBe(403);
 });

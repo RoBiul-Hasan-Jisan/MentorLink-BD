@@ -111,3 +111,21 @@ describe('resource hub', () => {
     expect((await request(app).get('/api/resources?language=bn').set(bearer('stu'))).body.resources).toHaveLength(1);
   });
 });
+
+describe('quizzes', () => {
+  let app, edu;
+  beforeAll(async () => { app = await setup(); await seedLearning(); edu = await mkUni('EDU', 'EDU', 'Chattogram', 91.83, 22.35); await mkUser('stu', 'student', edu); await mkUser('mnt', 'mentor', edu); });
+  afterAll(teardown);
+  test('quiz hides answers, server grades, passing adds quiz evidence', async () => {
+    const q = await request(app).get('/api/quizzes/sql').set(bearer('stu'));
+    expect(q.status).toBe(200);
+    expect(JSON.stringify(q.body)).not.toMatch(/"answer"/);
+    const r = await request(app).post('/api/quizzes/sql/submit').set(bearer('stu')).send({ answers: [1, 1, 1, 1, 1] });
+    expect(r.body).toMatchObject({ correct: 5, percent: 100, levelAwarded: 3 });
+    expect(await models.SkillEvidence.countDocuments({ skillKey: 'sql', type: 'quiz' })).toBe(1);
+    const low = await request(app).post('/api/quizzes/excel/submit').set(bearer('stu')).send({ answers: [3, 3, 3, 3, 3] });
+    expect(low.body.levelAwarded).toBe(0);
+    expect((await request(app).post('/api/quizzes/sql/submit').set(bearer('stu')).send({ answers: [1] })).status).toBe(400);
+    expect((await request(app).get('/api/quizzes/sql').set(bearer('mnt'))).status).toBe(403);
+  });
+});

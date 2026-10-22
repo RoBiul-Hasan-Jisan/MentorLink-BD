@@ -56,7 +56,12 @@ const resourceProgressSchema = new Schema(
 );
 resourceProgressSchema.index({ studentId: 1, resourceId: 1 }, { unique: true });
 
+const quizSchema = new Schema({
+  skillKey: { type: String, required: true, unique: true },
+  questions: [{ q: String, options: [String], answer: Number }], // `answer` is NEVER sent to the client
+});
 module.exports = {
+  Quiz: mongoose.model('Quiz', quizSchema),
   Resource: mongoose.model('Resource', resourceSchema),
   ResourceProgress: mongoose.model('ResourceProgress', resourceProgressSchema),
   Skill: mongoose.model('Skill', skillSchema),

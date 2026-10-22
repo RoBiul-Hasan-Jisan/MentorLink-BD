@@ -1,57 +1,55 @@
-# MentorLink BD — MVP
+# MentorLink BD
 
-Career mentorship for Bangladeshi university students. English / বাংলা.
+Career mentorship for Bangladeshi university students (English / বাংলা).
+Loop: career goal → skill gap → free resources / quiz → explainable mentor match → sessions → four-week plan → CV → vetted job → outcome feedback.
 
 ```
-backend/   Node.js + Express + Mongoose + Socket.IO   (tested: 33 Jest tests)
-mobile/    Flutter (Riverpod, GoRouter, Dio, flutter_map)   (written, NOT compiled/tested yet)
+backend/       Node.js + Express + Mongoose + Socket.IO     40 Jest tests
+mobile/        Flutter (Riverpod, GoRouter, Dio, flutter_map)
+admin-panel/   Next.js web admin panel (Firebase Web SDK)
 ```
 
 ## Honest status
-- **Backend:** built and tested here against FerretDB (a MongoDB-compatible database). Run the same tests on real MongoDB.
-- **Flutter app:** written complete for the MVP screens but never compiled (no Flutter SDK in the build environment). Expect to fix small compile errors on first run. Not built yet: Next.js admin panel, learning resource hub, employer portal, FCM push wiring, ARB-driven strings on every screen (some screens still have English literals).
+| Part | Status |
+|---|---|
+| Backend (MVP + Phase 2: resources, quizzes, companies) | Built. 40 tests pass against FerretDB (a MongoDB-compatible database). Run `npm test` once on real MongoDB too. |
+| Admin panel | Compiles (`next build`). Sign-in not tested against your live Firebase. |
+| Flutter app | All MVP and Phase 2 screens written. **Never compiled by me** (no Flutter SDK in my environment). Expect small fixes on first run: send the error text and they are quick to fix. |
+| Push notifications (FCM) | Server stores device tokens and sends pushes; the app registers its token on Android/iOS. Not tested on a device. |
+| Not built | Mentor profile detail screen, CV builder beyond a basic version, resource "saved / in-progress" states (only "done" exists), resource reporting by students, link checker, TypeScript in the admin panel (it is JavaScript). |
 
-## 0. Your Firebase + MongoDB are already filled in
-- `backend/.env` already has your Atlas `MONGODB_URI` and `FIREBASE_PROJECT_ID=mentorlink-67926`. **Never upload `.env` to GitHub** (it is in `.gitignore`).
-- Atlas: in MongoDB Atlas go to Network Access and allow your IP (for learning, `0.0.0.0/0`), otherwise the connection times out.
-- Firebase: in the console turn on Authentication > Sign-in method > Email/Password.
-- For `npm run seed:demo` you need a service account: Firebase Console > Project settings > Service accounts > Generate new private key. Save it as `backend/serviceAccount.json`.
-- Mobile: `mobile/lib/firebase_options.dart` is already set. After `flutter create`, copy `mobile/android_config/google-services.json` to `mobile/android/app/google-services.json`, and set `applicationId "mentorlinkbd.com"` in `android/app/build.gradle`.
-
-## Admin panel (web)
-```bash
-cd admin-panel
-npm install
-npm run dev        # http://localhost:3000  (backend must run on :4000)
-```
-Sign in as `admin@demo.mentorlink.bd` / `Admin@12345`. Tabs: verification queue (users, mentor applications, job posts with scam flags), audit log, fairness check, universities (campus pins). Non-admins are refused by the server.
-
-## 1. Backend
+## Setup
+### 1. Backend
 ```bash
 cd backend
-cp .env.example .env          # set MONGODB_URI, FIREBASE_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS
+cp .env.example .env         # already filled for you in the zip; never upload .env to GitHub
 npm install
-npm test                      # SAFE: uses a separate database mongodb://127.0.0.1:27017/mentorlink_test (set TEST_MONGODB_URI to change; its name must end with _test). It never touches MONGODB_URI.
-DEMO_MODE=true npm run seed:demo   # creates Firebase users + MongoDB data (idempotent)
-npm start                     # http://localhost:4000
+npm test                     # SAFE: uses mongodb://127.0.0.1:27017/mentorlink_test (TEST_MONGODB_URI). Never touches MONGODB_URI.
+npm start                    # http://localhost:4000
+DEMO_MODE=true npm run seed:demo   # needs backend/serviceAccount.json (Firebase > Project settings > Service accounts > Generate new private key)
 ```
-- Auth: the app sends the Firebase credential as `Authorization: Bearer <string>`. The server verifies it with Firebase Admin and reads the role from MongoDB. There is no JWT code in this project.
-- No Firebase project yet? Run the Firebase Auth Emulator (`firebase emulators:start --only auth`) and set `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`.
-- **University coordinates in `src/seed/universities.json` are approximate placeholders** (`"verified": false`). Check each pin on a map, fix it, then set `"verified": true`. East Delta and Southern University pins are now verified from public coordinates (Wikipedia); the others are still approximate.
+- Atlas: allow your IP in Network Access (for learning: `0.0.0.0/0`). Firebase console: enable Authentication > Email/Password.
+- Auth: the app sends the Firebase credential as `Authorization: Bearer <string>`. The server verifies it with Firebase Admin and reads the **role from MongoDB**. We write no JWT code.
+- University pins in `src/seed/universities.json`: East Delta and Southern are set from public coordinates (Wikipedia). The others are approximate (`"verified": false`); check them on a map.
 
-## 2. Mobile
+### 2. Mobile
 ```bash
 cd mobile
-flutter create . --org bd.mentorlink --project-name mentorlink_bd   # adds android/ios folders
+flutter create . --org bd.mentorlink --project-name mentorlink_bd
+# copy android_config/google-services.json to android/app/ and set applicationId "mentorlinkbd.com" in android/app/build.gradle
 flutter pub get
-flutter run --dart-define=API_URL=http://10.0.2.2:4000        # Android emulator
-# Chrome:  flutter run -d chrome --dart-define=API_URL=http://localhost:4000
-# emulator auth: add --dart-define=AUTH_EMULATOR=10.0.2.2
+flutter run -d chrome --dart-define=API_URL=http://localhost:4000 --dart-define=DEMO=true
+# Android emulator: --dart-define=API_URL=http://10.0.2.2:4000
 ```
-If `CardTheme` errors on a newer Flutter, rename it to `CardThemeData` in `lib/core/theme.dart`.
-The app requests **no location permission**.
+`DEMO=true` shows quick-fill demo account chips on the sign-in screen. The app asks for **no location permission**.
 
-## Demo accounts
+### 3. Admin panel
+```bash
+cd admin-panel && npm install && npm run dev      # http://localhost:3000
+```
+Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (verify / reject / suspend, with private proof), Resources, Audit log, Fairness, Universities.
+
+## Demo accounts (after `seed:demo`)
 | Role | Email | Password | University |
 |---|---|---|---|
 | Student | student.edu@demo.mentorlink.bd | Demo@12345 | East Delta University (Robiul) |
@@ -59,17 +57,32 @@ The app requests **no location permission**.
 | Mentor | mentor1@demo.mentorlink.bd | Demo@12345 | East Delta University (Abrar) |
 | Mentor | mentor2@demo.mentorlink.bd | Demo@12345 | Southern University |
 | Department | dept@demo.mentorlink.bd | Demo@12345 | East Delta University (Dayan) |
-| Admin | admin@demo.mentorlink.bd | Admin@12345 | — (Ayesha) |
-| Employer (Phase 2) | employer@demo.mentorlink.bd | Demo@12345 | — |
+| Admin | admin@demo.mentorlink.bd | Admin@12345 | n/a (Ayesha) |
+| Employer | employer@demo.mentorlink.bd | Demo@12345 | member of verified "Demo Tech Ltd" |
 
 ## 5-minute demo
-1. Sign in as Robiul: readiness for Data Analyst, ranked gaps, weeks to ready.
-2. Mentors tab: Abrar with score and "Why this mentor" reasons. Send a request.
-3. Sign in as Abrar: accept, chat. Then (API) schedule a session and complete it with next steps.
-4. Robiul: Plan tab shows the new tasks; tick one.
-5. Opportunities: apply with consent; tracker shows 5 stages. Report a post 3 times from different accounts: it auto-hides.
-6. Ayesha: verification queue, approve; audit log.
-7. University map: EDU and Southern pins differ; members show as "Robiul H.", never an address.
+1. **Robiul (student):** Home shows readiness for Data Analyst, ranked gaps, weeks to ready. Open the skill-gap report: radar, free resources, take the SQL quiz (server-graded, adds quiz evidence).
+2. **Mentors tab:** Abrar with the six-part score and "Why this mentor". Send a request.
+3. **Abrar (mentor):** accept, chat. (API) schedule a session and complete it with next steps: they become tasks in Robiul's four-week plan.
+4. **Robiul:** Plan tab: tick a task. Jobs tab: apply with the consent screen; the tracker shows the 5 stages.
+5. **Employer:** post a job (first post goes to admin review), open applicants (only consented fields), move a stage (invalid jumps are rejected).
+6. **Ayesha (admin panel):** approve the job, verify a company, check the audit log and the fairness tab. Report a job 3 times from different accounts: it auto-hides.
+7. **University map:** East Delta and Southern show at different campus pins. Members appear as "Robiul H.", never an address. The employer gets 403 on the directory.
 
-## What is tested (backend)
-Role rules (student cannot self-assign a role, mentor application needs admin), privacy guard (rejects lat/lng/location/address), directory visibility and employer 403, matching maths and fair re-rank, capacity auto-pause, chat only after acceptance, no-fee confirmation and scam flags, one application per post, 5-stage mapping, auto-hide at 3 unique reporters, audit log, anonymized department numbers, idempotent demo seed.
+## Security and privacy review (what was checked)
+- **67 endpoints**; all require sign-in except `GET /api/universities` (needed at sign-up, contains no personal data). Role is checked on the server for every route; ownership is checked for requests, sessions, plans, chat, CVs, applications.
+- **Roles:** a client can never send or change its own role (strict schemas reject `role`). `mentor` only through admin approval; `employer` only through admin verification of a company, set by the server.
+- **Company isolation:** a recruiter sees only jobs and applicants of their own verified company (others return 404); the private verification proof is never returned to employers or students; suspending a company hides its jobs.
+- **Application data:** applicants are shown only the fields the student consented to (`consentSnapshot`); stage changes are validated server-side and recorded in `stageHistory`; the unique index blocks double applications.
+- **Location:** no user has coordinates; requests containing lat/lng/location/address/gps are rejected with 400; the map shows campuses only; directory requires `verified` and `showInDirectory`; employers get 403.
+- **Scam protection:** no-fee confirmation required; keyword flags; auto-hide at 3 unique reporters; admin restore/remove; audit logs.
+- **Other:** helmet, CORS, rate limit, zod validation with strict schemas, one error shape. `grep -ri jwt` over our code finds only comments. No secrets in the repo except your local `.env` (git-ignored). `npm audit` reports 0 vulnerabilities for the backend.
+- Tests never use your real database (name must end in `_test`).
+
+## Known limitations
+- No user study and no measured accuracy of the match score; the weights (30/25/15/10/10/10) are our own, documented, and adjustable. A keyword baseline is returned next to the matches for comparison.
+- Skill levels come from quiz, project or mentor evidence; the quiz bank is small (SQL, Excel, Python, 5 questions each).
+- Seeded learning resources are English; add Bangla ones from the admin panel.
+- Chat is plain text over Socket.IO; no file sharing. Reminders are in-app notifications plus push; no scheduled reminder job yet.
+- FerretDB does not support every MongoDB feature (no 2dsphere index): set `MONGO_GEO_INDEX=true` on real MongoDB/Atlas.
+- We do not claim this is the first platform of its kind.
