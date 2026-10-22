@@ -1,54 +1,119 @@
-const router = require('express').Router();
+const express = require('express');
 const { z } = require('zod');
-const { authenticateFirebase, requireRole } = require('../middleware/auth');
-const University = require('../models/University');
-const User = require('../models/User');
-const audit = require('../utils/audit');
-const { toPublic } = require('../services/universityService');
-const asyncHandler = require('../utils/asyncHandler');
-const { AppError } = require('../utils/errors');
+const { Resource, Skill, User, University, MentorProfile, StudentProfile, SkillEvidence, Opportunity, Report, AuditLog, Application, Match } = require('../models');
+const { requireRole } = require('../middleware/auth');
+const { validate } = require('../middleware/guards');
+const { notFound, bad } = require('../utils/httpError');
+const { audit, notify, toObjectId } = require('../utils/helpers');
 
-router.use(authenticateFirebase, requireRole('admin'));
+module.exports = function adminRoutes(auth) {
+  const r = express.Router();
+  const admin = [auth.authenticate, requireRole('admin')];
 
-// Admin sends human-friendly latitude/longitude for a CAMPUS (not a person). Stored as GeoJSON [lng, lat].
-const campusSchema = z.object({
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-}).refine((c) => !(c.latitude === 0 && c.longitude === 0), 'Placeholder 0,0 is not a real campus location');
+  r.get('/admin/verification-queue', ...admin, async (_q, res) => {
+    const [users, mentorApps, opps] = await Promise.all([
+      User.find({ verificationStatus: 'pending', role: { $in: ['student', 'mentor', 'department'] } }).select('displayName email role universityId department verificationProof').limit(100),
+      User.find({ 'mentorApplication.status': 'pending' }).select('displayName email mentorApplication universityId'),
+      Opportunity.find({ status: 'pending' }).limit(100),
+    ]);
+    res.json({ users, mentorApplications: mentorApps, opportunities: opps });
+  });
+  r.post('/admin/users/:id/verify', ...admin, validate(z.object({ decision: z.enum(['verified', 'rejected']) }).strict()), async (req, res) => {
+    toObjectId(req.params.id);
+    const u = await User.findByIdAndUpdate(req.params.id, { verificationStatus: req.body.decision }, { returnDocument: 'after' });
+    if (!u) throw notFound();
+    await audit(req.user._id, `user_${req.body.decision}`, 'user', u._id);
+    await notify(u._id, `Verification ${req.body.decision}`, '', 'verification');
+    res.json({ ok: true });
+  });
+  // Only here can a role change to mentor.
+  r.post('/admin/mentor-applications/:id', ...admin, validate(z.object({ decision: z.enum(['approved', 'rejected']) }).strict()), async (req, res) => {
+    toObjectId(req.params.id);
+    const u = await User.findById(req.params.id);
+    if (!u || u.mentorApplication.status !== 'pending') throw notFound();
+    u.mentorApplication.status = req.body.decision;
+    if (req.body.decision === 'approved') {
+      u.role = 'mentor'; u.verificationStatus = 'verified';
+      await MentorProfile.updateOne({ userId: u._id }, { $setOnInsert: { userId: u._id, roleTitle: u.mentorApplication.roleTitle, industry: u.mentorApplication.industry, yearsExperience: u.mentorApplication.yearsExperience, isRising: true } }, { upsert: true });
+    }
+    await u.save();
+    await audit(req.user._id, `mentor_application_${req.body.decision}`, 'user', u._id);
+    res.json({ ok: true, role: u.role });
+  });
+  r.post('/admin/opportunities/:id/review', ...admin, validate(z.object({ decision: z.enum(['approve', 'reject', 'restore', 'remove']) }).strict()), async (req, res) => {
+    toObjectId(req.params.id);
+    const map = { approve: 'approved', restore: 'approved', reject: 'removed', remove: 'removed' };
+    const o = await Opportunity.findById(req.params.id);
+    if (!o) throw notFound();
+    o.status = map[req.body.decision]; o.reviewedBy = req.user._id; o.reviewedAt = new Date();
+    if (['approve', 'restore'].includes(req.body.decision)) o.listingReviewed = true;
+    await o.save();
+    if (req.body.decision !== 'approve') await Report.updateMany({ targetType: 'opportunity', targetId: o._id }, { status: req.body.decision === 'restore' ? 'dismissed' : 'actioned' });
+    await audit(req.user._id, `opportunity_${req.body.decision}`, 'opportunity', o._id);
+    res.json({ status: o.status });
+  });
+  r.get('/admin/audit-logs', ...admin, async (_q, res) => res.json({ logs: await AuditLog.find().sort({ createdAt: -1 }).limit(100) }));
 
-const base = {
-  name: z.string().trim().min(2), shortName: z.string().trim().min(1), city: z.string().trim().min(1),
-  campus: campusSchema, campusAddressText: z.string().trim().default(''),
-  emailDomains: z.array(z.string().trim().toLowerCase()).default([]), active: z.boolean().default(true),
+  // Fairness check: share of recent recommendations per mentor.
+  r.get('/admin/fairness', ...admin, async (_q, res) => {
+    const ms = await Match.find();
+    const counts = {};
+    for (const m of ms) counts[m.mentorId] = (counts[m.mentorId] || 0) + 1;
+    const total = ms.length || 1;
+    const users = await User.find({ _id: { $in: Object.keys(counts) } }).select('displayName');
+    res.json({ total: ms.length, mentors: users.map((u) => ({ name: u.displayName, share: Math.round((100 * counts[u._id]) / total) })).sort((a, b) => b.share - a.share) });
+  });
+
+  // University management (the only place campus coordinates are accepted).
+  const uniSchema = z.object({ name: z.string().min(3).max(120), shortName: z.string().min(2).max(20), city: z.string().min(2).max(60), lat: z.number().min(20.5).max(26.7), lng: z.number().min(88).max(92.8), campusAddressText: z.string().max(200).optional(), emailDomains: z.array(z.string()).optional() }).strict();
+  r.post('/admin/universities', ...admin, validate(uniSchema), async (req, res) => {
+    const { lat, lng, ...rest } = req.body;
+    const u = await University.create({ ...rest, campus: { type: 'Point', coordinates: [lng, lat] } });
+    await audit(req.user._id, 'university_create', 'university', u._id);
+    res.status(201).json({ id: u._id });
+  });
+  r.patch('/admin/universities/:id', ...admin, validate(uniSchema.partial()), async (req, res) => {
+    toObjectId(req.params.id);
+    const { lat, lng, ...rest } = req.body;
+    const set = { ...rest };
+    if ((lat === undefined) !== (lng === undefined)) throw bad('BOTH_COORDS', 'Send lat and lng together.');
+    if (lat !== undefined) set.campus = { type: 'Point', coordinates: [lng, lat] };
+    const u = await University.findByIdAndUpdate(req.params.id, { $set: set }, { returnDocument: 'after' });
+    if (!u) throw notFound();
+    await audit(req.user._id, 'university_update', 'university', u._id);
+    res.json({ ok: true });
+  });
+
+  const resSchema = z.object({ title: z.string().min(3).max(140), url: z.string().url().max(300).refine((u) => /^https:\/\//.test(u), 'must be https'), skillKey: z.string(), language: z.enum(['bn', 'en']).default('en'), kind: z.enum(['course', 'video', 'article', 'practice']).default('course') }).strict();
+  r.post('/admin/resources', ...admin, validate(resSchema), async (req, res) => {
+    if (!(await Skill.findOne({ key: req.body.skillKey }))) throw bad('UNKNOWN_SKILL', 'Unknown skill.');
+    const doc = await Resource.create({ ...req.body, addedBy: req.user._id });
+    await audit(req.user._id, 'resource_add', 'resource', doc._id);
+    res.status(201).json({ id: doc._id });
+  });
+  r.delete('/admin/resources/:id', ...admin, async (req, res) => {
+    toObjectId(req.params.id);
+    const d = await Resource.findByIdAndUpdate(req.params.id, { status: 'hidden' });
+    if (!d) throw notFound();
+    await audit(req.user._id, 'resource_hide', 'resource', d._id);
+    res.json({ ok: true });
+  });
+
+  // Department: anonymized numbers for their own university only. Groups smaller than 3 are hidden.
+  r.get('/department/overview', auth.authenticate, requireRole('department', 'admin'), async (req, res) => {
+    const uid = req.user.role === 'admin' ? req.query.universityId : req.user.universityId;
+    if (!uid) throw bad('UNIVERSITY_REQUIRED', 'universityId is required.');
+    const studs = await User.find({ universityId: uid, role: 'student' }).select('_id');
+    const ids = studs.map((s) => s._id);
+    const goals = await StudentProfile.aggregate([{ $match: { userId: { $in: ids }, careerGoalRoleKey: { $ne: null } } }, { $group: { _id: '$careerGoalRoleKey', n: { $sum: 1 } } }]);
+    const applications = await Application.countDocuments({ studentId: { $in: ids } });
+    const K = 3;
+    res.json({
+      students: studs.length >= K ? studs.length : null,
+      careerGoals: goals.filter((g) => g.n >= K).map((g) => ({ role: g._id, count: g.n })),
+      applications: studs.length >= K ? applications : null,
+      note: `Groups smaller than ${K} are hidden to protect privacy.`,
+    });
+  });
+  return r;
 };
-const toDoc = (b) => {
-  const { campus, ...rest } = b;
-  return { ...rest, ...(campus && { campus: { type: 'Point', coordinates: [campus.longitude, campus.latitude] } }) };
-};
-
-router.post('/universities', asyncHandler(async (req, res) => {
-  const uni = await University.create(toDoc(z.object(base).strict().parse(req.body)));
-  await audit(req.user._id, 'university.create', 'University', uni._id, { name: uni.name });
-  res.status(201).json({ university: toPublic(uni) });
-}));
-
-router.patch('/universities/:id', asyncHandler(async (req, res) => {
-  const patch = z.object(base).partial().strict().parse(req.body);
-  const uni = await University.findByIdAndUpdate(req.params.id, toDoc(patch), { new: true });
-  if (!uni) throw new AppError(404, 'NOT_FOUND', 'University not found');
-  await audit(req.user._id, 'university.update', 'University', uni._id, { fields: Object.keys(patch) });
-  res.json({ university: toPublic(uni) });
-}));
-
-// Demo/pilot helper: admin verifies or rejects an account. Audit-logged.
-router.patch('/users/:id/verification', asyncHandler(async (req, res) => {
-  const { verificationStatus } = z.object({ verificationStatus: z.enum(['pending', 'verified', 'rejected']) }).strict().parse(req.body);
-  const user = await User.findByIdAndUpdate(req.params.id, { verificationStatus }, { new: true });
-  if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
-  await audit(req.user._id, 'user.verification', 'User', user._id, { verificationStatus });
-  res.json({ id: String(user._id), verificationStatus });
-}));
-
-router.use('/', require('./adminOps')); // verification queue, scam review, audit, fairness, preview
-
-module.exports = router;

@@ -1,15 +1,14 @@
+require('dotenv').config();
 const http = require('http');
-const { createApp } = require('./app');
-const { connectDb } = require('./config/db');
-const { createSocketServer } = require('./socket');
-const { runReminders } = require('./services/reminders');
 const env = require('./config/env');
+const { connect } = require('./config/db');
+const { createApp } = require('./app');
 
-connectDb()
-  .then(() => {
-    const server = http.createServer(createApp());
-    createSocketServer(server);
-    server.listen(env.PORT, () => console.log(`MentorLink API + sockets on :${env.PORT}`));
-    setInterval(() => runReminders().catch((e) => console.error('reminders:', e.message)), 60 * 1000); // task + session reminders
-  })
-  .catch((e) => { console.error('Startup failed:', e.message); process.exit(1); });
+(async () => {
+  await connect(env.mongoUri);
+  const server = http.createServer();
+  const app = createApp();
+  server.on('request', app);
+  app.set('io', require('./realtime').attach(server));
+  server.listen(env.port, () => console.log(`MentorLink BD API on :${env.port}`));
+})();

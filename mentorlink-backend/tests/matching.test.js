@@ -1,145 +1,113 @@
-const { tokenize, buildTfidf, cosine } = require('../src/services/matching/textSim');
-const F = require('../src/services/matching/factors');
-const { isEligible, fairRerank, keywordBaseline, rankMentors } = require('../src/services/matching/rank');
+const request = require('supertest');
+const { computeReadiness } = require('../src/services/readiness');
+const { rankMentors } = require('../src/services/matching');
+const { setup, teardown, bearer, mkUni, mkUser, models } = require('./helpers');
+const { seedLearning } = require('../src/seed/learning');
 
-describe('text similarity', () => {
-  test('tokenizer keeps Bangla letters with their vowel signs', () => {
-    expect(tokenize('ডেটা অ্যানালিস্ট, SQL!')).toEqual(['ডেটা', 'অ্যানালিস্ট', 'sql']);
+const role = { key: 'data-analyst', requiredSkills: [{ skillKey: 'sql', weight: 3, requiredLevel: 3 }, { skillKey: 'excel', weight: 2, requiredLevel: 3 }, { skillKey: 'python', weight: 2, requiredLevel: 2 }] };
+const skills = [{ key: 'sql', learningHours: 25, nameEn: 'SQL' }, { key: 'excel', learningHours: 15 }, { key: 'python', learningHours: 30 }];
+
+describe('readiness maths', () => {
+  test('formula, gap order, hours', () => {
+    const ev = [{ skillKey: 'sql', level: 2, type: 'quiz' }, { skillKey: 'excel', level: 3, type: 'self' }];
+    const r = computeReadiness({ role, evidence: ev, skills, weeklyHours: 6 });
+    // (3*2/3 + 2*1 + 2*0)/7 = 4/7 = 57%
+    expect(r.readiness).toBe(57);
+    expect(r.gaps[0].skillKey).toBe('python'); // 2*2=4 beats sql 3*1=3
+    expect(r.totalHours).toBe(25 + 60);
+    expect(r.timeToReadyWeeks).toBe(Math.ceil(85 / 6));
+    expect(r.confidence).toBe(33); // only sql has non-self evidence (1 of 3)
   });
-  test('identical docs ~1, disjoint docs 0', () => {
-    const [a, b, c] = buildTfidf(['data analyst sql', 'data analyst sql', 'banking officer']);
-    expect(cosine(a, b)).toBeCloseTo(1, 5);
-    expect(cosine(a, c)).toBe(0);
-  });
-  test('more overlap -> higher similarity', () => {
-    const [s, m1, m2] = buildTfidf(['data analyst sql powerbi', 'senior data analyst sql powerbi telecom', 'qa engineer testing']);
-    expect(cosine(s, m1)).toBeGreaterThan(cosine(s, m2));
+  test('zero weekly hours -> null with note', () => {
+    const r = computeReadiness({ role, evidence: [], skills, weeklyHours: 0 });
+    expect(r.timeToReadyWeeks).toBeNull();
+    expect(r.timeNote).toBeTruthy();
   });
 });
 
-describe('factors', () => {
-  test('career alignment: bonus for exact tag, capped at 1', () => {
-    expect(F.careerAlignment(0.5, true)).toBeCloseTo(0.65);
-    expect(F.careerAlignment(0.95, true)).toBe(1);
+describe('matching', () => {
+  const mk = (id, extra = {}, prof = {}) => ({
+    user: { _id: id, verificationStatus: 'verified', blockedBy: [], ...extra },
+    profile: { roleKey: 'data-analyst', relatedRoleKeys: [], roleTitle: 'Data Analyst', industry: 'Fintech', yearsExperience: 8, expertiseSkills: [{ skillKey: 'sql', level: 3 }, { skillKey: 'python', level: 2 }], languages: ['bn', 'en'], availableSlots: ['sun-20', 'tue-21'], acceptedRequests: 10, sessionsCompleted: 9, paused: false, ...prof },
   });
-  test('gap coverage counts only level 3 in the top gaps', () => {
-    expect(F.skillGapCoverage(['sql', 'powerbi'], { sql: 3, powerbi: 3 })).toBe(1);
-    expect(F.skillGapCoverage(['sql', 'powerbi'], { sql: 3, powerbi: 2 })).toBe(0.5);
-    expect(F.skillGapCoverage([], { sql: 3 })).toBe(0);
+  const student = { user: { _id: 'stu', blockedBy: [] }, profile: { careerGoalRoleKey: 'data-analyst', goalText: 'data analyst fintech', languages: ['bn'], requestedSlots: ['sun-20', 'tue-21'] } };
+  const gaps = [{ skillKey: 'sql', required: 3, priority: 3, nameEn: 'SQL' }, { skillKey: 'python', required: 2, priority: 4, nameEn: 'Python' }];
+
+  test('strong match scores high with bilingual reasons', () => {
+    const [m] = rankMentors({ student, role: { titleEn: 'Data Analyst' }, gaps, mentors: [mk('a')] });
+    expect(m.score).toBeGreaterThanOrEqual(85);
+    expect(m.reasons.length).toBeGreaterThan(2);
+    expect(m.reasons[0].bn).toBeTruthy();
   });
-  test('experience fit = min(years/10,1) x relevance', () => {
-    expect(F.experienceFit(6, 1.0)).toBeCloseTo(0.6);
-    expect(F.experienceFit(20, 0.6)).toBeCloseTo(0.6);
-    expect(F.roleRelevance('data-analyst', ['junior-developer'], ['data-analyst'])).toBe(1);
-    expect(F.roleRelevance('data-analyst', ['junior-developer'], ['junior-developer'])).toBe(0.6);
-    expect(F.roleRelevance('data-analyst', ['junior-developer'], ['banker'])).toBe(0.3);
+  test('paused, unverified, blocked mentors are excluded', () => {
+    const out = rankMentors({ student, role: { titleEn: 'Data Analyst' }, gaps, mentors: [mk('p', {}, { paused: true }), mk('u', { verificationStatus: 'pending' }), mk('b', { blockedBy: ['stu'] })] });
+    expect(out).toHaveLength(0);
   });
-  test('language: all=1, one=0.5, none=0', () => {
-    expect(F.languageFit(['bn', 'en'], ['bn', 'en'])).toBe(1);
-    expect(F.languageFit(['bn', 'en'], ['en'])).toBe(0.5);
-    expect(F.languageFit(['bn', 'en'], [])).toBe(0);
+  test('new mentor reliability is 0.5; related-field mentor ranks below same-field', () => {
+    const out = rankMentors({ student, role: { titleEn: 'Data Analyst' }, gaps, mentors: [mk('n', {}, { acceptedRequests: 0, sessionsCompleted: 0 }), mk('rel', {}, { roleKey: 'x', relatedRoleKeys: ['data-analyst'] })] });
+    expect(out[0].mentorId).toBe('n');
+    expect(out.find((o) => o.mentorId === 'n').factorScores.reliability).toBe(50);
   });
-  test('schedule: overlap / requested, capped', () => {
-    expect(F.scheduleFit(['a', 'b', 'c'], ['a', 'b', 'x'])).toBeCloseTo(2 / 3);
-    expect(F.scheduleFit([], ['a'])).toBe(0.5);
-  });
-  test('reliability: new mentor 0.5, formula (c+2)/(a+4)', () => {
-    expect(F.reliability(0, 0)).toBe(0.5);
-    expect(F.reliability(14, 15)).toBeCloseTo(16 / 19);
-  });
-  test('weights add up to 100%', () => {
-    expect(Object.values(F.WEIGHTS).reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+  test('fair re-rank demotes an over-exposed mentor and keeps a rising slot', () => {
+    const mentors = [mk('top'), mk('b'), mk('c'), mk('d'), mk('e'), mk('f'), mk('rise', {}, { isRising: true, yearsExperience: 0, expertiseSkills: [] })];
+    const out = rankMentors({ student, role: { titleEn: 'Data Analyst' }, gaps, mentors, recentCounts: { top: 9, b: 1 }, limit: 5 });
+    expect(out[0].mentorId).not.toBe('top');
+    expect(out.some((o) => o.mentorId === 'rise')).toBe(true);
   });
 });
 
-describe('worked example: Data Analyst student, gaps SQL and Power BI, mentor Rahim Ahmed ~88%', () => {
-  test('weighted sum', () => {
-    const factors = {
-      career: 0.97,                                 // TF-IDF + tag bonus (taken from the design)
-      gaps: F.skillGapCoverage(['sql', 'powerbi'], { sql: 3, powerbi: 3, excel: 2 }),   // 1.0
-      experience: F.experienceFit(6, 1.0),          // 0.6
-      language: F.languageFit(['bn', 'en'], ['bn', 'en']), // 1.0
-      schedule: F.scheduleFit(['Sun 20:30', 'Tue 21:00', 'Thu 20:00'], ['Sun 20:30', 'Tue 21:00', 'Fri 16:00']), // 2/3
-      reliability: F.reliability(14, 15),           // 16/19
-    };
-    const r = F.weightedScore(factors);
-    expect(r.points).toMatchObject({ career: 29.1, gaps: 25, experience: 9, language: 10, schedule: 6.7, reliability: 8.4 });
-    expect(r.percent).toBe(88);
+describe('learning API', () => {
+  let app, edu;
+  beforeAll(async () => {
+    app = await setup(); await seedLearning();
+    edu = await mkUni('East Delta University', 'EDU', 'Chattogram', 91.83, 22.35);
+    const s = await mkUser('stu', 'student', edu);
+    await models.StudentProfile.create({ userId: s._id });
+    const m = await mkUser('abrar', 'mentor', edu, { displayName: 'Abrar Hossain' });
+    await models.MentorProfile.create({ userId: m._id, roleKey: 'data-analyst', roleTitle: 'Data Analyst', industry: 'Fintech', yearsExperience: 7, expertiseSkills: [{ skillKey: 'sql', level: 3 }, { skillKey: 'excel', level: 3 }], availableSlots: ['sun-20'], acceptedRequests: 5, sessionsCompleted: 5 });
+  });
+  afterAll(teardown);
+  test('goal -> evidence -> readiness -> matches', async () => {
+    const h = bearer('stu');
+    expect((await request(app).get('/api/me/readiness').set(h)).status).toBe(400);
+    expect((await request(app).put('/api/me/goal').set(h).send({ careerGoalRoleKey: 'data-analyst', goalText: 'data analyst', weeklyHours: 6, requestedSlots: ['sun-20'] })).status).toBe(200);
+    expect((await request(app).post('/api/me/evidence').set(h).send({ skillKey: 'excel', type: 'endorsement', level: 3 })).status).toBe(400);
+    expect((await request(app).post('/api/me/evidence').set(h).send({ skillKey: 'excel', type: 'quiz', level: 2 })).status).toBe(201);
+    const rd = await request(app).get('/api/me/readiness').set(h);
+    expect(rd.body.readiness).toBeGreaterThan(0);
+    const mt = await request(app).get('/api/matches').set(h);
+    expect(mt.status).toBe(200);
+    expect(mt.body.matches[0].mentor.name).toBe('Abrar Hossain');
+    expect(mt.body.matches[0].reasons.length).toBeGreaterThan(0);
+  });
+  test('mentor cannot call student-only endpoints', async () => {
+    expect((await request(app).get('/api/matches').set(bearer('abrar'))).status).toBe(403);
   });
 });
 
-const mk = (id, over = {}) => ({
-  mentorId: id, displayName: id, roleTitle: 'Data Analyst', industry: 'Software', roleKeys: ['data-analyst'],
-  yearsExperience: 5, skills: { sql: 3, powerbi: 3 }, languages: ['bn', 'en'], availableSlots: ['Sun 20:30'],
-  sessionsCompleted: 5, acceptedRequests: 6, isRising: false, ratingAvg: 4.5, weeklyCapacity: 3, activeMentees: 1,
-  paused: false, verified: true, blocked: false, doc: 'data analyst software sql powerbi', ...over,
-});
-
-describe('eligibility filter', () => {
-  test('removes unverified, paused, full or blocked mentors', () => {
-    expect(isEligible(mk('ok'))).toBe(true);
-    expect(isEligible(mk('a', { verified: false }))).toBe(false);
-    expect(isEligible(mk('b', { paused: true }))).toBe(false);
-    expect(isEligible(mk('c', { activeMentees: 3 }))).toBe(false);
-    expect(isEligible(mk('d', { blocked: true }))).toBe(false);
+describe('resource hub', () => {
+  let app, edu;
+  beforeAll(async () => {
+    app = await setup(); await seedLearning();
+    edu = await mkUni('EDU', 'EDU', 'Chattogram', 91.83, 22.35);
+    await mkUser('stu', 'student', edu); await mkUser('adm', 'admin', null); await mkUser('mnt', 'mentor', edu);
   });
-});
-
-describe('fair re-ranking', () => {
-  const scored = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((id, i) => mk(id, { score: 0.9 - i * 0.05 }));
-  test('a mentor above the 25% cap is pushed out of the top 5', () => {
-    const history = { total: 40, byMentor: { m1: 15 } }; // (15+1)/41 = 39% > 25%
-    const { list, cappedOut } = fairRerank(scored, history);
-    expect(list.map((m) => m.mentorId)).not.toContain('m1');
-    expect(list).toHaveLength(5);
-    expect(cappedOut).toContain('m1');
+  afterAll(teardown);
+  test('list by skill, mark done, progress does not change readiness', async () => {
+    const l = await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'));
+    expect(l.body.resources.length).toBeGreaterThan(0);
+    expect(l.body.resources.every((x) => x.url.startsWith('https://'))).toBe(true);
+    const id = l.body.resources[0].id;
+    expect((await request(app).post(`/api/resources/${id}/complete`).set(bearer('stu'))).status).toBe(200);
+    expect((await request(app).post(`/api/resources/${id}/complete`).set(bearer('stu'))).status).toBe(200); // idempotent
+    expect((await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources[0].done).toBe(true);
+    expect(await models.SkillEvidence.countDocuments()).toBe(0);
   });
-  test('cap is not applied while there are too few recommendations to judge', () => {
-    const { list } = fairRerank(scored, { total: 3, byMentor: { m1: 3 } });
-    expect(list[0].mentorId).toBe('m1');
-  });
-  test('a rising mentor gets a slot when none is in the top 5', () => {
-    const withRising = [...scored.slice(0, 5), mk('rise', { score: 0.5, isRising: true })];
-    const { list, risingSlotAdded } = fairRerank(withRising, { total: 0, byMentor: {} });
-    expect(list.some((m) => m.mentorId === 'rise')).toBe(true);
-    expect(list).toHaveLength(5);
-    expect(risingSlotAdded).toBe(true);
-  });
-  test('never returns fewer mentors than exist', () => {
-    expect(fairRerank(scored.slice(0, 2), { total: 100, byMentor: { m1: 50, m2: 50 } }).list).toHaveLength(2);
-  });
-});
-
-describe('rankMentors end to end (pure)', () => {
-  const student = {
-    goalRoleKey: 'data-analyst', relatedRoleKeys: ['junior-developer'], doc: 'data analyst sql powerbi',
-    languages: ['bn', 'en'], preferredSlots: ['Sun 20:30'], gapKeys: ['sql', 'powerbi', 'python'],
-    skillNames: { sql: { nameEn: 'SQL', nameBn: 'SQL' }, powerbi: { nameEn: 'Power BI', nameBn: 'Power BI' } },
-  };
-  const mentors = [
-    mk('good'), mk('weak', { roleKeys: ['banker'], skills: {}, doc: 'banker teller loans', languages: ['en'], availableSlots: [] }),
-    mk('full', { activeMentees: 3 }),
-  ];
-  test('best mentor first, full mentor excluded, reasons are plain words in both languages', () => {
-    const { top, baseline } = rankMentors(student, mentors, { total: 0, byMentor: {} });
-    expect(top.map((m) => m.mentorId)).toEqual(['good', 'weak']);
-    expect(top[0].reasons.en).toMatch(/teaches SQL and Power BI, your top gaps/);
-    expect(top[0].reasons.bn).toMatch(/সুপারিশ/);
-    expect(baseline[0].mentorId).toBe('good');
-  });
-  test('no mentor takes more than 25% of recommendations in a simulated run', () => {
-    const pool = Array.from({ length: 8 }, (_, i) => mk(`m${i}`, { yearsExperience: 10 - i }));
-    const history = { total: 0, byMentor: {} };
-    const counts = {};
-    for (let s = 0; s < 60; s++) {
-      const { top } = rankMentors(student, pool, history);
-      for (const m of top) { counts[m.mentorId] = (counts[m.mentorId] || 0) + 1; history.byMentor[m.mentorId] = counts[m.mentorId]; history.total++; }
-    }
-    const max = Math.max(...Object.values(counts)) / history.total;
-    expect(max).toBeLessThanOrEqual(0.25 + 0.05); // small tolerance for the first, un-capped sample window
-  });
-  test('keyword baseline ranks by shared words only', () => {
-    const b = keywordBaseline('sql powerbi', [mk('a', { doc: 'sql powerbi' }), mk('b', { doc: 'banking' })]);
-    expect(b.map((x) => x.mentorId)).toEqual(['a', 'b']);
+  test('only admin adds resources, https only', async () => {
+    const body = { title: 'SQL in Bangla', url: 'https://example.com/sql-bn', skillKey: 'sql', language: 'bn' };
+    expect((await request(app).post('/api/admin/resources').set(bearer('mnt')).send(body)).status).toBe(403);
+    expect((await request(app).post('/api/admin/resources').set(bearer('adm')).send({ ...body, url: 'http://example.com' })).status).toBe(400);
+    expect((await request(app).post('/api/admin/resources').set(bearer('adm')).send(body)).status).toBe(201);
+    expect((await request(app).get('/api/resources?language=bn').set(bearer('stu'))).body.resources).toHaveLength(1);
   });
 });

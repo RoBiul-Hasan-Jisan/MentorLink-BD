@@ -1,12 +1,16 @@
+// Reads environment variables once, in one place.
 require('dotenv').config();
+
+const bool = (v, d = false) => (v === undefined ? d : String(v).toLowerCase() === 'true');
+
 module.exports = {
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: Number(process.env.PORT) || 4000,
-  MONGODB_URI: process.env.MONGODB_URI,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  DEMO_MODE: process.env.DEMO_MODE === 'true',
-  ALLOW_PLACEHOLDER_COORDS: process.env.ALLOW_PLACEHOLDER_COORDS === 'true',
-  REPORT_HIDE_THRESHOLD: Number(process.env.REPORT_HIDE_THRESHOLD) || 3, // distinct reporters before auto-hide
-  DEPT_MIN_COHORT: Number(process.env.DEPT_MIN_COHORT) || 5,            // smaller cohorts are suppressed in department reports
-  CORS_ORIGINS: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  port: Number(process.env.PORT || 4000),
+  nodeEnv: process.env.NODE_ENV || 'development',
+  mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mentorlink',
+  corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  demoMode: bool(process.env.DEMO_MODE, false),
+  allowPlaceholderCoords: bool(process.env.ALLOW_PLACEHOLDER_COORDS, false),
+  reportHideThreshold: Number(process.env.REPORT_HIDE_THRESHOLD || 3),
+  geoIndex: bool(process.env.MONGO_GEO_INDEX, true),
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID || undefined,
 };

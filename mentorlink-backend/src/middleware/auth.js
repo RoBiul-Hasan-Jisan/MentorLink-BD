@@ -1,43 +1,45 @@
-const firebase = require('../config/firebase');
-const User = require('../models/User');
-const { AppError } = require('../utils/errors');
-const asyncHandler = require('../utils/asyncHandler');
+// AUTH RULES
+// - No JWT code of our own. The credential from the Firebase SDK is an opaque string for us.
+// - Firebase Admin tells us the uid. The ROLE always comes from MongoDB, never from the request.
+const { unauthorized, forbidden } = require('../utils/httpError');
+const { User } = require('../models');
 
-// Reads the string the Firebase SDK gave the client. We never open or sign it ourselves.
-async function uidFromRequest(req) {
-  const [scheme, credential] = (req.headers.authorization || '').split(' ');
-  if (scheme !== 'Bearer' || !credential) throw new AppError(401, 'UNAUTHENTICATED', 'Missing credential');
-  try {
-    const result = await firebase.verifyToken(credential);
-    return result.uid;
-  } catch {
-    throw new AppError(401, 'INVALID_CREDENTIAL', 'Credential is invalid or expired');
-  }
+function readCredential(req) {
+  const h = req.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  return m ? m[1].trim() : null;
 }
 
-// Normal endpoints: user must already have a MongoDB profile. ROLE COMES FROM MONGODB.
-const authenticateFirebase = asyncHandler(async (req, res, next) => {
-  const uid = await uidFromRequest(req);
-  const user = await User.findOne({ firebaseUid: uid });
-  if (!user) throw new AppError(403, 'PROFILE_REQUIRED', 'Complete registration first');
-  if (user.verificationStatus === 'rejected') throw new AppError(403, 'ACCOUNT_REJECTED', 'Account was rejected');
-  req.firebaseUid = uid;
-  req.user = user;
-  next();
-});
-
-// Only for register-profile: a brand-new Firebase user has no MongoDB profile yet.
-const authenticateFirebaseNewUser = asyncHandler(async (req, res, next) => {
-  req.firebaseUid = await uidFromRequest(req);
-  next();
-});
-
-// Server-side role check on every protected endpoint (never trust the app).
-const requireRole = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    return next(new AppError(403, 'FORBIDDEN', 'Your role cannot use this endpoint'));
+// verify(credential) -> { uid, email }. Injected so tests can run without Firebase.
+function makeAuth(verify) {
+  // Firebase identity only (used for sign-up, before a MongoDB profile exists).
+  async function firebaseOnly(req, _res, next) {
+    const credential = readCredential(req);
+    if (!credential) throw unauthorized();
+    try {
+      req.firebase = await verify(credential);
+    } catch {
+      throw unauthorized('Your sign-in is not valid. Please sign in again.');
+    }
+    next();
   }
+
+  // Firebase identity + MongoDB user (the normal case).
+  async function authenticate(req, res, next) {
+    await firebaseOnly(req, res, async () => {});
+    const user = await User.findOne({ firebaseUid: req.firebase.uid });
+    if (!user) throw forbidden('Finish your profile first.');
+    req.user = user;
+    next();
+  }
+
+  return { firebaseOnly, authenticate };
+}
+
+// Role check on the SERVER for every endpoint.
+const requireRole = (...roles) => (req, _res, next) => {
+  if (!req.user || !roles.includes(req.user.role)) throw forbidden();
   next();
 };
 
-module.exports = { authenticateFirebase, authenticateFirebaseNewUser, requireRole };
+module.exports = { makeAuth, requireRole, readCredential };

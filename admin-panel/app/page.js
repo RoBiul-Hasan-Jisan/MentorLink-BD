@@ -1,0 +1,126 @@
+'use client';
+import { useEffect, useState, useCallback } from 'react';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { api } from '../lib/api';
+
+export default function Home() {
+  const [user, setUser] = useState(undefined);
+  const [me, setMe] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => onAuthStateChanged(auth, async (u) => {
+    setUser(u); setMe(null); setError('');
+    if (u) {
+      try { setMe((await api('/me')).user); } catch (e) { setError(e.message); }
+    }
+  }), []);
+
+  if (user === undefined) return <div className="wrap">Loading…</div>;
+  if (!user) return <Login />;
+  if (error) return <div className="wrap"><div className="err">{error}</div><button className="btn" onClick={() => signOut(auth)}>Sign out</button></div>;
+  if (!me) return <div className="wrap">Loading…</div>;
+  if (me.role !== 'admin') return <div className="wrap"><div className="err">This panel is for admins only. You are signed in as {me.role}.</div><button className="btn" onClick={() => signOut(auth)}>Sign out</button></div>;
+  return <Panel me={me} />;
+}
+
+function Login() {
+  const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [err, setErr] = useState('');
+  async function go(e) { e.preventDefault(); setErr(''); try { await signInWithEmailAndPassword(auth, email, pw); } catch (x) { setErr(x.message); } }
+  return (
+    <div className="wrap" style={{ maxWidth: 420, paddingTop: 80 }}>
+      <h1>MentorLink BD Admin</h1>
+      <p className="muted">Sign in with your admin account.</p>
+      {err && <div className="err">{err}</div>}
+      <form onSubmit={go}>
+        <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input placeholder="Password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <button className="btn" style={{ width: '100%' }}>Sign in</button>
+      </form>
+    </div>
+  );
+}
+
+const TABS = ['Queue', 'Audit log', 'Fairness', 'Universities'];
+function Panel({ me }) {
+  const [tab, setTab] = useState('Queue');
+  return (
+    <>
+      <div className="top"><h1>MentorLink BD Admin</h1><div>{me.displayName} · <a href="#" style={{ color: '#fff' }} onClick={(e) => { e.preventDefault(); signOut(auth); }}>Sign out</a></div></div>
+      <div className="wrap">
+        <div className="tabs">{TABS.map((t) => <button key={t} className={`tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
+        {tab === 'Queue' && <Queue />}
+        {tab === 'Audit log' && <Audit />}
+        {tab === 'Fairness' && <Fairness />}
+        {tab === 'Universities' && <Universities />}
+      </div>
+    </>
+  );
+}
+
+function useLoad(path) {
+  const [data, setData] = useState(null); const [err, setErr] = useState('');
+  const load = useCallback(() => api(path).then(setData).catch((e) => setErr(e.message)), [path]);
+  useEffect(() => { load(); }, [load]);
+  return { data, err, reload: load };
+}
+
+function Queue() {
+  const { data, err, reload } = useLoad('/admin/verification-queue');
+  const [msg, setMsg] = useState('');
+  async function act(path, decision) { setMsg(''); try { await api(path, { method: 'POST', body: { decision } }); reload(); } catch (e) { setMsg(e.message); } }
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  const empty = !data.users.length && !data.mentorApplications.length && !data.opportunities.length;
+  const Buttons = ({ path, yes, no }) => <div><button className="btn" onClick={() => act(path, yes)}>Approve</button> <button className="btn alt" onClick={() => act(path, no)}>Reject</button></div>;
+  return (
+    <>
+      {msg && <div className="err">{msg}</div>}
+      {empty && <div className="card">Nothing is waiting for review.</div>}
+      {data.mentorApplications.map((u) => <div className="card row" key={u._id}><div><h3>{u.displayName} → mentor</h3><span className="muted">{u.mentorApplication.roleTitle} · {u.mentorApplication.industry} · {u.mentorApplication.yearsExperience} yrs</span></div><Buttons path={`/admin/mentor-applications/${u._id}`} yes="approved" no="rejected" /></div>)}
+      {data.users.map((u) => <div className="card row" key={u._id}><div><h3>{u.displayName}</h3><span className="pill">{u.role}</span><span className="muted">{u.email}</span></div><Buttons path={`/admin/users/${u._id}/verify`} yes="verified" no="rejected" /></div>)}
+      {data.opportunities.map((o) => <div className="card row" key={o._id}><div><h3>{o.title}</h3><div className="muted">{o.organization}</div>{o.suspiciousFlags.map((f) => <span key={f} className="pill warn">⚠ {f}</span>)}<p>{o.description}</p></div><Buttons path={`/admin/opportunities/${o._id}/review`} yes="approve" no="reject" /></div>)}
+    </>
+  );
+}
+
+function Audit() {
+  const { data, err } = useLoad('/admin/audit-logs');
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  return <div className="card"><table><thead><tr><th>When</th><th>Action</th><th>Target</th></tr></thead><tbody>{data.logs.map((l) => <tr key={l._id}><td>{new Date(l.createdAt).toLocaleString()}</td><td>{l.action}</td><td>{l.targetType} {String(l.targetId || '').slice(-6)}</td></tr>)}</tbody></table>{!data.logs.length && <p className="muted">No actions yet.</p>}</div>;
+}
+
+function Fairness() {
+  const { data, err } = useLoad('/admin/fairness');
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  return <div className="card"><h3>Share of recent recommendations</h3><p className="muted">{data.total} recommendations. No mentor should dominate.</p>{data.mentors.map((m) => <div key={m.name} style={{ margin: '10px 0' }}><div className="row"><b>{m.name}</b><span>{m.share}%</span></div><div className="bar"><div style={{ width: `${m.share}%` }} /></div></div>)}</div>;
+}
+
+function Universities() {
+  const { data, err, reload } = useLoad('/universities');
+  const [f, setF] = useState({ name: '', shortName: '', city: '', lat: '', lng: '' });
+  const [msg, setMsg] = useState('');
+  async function add(e) {
+    e.preventDefault(); setMsg('');
+    try { await api('/admin/universities', { method: 'POST', body: { name: f.name, shortName: f.shortName, city: f.city, lat: Number(f.lat), lng: Number(f.lng) } }); setF({ name: '', shortName: '', city: '', lat: '', lng: '' }); reload(); }
+    catch (x) { setMsg(x.message); }
+  }
+  if (err) return <div className="err">{err}</div>;
+  if (!data) return <p>Loading…</p>;
+  return (
+    <>
+      <div className="card"><table><thead><tr><th>University</th><th>City</th><th>Campus pin</th></tr></thead><tbody>{data.universities.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.city}</td><td>{u.campus.lat.toFixed(4)}, {u.campus.lng.toFixed(4)}</td></tr>)}</tbody></table></div>
+      <div className="card"><h3>Add a university</h3><p className="muted">Use the exact campus pin, not the city centre.</p>{msg && <div className="err">{msg}</div>}
+        <form onSubmit={add}>
+          <input placeholder="Full name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <input placeholder="Short name" value={f.shortName} onChange={(e) => setF({ ...f, shortName: e.target.value })} />
+          <input placeholder="City" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} />
+          <input placeholder="Latitude (e.g. 22.3726)" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} />
+          <input placeholder="Longitude (e.g. 91.8076)" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} />
+          <button className="btn">Add</button>
+        </form></div>
+    </>
+  );
+}

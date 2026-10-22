@@ -1,0 +1,86 @@
+[
+  {
+    "name": "East Delta University",
+    "shortName": "EDU",
+    "city": "Chattogram",
+    "lat": 22.3726,
+    "lng": 91.8076,
+    "campusAddressText": "Chattogram 4209 (source: Wikipedia coordinates)",
+    "emailDomains": [
+      "eastdelta.edu.bd"
+    ],
+    "verified": true
+  },
+  {
+    "name": "Southern University Bangladesh",
+    "shortName": "SUB",
+    "city": "Chattogram",
+    "lat": 22.38528,
+    "lng": 91.80167,
+    "campusAddressText": "471 University Road, Arefin Nagar, Baizid Bostami, Chattogram 4210",
+    "emailDomains": [
+      "southern.edu.bd"
+    ],
+    "verified": true
+  },
+  {
+    "name": "University of Dhaka",
+    "shortName": "DU",
+    "city": "Dhaka",
+    "lat": 23.734,
+    "lng": 90.3926,
+    "campusAddressText": "Nilkhet, Dhaka",
+    "emailDomains": [
+      "du.ac.bd"
+    ],
+    "verified": false
+  },
+  {
+    "name": "Bangladesh University of Engineering and Technology",
+    "shortName": "BUET",
+    "city": "Dhaka",
+    "lat": 23.7265,
+    "lng": 90.3925,
+    "campusAddressText": "Palashi, Dhaka",
+    "emailDomains": [
+      "buet.ac.bd"
+    ],
+    "verified": false
+  },
+  {
+    "name": "North South University",
+    "shortName": "NSU",
+    "city": "Dhaka",
+    "lat": 23.8151,
+    "lng": 90.4254,
+    "campusAddressText": "Bashundhara, Dhaka",
+    "emailDomains": [
+      "northsouth.edu"
+    ],
+    "verified": false
+  },
+  {
+    "name": "BRAC University",
+    "shortName": "BRACU",
+    "city": "Dhaka",
+    "lat": 23.7806,
+    "lng": 90.4072,
+    "campusAddressText": "Merul Badda, Dhaka",
+    "emailDomains": [
+      "bracu.ac.bd"
+    ],
+    "verified": false
+  },
+  {
+    "name": "Chittagong University of Engineering and Technology",
+    "shortName": "CUET",
+    "city": "Chattogram",
+    "lat": 22.4633,
+    "lng": 91.9714,
+    "campusAddressText": "Raozan, Chattogram",
+    "emailDomains": [
+      "cuet.ac.bd"
+    ],
+    "verified": false
+  }
+]

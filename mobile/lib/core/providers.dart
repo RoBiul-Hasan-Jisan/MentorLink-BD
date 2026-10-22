@@ -35,3 +35,7 @@ final queueProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/admin/v
 final deptProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/department/overview'));
 final membersProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/directory/universities/$id/members'));
 final sessionsProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/sessions'));
+<<<<<<< Updated upstream
+=======
+final resourcesProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/resources'));
+>>>>>>> Stashed changes
