@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -49,9 +51,33 @@ class SkillGapScreen extends ConsumerWidget {
                 if (met.isNotEmpty) Text(tr(context, 'Met: $met', 'পূরণ হয়েছে: $met'), style: body(15, color: Brand.muted)),
                 Text(tr(context, 'Confidence ${d['confidence']}% (more proof raises it)', 'আস্থা ${d['confidence']}% (প্রমাণ দিলে বাড়ে)'), style: body(14, color: Brand.muted)),
               ])),
+              _resources(context, ref, gaps),
               if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.pop()),
             ]))),
           ]);
         }),
       );
+
+  Widget _resources(BuildContext context, WidgetRef ref, List<Map> gaps) {
+    final keys = gaps.map((g) => g['skillKey']).toSet();
+    final all = (ref.watch(resourcesProvider).valueOrNull?['resources'] as List? ?? []).cast<Map>();
+    final list = all.where((r) => keys.contains(r['skillKey'])).toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    return AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(tr(context, 'Start with free resources', 'বিনামূল্যের রিসোর্স দিয়ে শুরু করুন'), style: display(20, color: Brand.ink)),
+      const SizedBox(height: 8),
+      for (final r in list) InkWell(
+        onTap: () async {
+          final ok = await launchUrl(Uri.parse(r['url']), mode: LaunchMode.externalApplication);
+          if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
+          try { await ref.read(dioProvider).post('/resources/${r['id']}/complete'); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+        },
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
+          Icon(r['done'] == true ? Icons.check_circle : Icons.open_in_new, color: r['done'] == true ? Brand.delta : Brand.muted, size: 20), const SizedBox(width: 10),
+          Expanded(child: Text(r['title'], style: body(16, w: FontWeight.w600))),
+          Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
+        ])),
+      ),
+    ]));
+  }
 }
