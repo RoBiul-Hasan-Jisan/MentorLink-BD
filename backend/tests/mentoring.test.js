@@ -39,6 +39,9 @@ test('session -> notes -> tasks in four-week plan; student marks done', async ()
   expect((await request(app).patch(`/api/tasks/${tid}`).set(bearer('mnt')).send({ mentorComment: 'Nice' })).status).toBe(200);
   expect((await request(app).patch(`/api/tasks/${tid}`).set(bearer('s1')).send({ status: 'done' })).status).toBe(200);
   expect((await request(app).get('/api/me/plan').set(bearer('s1'))).body.progress).toBe(50);
+  expect((await request(app).get('/api/me/plan').set(bearer('s1'))).body.streak).toBe(1); // one task completed today
+  const sl = await request(app).get('/api/sessions').set(bearer('s1'));
+  expect(sl.body.sessions[0].withName).toBeTruthy(); // mentor name shown on the Home card
   expect((await request(app).get('/api/me/plan').set(bearer('s2'))).body.tasks).toHaveLength(0);
 });
 test('capacity cap and auto-pause', async () => {

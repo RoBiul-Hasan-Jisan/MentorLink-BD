@@ -86,3 +86,17 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 - Chat is plain text over Socket.IO; no file sharing. Reminders are in-app notifications plus push; no scheduled reminder job yet.
 - FerretDB does not support every MongoDB feature (no 2dsphere index): set `MONGO_GEO_INDEX=true` on real MongoDB/Atlas.
 - We do not claim this is the first platform of its kind.
+
+
+## Update: Home screen now follows the prototype
+- Streak pill shows a real day streak (days in a row with a completed task, Asia/Dhaka days).
+- Next-session card shows "Tomorrow, 6:30 PM" and the mentor's name and job title.
+- Readiness text ends with "Close A and B to reach N%" (N = score if the two biggest gaps were closed).
+- Task tags show the due weekday (Fri).
+
+
+## Update 3
+- Mentor profile screen (`GET /api/mentors/:id`, route `/mentor/:id`): expertise, languages, open slots, no contact details.
+- Resources can be Saved / In progress / Done / Cleared (`PUT|DELETE /api/resources/:id/progress`) and reported as broken (`POST /api/resources/:id/report`, one report per student, hidden at 3 reports). Progress never raises a skill level.
+- Backend tests: 42 passing. The new Flutter code has not been compiled here.
+- Still not built: full CV builder, link checker, scheduled reminders, Bangla seed resources, larger quiz bank, TypeScript admin panel.

@@ -83,6 +83,17 @@ describe('learning API', () => {
   test('mentor cannot call student-only endpoints', async () => {
     expect((await request(app).get('/api/matches').set(bearer('abrar'))).status).toBe(403);
   });
+  test('mentor profile detail: student sees public data only, mentor and unknown ids are refused', async () => {
+    const mt = await request(app).get('/api/matches').set(bearer('stu'));
+    const id = mt.body.matches[0].mentor.id;
+    const d = await request(app).get(`/api/mentors/${id}`).set(bearer('stu'));
+    expect(d.status).toBe(200);
+    expect(d.body.mentor.name).toBe('Abrar Hossain');
+    expect(d.body.mentor.expertise.map((e) => e.skillKey)).toContain('sql');
+    expect(JSON.stringify(d.body)).not.toMatch(/email|firebaseUid/);
+    expect((await request(app).get(`/api/mentors/${id}`).set(bearer('abrar'))).status).toBe(403);
+    expect((await request(app).get('/api/mentors/000000000000000000000000').set(bearer('stu'))).status).toBe(404);
+  });
 });
 
 describe('resource hub', () => {
@@ -102,6 +113,20 @@ describe('resource hub', () => {
     expect((await request(app).post(`/api/resources/${id}/complete`).set(bearer('stu'))).status).toBe(200); // idempotent
     expect((await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources[0].done).toBe(true);
     expect(await models.SkillEvidence.countDocuments()).toBe(0);
+  });
+  test('saved / in-progress states, private per student, and report auto-hides at 3 unique reporters', async () => {
+    const id = (await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources[0].id;
+    expect((await request(app).put(`/api/resources/${id}/progress`).set(bearer('stu')).send({ status: 'in_progress' })).status).toBe(200);
+    expect((await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources[0].status).toBe('in_progress');
+    expect((await request(app).put(`/api/resources/${id}/progress`).set(bearer('stu')).send({ status: 'bogus' })).status).toBe(400);
+    expect((await request(app).put(`/api/resources/${id}/progress`).set(bearer('mnt')).send({ status: 'saved' })).status).toBe(403);
+    expect((await request(app).delete(`/api/resources/${id}/progress`).set(bearer('stu'))).status).toBe(200);
+    expect((await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources[0].status).toBe(null);
+    const r1 = await request(app).post(`/api/resources/${id}/report`).set(bearer('stu')).send({ reason: 'Broken link' });
+    expect(r1.status).toBe(201);
+    expect((await request(app).post(`/api/resources/${id}/report`).set(bearer('stu')).send({ reason: 'Broken link' })).status).toBe(409); // same person counts once
+    for (const k of ['s2', 's3']) { await mkUser(k, 'student', edu); await request(app).post(`/api/resources/${id}/report`).set(bearer(k)).send({ reason: 'Broken link' }); }
+    expect((await request(app).get('/api/resources?skillKey=sql').set(bearer('stu'))).body.resources.find((x) => x.id === id)).toBeUndefined();
   });
   test('only admin adds resources, https only', async () => {
     const body = { title: 'SQL in Bangla', url: 'https://example.com/sql-bn', skillKey: 'sql', language: 'bn' };

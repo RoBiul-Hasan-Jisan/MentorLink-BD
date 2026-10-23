@@ -55,7 +55,7 @@ applicationSchema.index({ studentId: 1, opportunityId: 1 }, { unique: true });
 const reportSchema = new Schema(
   {
     reporterId: ref('User', { required: true }),
-    targetType: { type: String, enum: ['opportunity', 'user'], required: true },
+    targetType: { type: String, enum: ['opportunity', 'user', 'resource'], required: true },
     targetId: { type: Schema.Types.ObjectId, required: true },
     reason: { type: String, required: true, maxlength: 300 },
     status: { type: String, enum: ['open', 'actioned', 'dismissed'], default: 'open' },

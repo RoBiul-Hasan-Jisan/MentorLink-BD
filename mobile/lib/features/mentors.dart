@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
 import 'widgets.dart';
+
+// Shared with the mentor profile screen.
+Future<void> sendMentorRequest(BuildContext c, WidgetRef r, String mentorId) => const MentorMatches()._request(c, r, mentorId);
 
 const _w = {'career': .30, 'gap': .25, 'experience': .15, 'language': .10, 'schedule': .10, 'reliability': .10};
 
@@ -59,12 +63,13 @@ class MentorMatches extends ConsumerWidget {
       Wrap(spacing: 8, runSpacing: 6, children: [Pill(tr(context, 'Alumni verified', 'অ্যালামনাই যাচাইকৃত')), if (mentor['isRising'] == true) Pill(tr(context, 'Rising mentor', 'উদীয়মান মেন্টর'), tone: Tone.saffron)]),
       const SizedBox(height: 12),
       BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => _request(context, ref, mentor['id'])),
+      Center(child: TextButton(onPressed: () => context.push('/mentor/${mentor['id']}'), child: Text(tr(context, 'View full profile', 'পূর্ণ প্রোফাইল দেখুন')))),
     ]));
   }
 
   Widget _row(BuildContext context, WidgetRef ref, Map m) {
     final mentor = m['mentor'] as Map;
-    return AppCard(padding: const EdgeInsets.all(16), onTap: () => _request(context, ref, mentor['id']), child: Row(children: [
+    return AppCard(padding: const EdgeInsets.all(16), onTap: () => context.push('/mentor/${mentor['id']}'), child: Row(children: [
       Avatar(mentor['name'], size: 52, bg: Brand.lightGreen, fg: Brand.forest),
       const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

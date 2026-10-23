@@ -60,6 +60,7 @@ const taskSchema = new Schema(
     dueDate: Date,
     status: { type: String, enum: ['todo', 'done'], default: 'todo' },
     mentorComment: { type: String, maxlength: 300 },
+    completedAt: Date,
     sourceSessionId: ref('Session'),
   },
   { timestamps: true }

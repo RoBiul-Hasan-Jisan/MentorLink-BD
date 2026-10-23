@@ -37,8 +37,14 @@ function computeReadiness({ role, evidence, skills, weeklyHours }) {
   const totalHours = gaps.reduce((t, g) => t + g.hours, 0);
   const n = role.requiredSkills.length || 1;
   const timeToReadyWeeks = weeklyHours > 0 ? Math.ceil(totalHours / weeklyHours) : null;
+  // What the score would be if the two biggest gaps were closed (shown on Home as "...to reach 88%").
+  const closed = new Set(gaps.slice(0, 2).map((g) => g.skillKey));
+  let pn = 0;
+  for (const rs of role.requiredSkills) { const s = closed.has(rs.skillKey) ? rs.requiredLevel : (have[rs.skillKey] || { level: 0 }).level; pn += rs.weight * Math.min(s / rs.requiredLevel, 1); }
+  const projectedReadiness = den ? Math.round((100 * pn) / den) : 0;
   return {
     roleKey: role.key,
+    projectedReadiness,
     readiness: den ? Math.round((100 * num) / den) : 0,
     confidence: Math.round((100 * proven) / n),
     gaps, skills: skillsDetail, totalHours, timeToReadyWeeks,

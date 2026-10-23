@@ -81,7 +81,14 @@ module.exports = function mentoringRoutes(auth) {
   });
   r.get('/sessions', A, requireRole('student', 'mentor'), async (req, res) => {
     const key = req.user.role === 'student' ? 'studentId' : 'mentorId';
-    res.json({ sessions: await Session.find({ [key]: req.user._id }).sort({ startsAt: 1 }) });
+    const list = await Session.find({ [key]: req.user._id }).sort({ startsAt: 1 }).lean();
+    // Attach the other person's name (and the mentor's job title) so the home card can show "Rahim Ahmed, Data Analyst".
+    const other = req.user.role === 'student' ? 'mentorId' : 'studentId';
+    const users = await User.find({ _id: { $in: list.map((x) => x[other]) } }).select('displayName').lean();
+    const profs = await MentorProfile.find({ userId: { $in: list.map((x) => x.mentorId) } }).select('userId roleTitle').lean();
+    const nameOf = new Map(users.map((u) => [String(u._id), u.displayName]));
+    const titleOf = new Map(profs.map((p) => [String(p.userId), p.roleTitle]));
+    res.json({ sessions: list.map((x) => ({ ...x, withName: nameOf.get(String(x[other])) || '', withTitle: req.user.role === 'student' ? (titleOf.get(String(x.mentorId)) || '') : '' })) });
   });
   // Notes -> next steps -> tasks in the student's four-week plan.
   const doneSchema = z.object({ notes: z.string().max(4000).optional(), nextSteps: z.array(z.object({ text: z.string().min(2).max(200), week: z.number().int().min(1).max(4).default(1) })).max(8).default([]) }).strict();
@@ -108,7 +115,12 @@ module.exports = function mentoringRoutes(auth) {
     const plan = await Plan.findOne({ studentId: req.user._id });
     const tasks = plan ? await Task.find({ planId: plan._id }).sort({ week: 1, createdAt: 1 }) : [];
     const done = tasks.filter((t) => t.status === 'done').length;
-    res.json({ plan, tasks, progress: tasks.length ? Math.round((100 * done) / tasks.length) : 0 });
+    // Streak = consecutive days (ending today, or yesterday) on which the student completed at least one task.
+    const days = new Set(tasks.filter((t) => t.status === 'done' && t.completedAt).map((t) => new Date(t.completedAt.getTime() + 6 * 36e5).toISOString().slice(0, 10)));
+    const dayStr = (off) => new Date(Date.now() + 6 * 36e5 - off * 864e5).toISOString().slice(0, 10); // Asia/Dhaka (UTC+6) calendar days
+    let streak = 0, off = days.has(dayStr(0)) ? 0 : 1;
+    while (days.has(dayStr(off))) { streak += 1; off += 1; }
+    res.json({ plan, tasks, progress: tasks.length ? Math.round((100 * done) / tasks.length) : 0, streak });
   });
   r.patch('/tasks/:id', A, requireRole('student', 'mentor'), validate(z.object({ status: z.enum(['todo', 'done']).optional(), mentorComment: z.string().max(300).optional() }).strict()), async (req, res) => {
     toObjectId(req.params.id);
@@ -117,7 +129,7 @@ module.exports = function mentoringRoutes(auth) {
     if (req.user.role === 'student') {
       if (String(t.studentId) !== String(req.user._id)) throw notFound();
       if (req.body.mentorComment !== undefined) throw forbidden('Only your mentor can comment.');
-      if (req.body.status) t.status = req.body.status;
+      if (req.body.status) { t.status = req.body.status; t.completedAt = req.body.status === 'done' ? new Date() : undefined; }
     } else {
       const linked = await MentorRequest.findOne({ studentId: t.studentId, mentorId: req.user._id, status: 'accepted' });
       if (!linked) throw notFound();

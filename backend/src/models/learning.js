@@ -44,6 +44,7 @@ const resourceSchema = new Schema(
     free: { type: Boolean, default: true },
     status: { type: String, enum: ['approved', 'hidden'], default: 'approved' },
     addedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    reportCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -51,7 +52,7 @@ const resourceSchema = new Schema(
 // A student marks a resource as done. This is progress only: it does NOT raise a skill level
 // (levels come from quiz, project or mentor endorsement evidence).
 const resourceProgressSchema = new Schema(
-  { studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true }, resourceId: { type: Schema.Types.ObjectId, ref: 'Resource', required: true } },
+  { studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true }, resourceId: { type: Schema.Types.ObjectId, ref: 'Resource', required: true }, status: { type: String, enum: ['saved', 'in_progress', 'completed'], default: 'completed' } },
   { timestamps: true }
 );
 resourceProgressSchema.index({ studentId: 1, resourceId: 1 }, { unique: true });

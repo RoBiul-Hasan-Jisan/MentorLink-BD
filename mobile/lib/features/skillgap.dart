@@ -61,6 +61,18 @@ class SkillGapScreen extends ConsumerWidget {
         }),
       );
 
+  Future<void> _setStatus(BuildContext context, WidgetRef ref, String id, String status) async {
+    try { await ref.read(dioProvider).put('/resources/$id/progress', data: {'status': status}); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+  }
+
+  Future<void> _report(BuildContext context, WidgetRef ref, String id) async {
+    try {
+      await ref.read(dioProvider).post('/resources/$id/report', data: {'reason': 'Broken or unhelpful link'});
+      ref.invalidate(resourcesProvider);
+      if (context.mounted) toast(context, tr(context, 'Thanks, we will review it.', 'ধন্যবাদ, আমরা দেখব।'));
+    } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+  }
+
   Widget _resources(BuildContext context, WidgetRef ref, List<Map> gaps) {
     final keys = gaps.map((g) => g['skillKey']).toSet();
     final all = (ref.watch(resourcesProvider).valueOrNull?['resources'] as List? ?? []).cast<Map>();
@@ -73,12 +85,25 @@ class SkillGapScreen extends ConsumerWidget {
         onTap: () async {
           final ok = await launchUrl(Uri.parse(r['url']), mode: LaunchMode.externalApplication);
           if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
-          try { await ref.read(dioProvider).post('/resources/${r['id']}/complete'); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+          if (r['status'] == null) await _setStatus(context, ref, r['id'], 'in_progress');
         },
         child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
-          Icon(r['done'] == true ? Icons.check_circle : Icons.open_in_new, color: r['done'] == true ? Brand.delta : Brand.muted, size: 20), const SizedBox(width: 10),
+          Icon(switch (r['status']) { 'completed' => Icons.check_circle, 'in_progress' => Icons.timelapse, 'saved' => Icons.bookmark, _ => Icons.open_in_new }, color: r['status'] == 'completed' ? Brand.delta : (r['status'] == null ? Brand.muted : Brand.saffron), size: 20), const SizedBox(width: 10),
           Expanded(child: Text(r['title'], style: body(16, w: FontWeight.w600))),
           Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20, color: Brand.muted),
+            onSelected: (v) async {
+              if (v == 'report') { await _report(context, ref, r['id']); } else if (v == 'clear') { try { await ref.read(dioProvider).delete('/resources/${r['id']}/progress'); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); } } else { await _setStatus(context, ref, r['id'], v); }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'saved', child: Text(tr(context, 'Save for later', 'পরে দেখব'))),
+              PopupMenuItem(value: 'in_progress', child: Text(tr(context, 'In progress', 'চলছে'))),
+              PopupMenuItem(value: 'completed', child: Text(tr(context, 'Mark done', 'শেষ'))),
+              PopupMenuItem(value: 'clear', child: Text(tr(context, 'Clear', 'মুছুন'))),
+              PopupMenuItem(value: 'report', child: Text(tr(context, 'Report broken link', 'লিংক নষ্ট জানান'))),
+            ],
+          ),
         ])),
       ),
     ]));

@@ -9,6 +9,7 @@ import 'features/employer.dart';
 import 'features/notifications.dart';
 import 'features/quiz.dart';
 import 'features/jobs.dart';
+import 'features/mentor_detail.dart';
 import 'features/skillgap.dart';
 import 'features/welcome.dart';
 import 'features/university.dart';
@@ -37,6 +38,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/quiz/:skill', builder: (_, s) => QuizScreen(skill: s.pathParameters['skill']!)),
       GoRoute(path: '/applicants/:id', builder: (_, s) => ApplicantsScreen(jobId: s.pathParameters['id']!, title: s.extra as String?)),
+      GoRoute(path: '/mentor/:id', builder: (_, s) => MentorDetailScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
       GoRoute(path: '/skill-gap', builder: (_, __) => const SkillGapScreen()),
       GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
