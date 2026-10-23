@@ -150,6 +150,10 @@ module.exports = function mentoringRoutes(auth) {
     res.status(201).json({ message: msg });
   });
 
+  r.post('/me/device-token', A, validate(z.object({ token: z.string().min(20).max(400) }).strict()), async (req, res) => {
+    await User.updateOne({ _id: req.user._id }, { $addToSet: { deviceTokens: req.body.token } });
+    res.json({ ok: true });
+  });
   // ---- notifications, block ----
   r.get('/notifications', A, async (req, res) => res.json({ notifications: await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50) }));
   r.post('/notifications/:id/read', A, async (req, res) => {

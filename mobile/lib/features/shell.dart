@@ -7,6 +7,9 @@ import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
 import 'admin.dart';
+import 'employer.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'home.dart';
 import 'jobs.dart';
 import 'mentor.dart';
@@ -22,6 +25,18 @@ class Shell extends ConsumerStatefulWidget {
 }
 class _ShellState extends ConsumerState<Shell> {
   int i = 0;
+  @override
+  void initState() { super.initState(); _registerPush(); }
+  // Push notifications (Firebase Cloud Messaging). Mobile only; failures are ignored.
+  Future<void> _registerPush() async {
+    if (kIsWeb) return;
+    try {
+      final m = FirebaseMessaging.instance;
+      await m.requestPermission();
+      final t = await m.getToken();
+      if (t != null) await ref.read(dioProvider).post('/me/device-token', data: {'token': t});
+    } catch (_) {}
+  }
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
@@ -56,8 +71,10 @@ class _ShellState extends ConsumerState<Shell> {
         return [(Icons.verified_outlined, tr(context, 'Queue', 'তালিকা'), const AdminQueue()), profile];
       case 'department':
         return [(Icons.insights_outlined, tr(context, 'Overview', 'সারসংক্ষেপ'), const DeptOverview()), profile];
+      case 'employer':
+        return [(Icons.business_center_outlined, tr(context, 'Jobs', 'চাকরি'), const EmployerHome()), profile];
       default:
-        return [profile]; // employer: Phase 2 portal
+        return [profile];
     }
   }
 }
@@ -85,6 +102,8 @@ class ProfileScreen extends ConsumerWidget {
           ListTile(leading: const Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
         ])),
         if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
+        AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'lowDataMode': v}); ref.invalidate(meProvider); })),
+        if (isStudent) _CompanyTile(),
         AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
       ])),
@@ -107,5 +126,18 @@ class ProfileScreen extends ConsumerWidget {
       ref.invalidate(meProvider);
       if (context.mounted) toast(context, tr(context, 'Sent to admin for review', 'অ্যাডমিনের কাছে পাঠানো হয়েছে'));
     } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+  }
+}
+
+class _CompanyTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final org = ref.watch(myOrgProvider).valueOrNull?['organization'] as Map?;
+    return AppCard(padding: const EdgeInsets.all(6), child: ListTile(
+      leading: const Icon(Icons.business_outlined, color: Brand.delta),
+      title: Text(org == null ? tr(context, 'Register your company (recruiters)', 'কোম্পানি নিবন্ধন করুন (রিক্রুটার)') : '${org['name']} · ${org['verificationStatus']}', style: body(17, w: FontWeight.w700)),
+      trailing: org == null ? const Icon(Icons.chevron_right) : null,
+      onTap: org == null ? () => registerCompany(context, ref) : null,
+    ));
   }
 }

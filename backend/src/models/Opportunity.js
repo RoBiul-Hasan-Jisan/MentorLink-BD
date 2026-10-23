@@ -15,7 +15,10 @@ const opportunitySchema = new Schema(
     applicationDeadline: Date,
     noFeeConfirmed: { type: Boolean, default: false },
     // Separate, honest labels: who posted it, whether a person reviewed this listing, whether the poster declared no fee.
-    sourceLabel: { type: String, enum: ['verified_alumni', 'admin'], required: true },
+    sourceLabel: { type: String, enum: ['verified_alumni', 'admin', 'employer'], required: true },
+    organizationId: ref('Organization'),
+    employmentType: { type: String, enum: ['full_time', 'part_time', 'internship', 'contract', 'freelance'] },
+    closed: { type: Boolean, default: false },
     listingReviewed: { type: Boolean, default: false },
     suspiciousFlags: [String],
     status: { type: String, enum: ['pending', 'approved', 'hidden', 'removed'], default: 'pending', index: true },
@@ -73,7 +76,36 @@ const auditLogSchema = new Schema(
   { timestamps: true }
 );
 
+const organizationSchema = new Schema(
+  {
+    name: { type: String, required: true, maxlength: 120, unique: true },
+    website: { type: String, maxlength: 200 },
+    industry: { type: String, maxlength: 80 },
+    city: { type: String, maxlength: 80 },
+    publicDescription: { type: String, maxlength: 600 },
+    workEmail: { type: String, maxlength: 120 },
+    verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'suspended'], default: 'pending' },
+    verificationEvidence: { type: String, maxlength: 500 }, // PRIVATE: never returned to students or other companies
+    reviewedBy: ref('User'),
+    reviewedAt: Date,
+  },
+  { timestamps: true }
+);
+const orgMemberSchema = new Schema(
+  {
+    organizationId: ref('Organization', { required: true, index: true }),
+    userId: ref('User', { required: true, index: true }),
+    membershipRole: { type: String, enum: ['owner', 'recruiter'], default: 'owner' },
+    status: { type: String, enum: ['pending', 'active', 'revoked'], default: 'pending' },
+    invitedBy: ref('User'),
+  },
+  { timestamps: true }
+);
+orgMemberSchema.index({ organizationId: 1, userId: 1 }, { unique: true });
+
 module.exports = {
+  Organization: mongoose.model('Organization', organizationSchema),
+  OrganizationMember: mongoose.model('OrganizationMember', orgMemberSchema),
   STAGES,
   Opportunity: mongoose.model('Opportunity', opportunitySchema),
   Application: mongoose.model('Application', applicationSchema),

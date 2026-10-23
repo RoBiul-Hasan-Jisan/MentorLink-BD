@@ -20,6 +20,8 @@ Widget _page(BuildContext context, {required String title, String? sub, required
       ]),
     );
 
+const demoMode = bool.fromEnvironment('DEMO');
+
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
   @override
@@ -42,6 +44,11 @@ class _SignIn extends ConsumerState<SignInScreen> {
         const SizedBox(height: 20),
         BigButton(tr(context, 'Sign in', 'সাইন ইন'), onPressed: busy ? null : go),
         TextButton(onPressed: () => context.go('/sign-up'), child: Text(tr(context, 'Create an account', 'অ্যাকাউন্ট খুলুন'), style: body(16, color: Brand.delta, w: FontWeight.w700))),
+        if (demoMode) ...[
+          const SizedBox(height: 8), Text('Demo accounts', style: body(14, color: Brand.muted)),
+          Wrap(spacing: 8, children: [for (final d in const [('Student', 'student.edu@demo.mentorlink.bd', 'Demo@12345'), ('Mentor', 'mentor1@demo.mentorlink.bd', 'Demo@12345'), ('Employer', 'employer@demo.mentorlink.bd', 'Demo@12345'), ('Department', 'dept@demo.mentorlink.bd', 'Demo@12345'), ('Admin', 'admin@demo.mentorlink.bd', 'Admin@12345')])
+            ActionChip(label: Text(d.$1), onPressed: () { email.text = d.$2; pw.text = d.$3; })]),
+        ],
       ]);
 }
 

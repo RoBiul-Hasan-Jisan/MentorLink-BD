@@ -18,4 +18,14 @@ function uiStage(stage) {
   if (stage === 'Rejected') return 'Not selected';
   return 'Withdrawn';
 }
-module.exports = { scamFlags, uiStage };
+// Server-validated recruitment pipeline. Withdrawn is student-only; a terminal stage cannot be reopened.
+const NEXT = {
+  Applied: ['Under Review', 'Shortlisted', 'Rejected'],
+  'Under Review': ['Shortlisted', 'Rejected'],
+  Shortlisted: ['Interview', 'Rejected'],
+  Interview: ['Offer', 'Rejected'],
+  Offer: ['Hired', 'Rejected'],
+  Hired: [], Rejected: [], Withdrawn: [],
+};
+const canMove = (from, to) => (NEXT[from] || []).includes(to);
+module.exports = { scamFlags, uiStage, canMove, NEXT };

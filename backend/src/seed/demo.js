@@ -1,7 +1,7 @@
 // Demo accounts. Idempotent: run it as often as you like. Refuses to run unless DEMO_MODE=true.
 // Works against real Firebase (service account) or the Firebase Auth Emulator (FIREBASE_AUTH_EMULATOR_HOST).
 const env = require('../config/env');
-const { User, University, StudentProfile, MentorProfile, SkillEvidence, Opportunity, CvVersion } = require('../models');
+const { User, University, StudentProfile, MentorProfile, SkillEvidence, Opportunity, CvVersion, Organization, OrganizationMember } = require('../models');
 const { seedLearning } = require('./learning');
 const { seedUniversities } = require('./universities');
 
@@ -58,6 +58,13 @@ async function seedDemo({ auth }) {
   const adm = ids['admin@demo.mentorlink.bd'];
   if (!(await Opportunity.findOne({ title: 'Junior Data Analyst (Demo)' }))) {
     await Opportunity.create({ postedBy: adm._id, title: 'Junior Data Analyst (Demo)', organization: 'Demo Fintech Ltd', type: 'job', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Support the analytics team with SQL reports and dashboards. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'sql', requiredLevel: 2, weight: 3 }, { skillKey: 'excel', requiredLevel: 2, weight: 2 }], noFeeConfirmed: true, sourceLabel: 'admin', listingReviewed: true, status: 'approved' });
+  }
+  // Phase 2: a verified demo company with an ACTIVE membership for the employer demo account, plus one reviewed job.
+  const emp = ids['employer@demo.mentorlink.bd'];
+  const org = await Organization.findOneAndUpdate({ name: 'Demo Tech Ltd' }, { $set: { website: 'https://demo-tech.example', industry: 'Software', city: 'Chattogram', publicDescription: 'Demo company for MentorLink BD.', workEmail: 'hr@demo-tech.example', verificationStatus: 'verified', verificationEvidence: 'Demo seed', reviewedBy: adm._id, reviewedAt: new Date() } }, { upsert: true, returnDocument: 'after' });
+  await OrganizationMember.updateOne({ organizationId: org._id, userId: emp._id }, { $set: { membershipRole: 'owner', status: 'active' } }, { upsert: true });
+  if (!(await Opportunity.findOne({ title: 'Junior Backend Developer (Demo)' }))) {
+    await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }

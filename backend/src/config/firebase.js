@@ -12,4 +12,9 @@ async function verifyCredential(credential) {
   const d = await sdk().auth().verifyIdToken(credential);
   return { uid: d.uid, email: d.email };
 }
-module.exports = { verifyCredential };
+// Best-effort push through Firebase Cloud Messaging. Never throws: a failed push must not break a request.
+async function sendPush(tokens, title, body) {
+  if (!tokens || !tokens.length || process.env.NODE_ENV === 'test') return;
+  try { await sdk().messaging().sendEachForMulticast({ tokens, notification: { title, body } }); } catch (e) { console.warn('push failed:', e.message); }
+}
+module.exports = { verifyCredential, sendPush };

@@ -38,7 +38,10 @@ class SkillGapScreen extends ConsumerWidget {
             ])),
             Transform.translate(offset: const Offset(0, -60), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
               AppCard(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(context, 'Close these first', 'আগে এগুলো পূরণ করুন'), style: display(20, color: Brand.ink)),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(tr(context, 'Close these first', 'আগে এগুলো পূরণ করুন'), style: display(20, color: Brand.ink)),
+                  if (gaps.isNotEmpty && ['sql', 'excel', 'python'].contains(gaps.first['skillKey'])) InkWell(borderRadius: BorderRadius.circular(24), onTap: () => context.push('/quiz/${gaps.first['skillKey']}'), child: Pill(tr(context, 'Take ${nm(context, gaps.first, 'nameEn', 'nameBn')} quiz', '${nm(context, gaps.first, 'nameEn', 'nameBn')} কুইজ'), tone: Tone.blue)),
+                ]),
                 const SizedBox(height: 12),
                 if (gaps.isEmpty) Text(tr(context, 'No gaps. You meet every requirement.', 'কোনো ঘাটতি নেই।'), style: body(16)),
                 for (int i = 0; i < gaps.length; i++) Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [

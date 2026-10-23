@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress } = require('../models');
+const { Quiz, RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress } = require('../models');
 const { toObjectId } = require('../utils/helpers');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
@@ -64,6 +64,23 @@ module.exports = function learningRoutes(auth) {
       }),
       baseline: keywordBaseline({ student: { user: req.user, profile }, role, mentors }).slice(0, 5),
     });
+  });
+
+  // ---- quizzes: the SERVER grades. Passing creates 'quiz' evidence (counts more than self-rating). ----
+  r.get('/quizzes/:skillKey', ...student, async (req, res) => {
+    const z = await Quiz.findOne({ skillKey: req.params.skillKey });
+    if (!z) throw notFound('No quiz for this skill yet.');
+    res.json({ skillKey: z.skillKey, questions: z.questions.map((x) => ({ q: x.q, options: x.options })) });
+  });
+  r.post('/quizzes/:skillKey/submit', ...student, validate(z.object({ answers: z.array(z.number().int().min(0).max(5)).min(1).max(20) }).strict()), async (req, res) => {
+    const quiz = await Quiz.findOne({ skillKey: req.params.skillKey });
+    if (!quiz) throw notFound('No quiz for this skill yet.');
+    if (req.body.answers.length !== quiz.questions.length) throw bad('WRONG_ANSWER_COUNT', `Answer all ${quiz.questions.length} questions.`);
+    const correct = quiz.questions.filter((x, i) => x.answer === req.body.answers[i]).length;
+    const pct = Math.round((100 * correct) / quiz.questions.length);
+    const level = pct >= 90 ? 3 : pct >= 70 ? 2 : pct >= 40 ? 1 : 0;
+    if (level > 0) await SkillEvidence.create({ studentId: req.user._id, skillKey: quiz.skillKey, type: 'quiz', level });
+    res.json({ correct, total: quiz.questions.length, percent: pct, levelAwarded: level });
   });
 
   // ---- learning resource hub ----

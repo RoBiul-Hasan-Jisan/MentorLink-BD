@@ -26,6 +26,7 @@ const RESOURCES = [
   ['git', 'Pro Git book (git-scm.com)', 'https://git-scm.com/book/en/v2', 'article'],
 ];
 async function seedLearning() {
+  await require('./quizzes').seedQuizzes();
   for (const [skillKey, title, url, kind] of RESOURCES) await Resource.updateOne({ url }, { $set: { skillKey, title, kind, language: 'en', free: true, status: 'approved' } }, { upsert: true });
   for (const [key, nameEn, nameBn, learningHours] of S) await Skill.updateOne({ key }, { $set: { nameEn, nameBn, learningHours } }, { upsert: true });
   for (const r of ROLES) await RoleTemplate.updateOne({ key: r.key }, { $set: r }, { upsert: true });
