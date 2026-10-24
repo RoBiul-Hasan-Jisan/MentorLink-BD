@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:4000');
+// Chrome/Edge reach the backend on localhost; the Android emulator reaches your PC as 10.0.2.2. --dart-define=API_URL=... overrides both.
+const _apiOverride = String.fromEnvironment('API_URL');
+final apiUrl = _apiOverride.isNotEmpty ? _apiOverride : (kIsWeb ? 'http://localhost:4000' : 'http://10.0.2.2:4000');
 
 // Every request carries the Firebase credential as an opaque Bearer string.
 // The app never decodes it and never sends a role: the server decides who you are.
@@ -22,7 +25,8 @@ String errorText(Object e) {
   if (e is DioException) {
     final d = e.response?.data;
     if (d is Map && d['error'] is Map) return d['error']['message'] as String;
-    return 'Network problem. Check your connection.';
+    if (e.response == null) return 'Cannot reach the server at $apiUrl. Is the backend running (npm start)?';
+    return 'Server error (${e.response?.statusCode}).';
   }
   return e.toString();
 }

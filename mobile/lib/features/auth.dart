@@ -33,7 +33,8 @@ class _SignIn extends ConsumerState<SignInScreen> {
   Future<void> go() async {
     setState(() => busy = true);
     try { await FirebaseAuth.instance.signInWithEmailAndPassword(email: email.text.trim(), password: pw.text); }
-    on FirebaseAuthException catch (e) { if (mounted) toast(context, e.message ?? 'Sign-in failed'); }
+    on FirebaseAuthException catch (e) { if (mounted) toast(context, '${e.code}: ${e.message ?? 'Sign-in failed'}'); }
+    catch (e) { if (mounted) toast(context, e.toString()); }
     finally { if (mounted) setState(() => busy = false); }
   }
   @override
@@ -50,6 +51,26 @@ class _SignIn extends ConsumerState<SignInScreen> {
             ActionChip(label: Text(d.$1), onPressed: () { email.text = d.$2; pw.text = d.$3; })]),
         ],
       ]);
+}
+
+// Shown when you are signed in with Firebase but our server cannot be reached or answers with an error.
+class ProblemScreen extends ConsumerWidget {
+  const ProblemScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final err = ref.watch(meProvider).error;
+    return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Icon(Icons.cloud_off, size: 56, color: Brand.muted),
+      const SizedBox(height: 16),
+      Text(tr(context, 'Signed in, but the server did not answer', 'সাইন ইন হয়েছে, কিন্তু সার্ভার সাড়া দেয়নি'), textAlign: TextAlign.center, style: display(22, color: Brand.ink)),
+      const SizedBox(height: 10),
+      Text(err == null ? '' : errorText(err), textAlign: TextAlign.center, style: body(15, color: Brand.muted)),
+      const SizedBox(height: 24),
+      BigButton(tr(context, 'Try again', 'আবার চেষ্টা করুন'), onPressed: () => ref.invalidate(meProvider)),
+      const SizedBox(height: 10),
+      BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
+    ]))));
+  }
 }
 
 class SignUpScreen extends ConsumerStatefulWidget {
