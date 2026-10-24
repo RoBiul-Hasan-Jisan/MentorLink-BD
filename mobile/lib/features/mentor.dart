@@ -22,7 +22,7 @@ class MentorRequests extends ConsumerWidget {
         if (r['status'] == 'pending') Row(children: [
           Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(0, 48)), onPressed: () => _decide(context, ref, r['_id'], 'accept'), child: Text(tr(context, 'Accept', 'গ্রহণ')))), const SizedBox(width: 10),
           Expanded(child: OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)), onPressed: () => _decide(context, ref, r['_id'], 'decline'), child: Text(tr(context, 'Decline', 'প্রত্যাখ্যান')))),
-        ]) else if (r['status'] == 'accepted') FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(0, 48)), onPressed: () => context.push('/chat/${r['_id']}'), icon: const Icon(Icons.chat_bubble_outline), label: Text(tr(context, 'Chat', 'চ্যাট'))),
+        ]) else if (r['status'] == 'accepted') Row(children: [Expanded(child: OutlinedButton.icon(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)), onPressed: () => context.push('/review-cv/${r['studentId']}'), icon: const Icon(Icons.description_outlined), label: Text(tr(context, 'Review CV', 'সিভি দেখুন')))), const SizedBox(width: 10), Expanded(child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(0, 48)), onPressed: () => context.push('/chat/${r['_id']}'), icon: const Icon(Icons.chat_bubble_outline), label: Text(tr(context, 'Chat', 'চ্যাট'))))]),
       ]))]);
     });
   }

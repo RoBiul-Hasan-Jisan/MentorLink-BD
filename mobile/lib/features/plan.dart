@@ -78,11 +78,5 @@ class _PlanState extends ConsumerState<PlanScreen> {
     });
   }
 
-  Future<void> _cv() async {
-    try {
-      final dio = ref.read(dioProvider);
-      final r = await dio.post('/me/cv', data: {'data': {'summary': 'Student at my university', 'updatedFrom': 'app'}});
-      if (mounted) toast(context, tr(context, 'CV version ${r.data['cv']['version']} saved', 'সিভি সংস্করণ ${r.data['cv']['version']} সংরক্ষিত'));
-    } catch (e) { if (mounted) toast(context, errorText(e)); }
-  }
+  void _cv() => context.push('/cv');
 }
