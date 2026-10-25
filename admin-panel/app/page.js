@@ -154,12 +154,13 @@ function Resources() {
   const [f, setF] = useState({ title: '', url: '', skillKey: 'sql', language: 'bn' });
   const [msg, setMsg] = useState('');
   async function add(e) { e.preventDefault(); setMsg(''); try { await api('/admin/resources', { method: 'POST', body: f }); setF({ ...f, title: '', url: '' }); reload(); } catch (x) { setMsg(x.message); } }
+  async function check() { setMsg('Checking links…'); try { const r = await api('/admin/resources/check-links', { method: 'POST', body: {} }); setMsg(`Checked: ${r.ok} ok, ${r.broken} broken, ${r.blocked} blocked`); reload(); } catch (x) { setMsg(x.message); } }
   async function hide(id) { try { await api(`/admin/resources/${id}`, { method: 'DELETE' }); reload(); } catch (x) { setMsg(x.message); } }
   if (err) return <div className="err">{err}</div>;
   if (!data) return <p>Loading…</p>;
   return (
     <>
-      <div className="card"><table><thead><tr><th>Title</th><th>Skill</th><th>Lang</th><th></th></tr></thead><tbody>{data.resources.map((r) => <tr key={r.id}><td><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a></td><td>{r.skillKey}</td><td>{r.language}</td><td><button className="btn alt" onClick={() => hide(r.id)}>Hide</button></td></tr>)}</tbody></table></div>
+      <div className="card"><button className="btn" onClick={check}>Check all links</button> {msg && <span className="muted">{msg}</span>}<table><thead><tr><th>Title</th><th>Skill</th><th>Lang</th><th>Link</th><th></th></tr></thead><tbody>{data.resources.map((r) => <tr key={r.id}><td><a href={r.url} target="_blank" rel="noreferrer">{r.title}</a></td><td>{r.skillKey}</td><td>{r.language}</td><td>{r.linkStatus ? `${r.linkStatus} · ${String(r.lastLinkCheckedAt).slice(0, 10)}` : 'not checked'}</td><td><button className="btn alt" onClick={() => hide(r.id)}>Hide</button></td></tr>)}</tbody></table></div>
       <div className="card"><h3>Add a resource</h3><p className="muted">Links only (https). Add Bangla-language resources here.</p>{msg && <div className="err">{msg}</div>}
         <form onSubmit={add}>
           <input placeholder="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />

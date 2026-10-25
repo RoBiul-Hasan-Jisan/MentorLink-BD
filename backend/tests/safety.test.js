@@ -81,3 +81,47 @@ test('only admin can set campus coordinates; bad coordinates rejected', async ()
   expect((await request(app).post('/api/admin/universities').set(bearer('adm')).send({ ...body, lat: 0, lng: 0 })).status).toBe(400);
   expect((await request(app).post('/api/admin/universities').set(bearer('adm')).send(body)).status).toBe(201);
 });
+
+describe('CV builder', () => {
+  let app;
+  beforeAll(async () => { app = await setup(); const u = await mkUni('EDU', 'EDU', 'Chattogram', 91.8, 22.3); await mkUser('cvs', 'student', u); await mkUser('cvm', 'mentor', u); });
+  afterAll(teardown);
+  test('structured CV is versioned; contact/address fields are refused; mentors cannot write CVs', async () => {
+    const good = { data: { summary: 'CSE student', skills: ['SQL', 'Excel'], education: [{ institution: 'EDU', degree: 'BSc CSE', year: '2026' }], projects: [{ title: 'Sales dashboard', url: 'https://example.com/p' }] } };
+    const a = await request(app).post('/api/me/cv').set(bearer('cvs')).send(good);
+    expect(a.status).toBe(201); expect(a.body.cv.version).toBe(1);
+    expect((await request(app).post('/api/me/cv').set(bearer('cvs')).send(good)).body.cv.version).toBe(2);
+    expect((await request(app).post('/api/me/cv').set(bearer('cvs')).send({ data: { summary: 'x', phone: '017' } })).status).toBe(400);
+    expect((await request(app).post('/api/me/cv').set(bearer('cvs')).send({ data: { summary: 'x', address: 'Road 1' } })).status).toBe(400);
+    expect((await request(app).post('/api/me/cv').set(bearer('cvm')).send(good)).status).toBe(403);
+    expect((await request(app).get('/api/me/cv').set(bearer('cvs'))).body.versions).toHaveLength(2);
+  });
+});
+
+describe('link checker and mentor CV access', () => {
+  const { checkUrl, isPrivateIp } = require('../src/services/linkcheck');
+  test('SSRF guard and status mapping', async () => {
+    expect(isPrivateIp('127.0.0.1')).toBe(true); expect(isPrivateIp('10.1.2.3')).toBe(true); expect(isPrivateIp('172.20.0.1')).toBe(true); expect(isPrivateIp('8.8.8.8')).toBe(false);
+    expect((await checkUrl('http://example.com')).status).toBe('blocked');
+    expect((await checkUrl('https://internal.test/x', { lookup: async () => [{ address: '10.0.0.5' }], fetchImpl: async () => { throw new Error('must not fetch'); } })).status).toBe('blocked');
+    const pub = { lookup: async () => [{ address: '93.184.216.34' }] };
+    expect((await checkUrl('https://good.test/', { ...pub, fetchImpl: async () => ({ status: 200 }) })).status).toBe('ok');
+    expect((await checkUrl('https://gone.test/', { ...pub, fetchImpl: async () => ({ status: 404 }) })).status).toBe('broken');
+    expect((await checkUrl('https://boom.test/', { ...pub, fetchImpl: async () => { throw new Error('ECONNRESET'); } })).status).toBe('broken');
+  });
+  test('admin runs the check; non-admins cannot; mentor sees CV only of own accepted mentee', async () => {
+    const app = await setup(); await require('../src/seed/learning').seedLearning();
+    const u = await mkUni('EDU', 'EDU', 'Chattogram', 91.8, 22.3);
+    const stu = await mkUser('lstu', 'student', u); const men = await mkUser('lmen', 'mentor', u); await mkUser('lother', 'mentor', u); await mkUser('ladm', 'admin', null);
+    app.set('checkUrl', async (url) => ({ status: url.includes('khan') ? 'broken' : 'ok' }));
+    expect((await request(app).post('/api/admin/resources/check-links').set(bearer('lmen'))).status).toBe(403);
+    const r = await request(app).post('/api/admin/resources/check-links').set(bearer('ladm'));
+    expect(r.status).toBe(200); expect(r.body.ok + r.body.broken).toBeGreaterThan(0);
+    await request(app).post('/api/me/cv').set(bearer('lstu')).send({ data: { summary: 'Hi' } });
+    expect((await request(app).get(`/api/mentees/${stu._id}/cv`).set(bearer('lmen'))).status).toBe(404); // not accepted yet
+    await models.MentorRequest.create({ studentId: stu._id, mentorId: men._id, goalText: 'goal', questions: ['q'], status: 'accepted' });
+    expect((await request(app).get(`/api/mentees/${stu._id}/cv`).set(bearer('lmen'))).body.versions).toHaveLength(1);
+    expect((await request(app).get(`/api/mentees/${stu._id}/cv`).set(bearer('lother'))).status).toBe(404);
+    expect((await request(app).post(`/api/cv/${(await request(app).get(`/api/mentees/${stu._id}/cv`).set(bearer('lmen'))).body.versions[0]._id}/review`).set(bearer('lmen')).send({ text: 'Add a project link' })).status).toBe(200);
+  });
+});

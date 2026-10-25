@@ -91,6 +91,20 @@ module.exports = function adminRoutes(auth) {
     await audit(req.user._id, 'resource_add', 'resource', doc._id);
     res.status(201).json({ id: doc._id });
   });
+  // Checks every approved resource link (up to 100 per run). Broken links are flagged, never hidden automatically.
+  r.post('/admin/resources/check-links', ...admin, async (req, res) => {
+    const { checkUrl } = require('../services/linkcheck');
+    const list = await Resource.find({ status: 'approved' }).limit(100);
+    const out = { ok: 0, broken: 0, blocked: 0 };
+    for (let i = 0; i < list.length; i += 5) {
+      await Promise.all(list.slice(i, i + 5).map(async (x) => {
+        const r = await (req.app.get('checkUrl') || checkUrl)(x.url);
+        x.linkStatus = r.status; x.lastLinkCheckedAt = new Date(); await x.save(); out[r.status] += 1;
+      }));
+    }
+    await audit(req.user._id, 'resource_link_check', 'resource', null, out);
+    res.json(out);
+  });
   r.delete('/admin/resources/:id', ...admin, async (req, res) => {
     toObjectId(req.params.id);
     const d = await Resource.findByIdAndUpdate(req.params.id, { status: 'hidden' });

@@ -10,5 +10,7 @@ const { createApp } = require('./app');
   const app = createApp();
   server.on('request', app);
   app.set('io', require('./realtime').attach(server));
+  const { runReminders } = require('./services/reminders');
+  setInterval(() => runReminders().catch((e) => console.error('reminder job failed', e.message)), 15 * 60 * 1000); // every 15 min
   server.listen(env.port, () => console.log(`MentorLink BD API on :${env.port}`));
 })();

@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { Quiz, RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress, Report } = require('../models');
+const { Roadmap, RoadmapProgress, Quiz, RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress, Report } = require('../models');
 const { toObjectId, audit } = require('../utils/helpers');
 const env = require('../config/env');
 const { requireRole } = require('../middleware/auth');
@@ -92,7 +92,7 @@ module.exports = function learningRoutes(auth) {
     const list = await Resource.find(filter).sort({ language: 1, title: 1 }).limit(100);
     let st = new Map();
     if (req.user.role === 'student') st = new Map((await ResourceProgress.find({ studentId: req.user._id })).map((p) => [String(p.resourceId), p.status]));
-    res.json({ resources: list.map((x) => ({ id: x._id, title: x.title, url: x.url, skillKey: x.skillKey, language: x.language, kind: x.kind, free: x.free, status: st.get(String(x._id)) || null, done: st.get(String(x._id)) === 'completed' })) });
+    res.json({ resources: list.map((x) => ({ id: x._id, title: x.title, url: x.url, skillKey: x.skillKey, language: x.language, kind: x.kind, free: x.free, linkStatus: x.linkStatus || null, lastLinkCheckedAt: x.lastLinkCheckedAt || null, status: st.get(String(x._id)) || null, done: st.get(String(x._id)) === 'completed' })) });
   });
   // Student-only, private to the student. Progress never raises a skill level by itself.
   async function setProgress(req, res, status) {
@@ -118,6 +118,44 @@ module.exports = function learningRoutes(auth) {
     let hidden = false;
     if (rs && count >= env.reportHideThreshold) { rs.status = 'hidden'; await rs.save(); hidden = true; await audit(req.user._id, 'auto_hide_resource', 'resource', rs._id, { reports: count }); }
     res.status(201).json({ ok: true, hidden });
+  });
+
+  // ---- roadmaps: where a beginner starts in a skill ----
+  r.get('/roadmaps', auth.authenticate, async (req, res) => {
+    const [maps, skills] = await Promise.all([Roadmap.find().lean(), Skill.find().lean()]);
+    const names = new Map(skills.map((s) => [s.key, s]));
+    let done = new Map();
+    if (req.user.role === 'student') for (const p of await RoadmapProgress.find({ studentId: req.user._id })) done.set(p.skillKey, (done.get(p.skillKey) || 0) + 1);
+    res.json({ roadmaps: maps.map((m) => {
+      const topics = m.stages.flatMap((s) => s.topics);
+      return { skillKey: m.skillKey, nameEn: names.get(m.skillKey)?.nameEn || m.skillKey, nameBn: names.get(m.skillKey)?.nameBn || m.skillKey, summaryEn: m.summaryEn, summaryBn: m.summaryBn, topicCount: topics.length, totalHours: topics.reduce((t, x) => t + x.hours, 0), doneCount: done.get(m.skillKey) || 0 };
+    }).sort((a, b) => a.nameEn.localeCompare(b.nameEn)) });
+  });
+  r.get('/roadmaps/:skillKey', auth.authenticate, async (req, res) => {
+    const m = await Roadmap.findOne({ skillKey: String(req.params.skillKey) }).lean();
+    if (!m) throw notFound('No roadmap for this skill yet.');
+    const sk = await Skill.findOne({ key: m.skillKey }).lean();
+    const resources = await Resource.find({ skillKey: m.skillKey, status: 'approved' }).sort({ language: 1, title: 1 }).lean();
+    let done = new Set();
+    if (req.user.role === 'student') done = new Set((await RoadmapProgress.find({ studentId: req.user._id, skillKey: m.skillKey })).map((p) => p.topicKey));
+    const topics = m.stages.flatMap((s) => s.topics);
+    const next = topics.find((t) => !done.has(t.key));
+    res.json({
+      skillKey: m.skillKey, nameEn: sk?.nameEn || m.skillKey, nameBn: sk?.nameBn || m.skillKey, summaryEn: m.summaryEn, summaryBn: m.summaryBn,
+      stages: m.stages.map((s) => ({ level: s.level, titleEn: s.titleEn, titleBn: s.titleBn, topics: s.topics.map((t) => ({ key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, hours: t.hours, done: done.has(t.key) })) })),
+      totalHours: topics.reduce((t, x) => t + x.hours, 0), doneCount: done.size, percent: topics.length ? Math.round((100 * done.size) / topics.length) : 0,
+      startHere: next ? next.key : null,
+      hasQuiz: !!(await Quiz.findOne({ skillKey: m.skillKey })),
+      resources: resources.map((x) => ({ id: x._id, title: x.title, url: x.url, language: x.language, kind: x.kind, free: x.free })),
+      note: 'Ticking topics tracks your study. Your skill level only changes with evidence: a quiz, a project or a mentor endorsement.',
+    });
+  });
+  r.put('/roadmaps/:skillKey/topics/:topicKey', ...student, validate(z.object({ done: z.boolean() }).strict()), async (req, res) => {
+    const m = await Roadmap.findOne({ skillKey: String(req.params.skillKey) }).lean();
+    if (!m || !m.stages.some((s) => s.topics.some((t) => t.key === req.params.topicKey))) throw notFound();
+    const f = { studentId: req.user._id, skillKey: m.skillKey, topicKey: req.params.topicKey };
+    if (req.body.done) await RoadmapProgress.updateOne(f, { $set: f }, { upsert: true }); else await RoadmapProgress.deleteOne(f);
+    res.json({ ok: true, done: req.body.done });
   });
 
   // ---- mentor profile detail (public card + expertise; no contact details) ----

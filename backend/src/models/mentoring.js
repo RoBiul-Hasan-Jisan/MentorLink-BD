@@ -36,6 +36,7 @@ const sessionSchema = new Schema(
     mode: { type: String, enum: ['video', 'phone', 'in_person'], default: 'video' },
     meetingLink: { type: String, maxlength: 300 },
     status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' },
+    reminderSent: { type: Boolean, default: false },
     notes: { type: String, maxlength: 4000 },
     nextSteps: [{ text: String, taskId: ref('Task') }],
   },
@@ -61,6 +62,7 @@ const taskSchema = new Schema(
     status: { type: String, enum: ['todo', 'done'], default: 'todo' },
     mentorComment: { type: String, maxlength: 300 },
     completedAt: Date,
+    reminderSent: { type: Boolean, default: false },
     sourceSessionId: ref('Session'),
   },
   { timestamps: true }

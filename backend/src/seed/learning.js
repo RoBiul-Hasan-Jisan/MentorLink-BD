@@ -1,4 +1,4 @@
-const { Skill, RoleTemplate, Resource } = require('../models');
+const { Skill, RoleTemplate, Resource, Quiz, Roadmap } = require('../models');
 const S = [
   ['sql', 'SQL', 'এসকিউএল', 25], ['excel', 'Excel', 'এক্সেল', 15], ['python', 'Python', 'পাইথন', 30],
   ['statistics', 'Statistics', 'পরিসংখ্যান', 25], ['dashboard', 'Dashboards', 'ড্যাশবোর্ড', 15], ['communication', 'Communication', 'যোগাযোগ', 12],
@@ -15,7 +15,8 @@ const ROLES = [
   R('management-trainee', 'Management Trainee', 'ম্যানেজমেন্ট ট্রেইনি', [['communication', 3, 3], ['leadership', 3, 2], ['excel', 2, 2]]),
   R('higher-study', 'Higher-Study Applicant', 'উচ্চশিক্ষা আবেদনকারী', [['ielts', 3, 3], ['research', 3, 2], ['statistics', 1, 2], ['communication', 2, 2]]),
 ];
-// Real, free, public learning pages (English). Add Bangla-language resources from the admin panel.
+// Real, free, public learning pages. Every URL is UNCHECKED: a teammate must open each one before demo day (see README).
+// Bangla entries are provider home pages only (no deep links invented); admins can add exact course links from the admin panel.
 const RESOURCES = [
   ['sql', 'Relational Database course (freeCodeCamp)', 'https://www.freecodecamp.org/learn/relational-database/', 'course'],
   ['sql', 'SQL Tutorial (W3Schools)', 'https://www.w3schools.com/sql/', 'practice'],
@@ -24,10 +25,24 @@ const RESOURCES = [
   ['dashboard', 'Power BI training (Microsoft Learn)', 'https://learn.microsoft.com/en-us/training/powerbi/', 'course'],
   ['excel', 'Excel help and learning (Microsoft Support)', 'https://support.microsoft.com/en-us/excel', 'article'],
   ['git', 'Pro Git book (git-scm.com)', 'https://git-scm.com/book/en/v2', 'article'],
+  ['backend', 'Learn web development (MDN)', 'https://developer.mozilla.org/en-US/docs/Learn', 'article'],
+  ['backend', 'Learn Node.js (nodejs.org)', 'https://nodejs.org/en/learn', 'article'],
+  ['dsa', 'VisuAlgo: visualising data structures and algorithms', 'https://visualgo.net/', 'practice'],
+  ['ielts', 'LearnEnglish (British Council)', 'https://learnenglish.britishcouncil.org/', 'course'],
+  ['testing', 'ISTQB (software testing certification body)', 'https://www.istqb.org/', 'article'],
+  ['communication', 'Interview and workplace skills (Khan Academy: Career guidance)', 'https://www.khanacademy.org/college-careers-more', 'course'],
+  ['communication', '10 Minute School (Bangla)', 'https://10minuteschool.com/', 'course', 'bn'],
+  ['python', 'Programming Hero (Bangla)', 'https://www.programming-hero.com/', 'course', 'bn'],
 ];
 async function seedLearning() {
+  // A database used for an earlier experiment can hold old indexes (e.g. a unique `name_1` on skills) that block our seed.
+  // syncIndexes() removes indexes our schema does not declare. It only touches indexes, never documents.
+  for (const M of [Skill, RoleTemplate, Resource, Quiz, Roadmap]) {
+    try { await M.syncIndexes(); } catch (e) { console.warn(`index sync for ${M.modelName} skipped: ${e.message}`); }
+  }
   await require('./quizzes').seedQuizzes();
-  for (const [skillKey, title, url, kind] of RESOURCES) await Resource.updateOne({ url }, { $set: { skillKey, title, kind, language: 'en', free: true, status: 'approved' } }, { upsert: true });
+  await require('./roadmaps').seedRoadmaps();
+  for (const [skillKey, title, url, kind, language] of RESOURCES) await Resource.updateOne({ url }, { $set: { skillKey, title, kind, language: language || 'en', free: true, status: 'approved' } }, { upsert: true });
   for (const [key, nameEn, nameBn, learningHours] of S) await Skill.updateOne({ key }, { $set: { nameEn, nameBn, learningHours } }, { upsert: true });
   for (const r of ROLES) await RoleTemplate.updateOne({ key: r.key }, { $set: r }, { upsert: true });
   return { skills: S.length, roles: ROLES.length };

@@ -56,3 +56,16 @@ test('student cannot set reliability counters via mentor profile', async () => {
   expect((await request(app).put('/api/me/mentor-profile').set(bearer('mnt')).send({ sessionsCompleted: 99 })).status).toBe(400);
   expect((await request(app).put('/api/me/mentor-profile').set(bearer('s1')).send({ paused: false })).status).toBe(403);
 });
+
+test('reminders: session within 24h and task due within 48h are reminded once', async () => {
+  const { runReminders } = require('../src/services/reminders');
+  const t = await models.Task.findOne({ status: 'todo' });
+  await models.Task.updateOne({ _id: t._id }, { dueDate: new Date(Date.now() + 36e5) });
+  const a = await runReminders();
+  expect(a.tasks).toBeGreaterThanOrEqual(1);
+  const b = await runReminders();
+  expect(b.tasks).toBe(0); // not reminded twice
+  expect(b.sessions).toBe(0);
+  const n = await models.Notification.find({ userId: t.studentId, kind: 'reminder' });
+  expect(n.length).toBeGreaterThanOrEqual(1);
+});

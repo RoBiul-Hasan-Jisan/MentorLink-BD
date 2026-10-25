@@ -27,60 +27,60 @@
     "name": "University of Dhaka",
     "shortName": "DU",
     "city": "Dhaka",
-    "lat": 23.734,
-    "lng": 90.3926,
-    "campusAddressText": "Nilkhet, Dhaka",
+    "lat": 23.73306,
+    "lng": 90.39111,
+    "campusAddressText": "Nilkhet, Dhaka (source: Wikipedia infobox; confirm on Google Maps)",
     "emailDomains": [
       "du.ac.bd"
     ],
-    "verified": false
+    "verified": true
   },
   {
     "name": "Bangladesh University of Engineering and Technology",
     "shortName": "BUET",
     "city": "Dhaka",
-    "lat": 23.7265,
+    "lat": 23.72667,
     "lng": 90.3925,
-    "campusAddressText": "Palashi, Dhaka",
+    "campusAddressText": "Palashi, Dhaka (source: Wikipedia infobox; confirm on Google Maps)",
     "emailDomains": [
       "buet.ac.bd"
     ],
-    "verified": false
+    "verified": true
   },
   {
     "name": "North South University",
     "shortName": "NSU",
     "city": "Dhaka",
-    "lat": 23.8151,
-    "lng": 90.4254,
-    "campusAddressText": "Bashundhara, Dhaka",
+    "lat": 23.8152,
+    "lng": 90.4257,
+    "campusAddressText": "Bashundhara, Dhaka (source: Wikipedia infobox; confirm on Google Maps)",
     "emailDomains": [
       "northsouth.edu"
     ],
-    "verified": false
+    "verified": true
   },
   {
     "name": "BRAC University",
     "shortName": "BRACU",
     "city": "Dhaka",
-    "lat": 23.7806,
-    "lng": 90.4072,
-    "campusAddressText": "Merul Badda, Dhaka",
+    "lat": 23.7725,
+    "lng": 90.4254,
+    "campusAddressText": "Merul Badda, Dhaka (source: Wikipedia infobox; confirm on Google Maps)",
     "emailDomains": [
       "bracu.ac.bd"
     ],
-    "verified": false
+    "verified": true
   },
   {
     "name": "Chittagong University of Engineering and Technology",
     "shortName": "CUET",
     "city": "Chattogram",
-    "lat": 22.4633,
-    "lng": 91.9714,
-    "campusAddressText": "Raozan, Chattogram",
+    "lat": 22.4572,
+    "lng": 91.9704,
+    "campusAddressText": "Raozan, Chattogram (source: latitude.to; confirm on Google Maps)",
     "emailDomains": [
       "cuet.ac.bd"
     ],
-    "verified": false
+    "verified": true
   }
 ]

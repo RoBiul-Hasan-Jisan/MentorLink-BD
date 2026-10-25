@@ -24,8 +24,12 @@ test('seeds all accounts, is idempotent, EDU and Southern differ', async () => {
   const t = await seedDemo({ auth });
   await seedDemo({ auth });
   expect(t).toHaveLength(7);
-  expect(await models.User.countDocuments({ isDemo: true })).toBe(7);
-  expect(auth.users.size).toBe(7);
+  expect(await models.User.countDocuments({ isDemo: true })).toBe(25); // 7 main accounts + 10 extra students + 8 extra mentors
+  expect(auth.users.size).toBe(25);
+  // people spread over all 7 universities, each under its own campus pin
+  const unis = await models.User.distinct('universityId', { isDemo: true, role: { $in: ['student', 'mentor'] } });
+  expect(unis).toHaveLength(7);
+  expect(await models.MentorProfile.countDocuments()).toBe(10);
   const edu = await models.University.findOne({ shortName: 'EDU' });
   const su = await models.University.findOne({ shortName: 'SUB' });
   expect(edu.campus.coordinates).not.toEqual(su.campus.coordinates);

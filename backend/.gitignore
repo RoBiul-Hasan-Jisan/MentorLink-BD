@@ -1,3 +1,5 @@
 node_modules
 .env
 serviceAccount.json
+study/codes.private.json
+study/ratings.csv

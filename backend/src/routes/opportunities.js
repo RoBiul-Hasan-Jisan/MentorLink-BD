@@ -15,9 +15,27 @@ module.exports = function opportunityRoutes(auth) {
   const student = [A, requireRole('student')];
 
   // ---- CV versions ----
-  r.post('/me/cv', ...student, validate(z.object({ data: z.record(z.string(), z.any()) }).strict()), async (req, res) => {
+  // A structured CV. No phone, email or home address fields: contact details are never stored in a CV
+  // (the app shares only what the student ticks on the consent screen).
+  const short = (n) => z.string().trim().max(n);
+  const cvSchema = z.object({ data: z.object({
+    summary: short(600).default(''),
+    education: z.array(z.object({ institution: short(120), degree: short(120), year: short(20).optional() }).strict()).max(5).default([]),
+    skills: z.array(short(40)).max(25).default([]),
+    projects: z.array(z.object({ title: short(100), description: short(400).default(''), url: z.string().trim().url().max(200).optional() }).strict()).max(6).default([]),
+    experience: z.array(z.object({ role: short(100), organization: short(100), period: short(40).optional(), details: short(400).default('') }).strict()).max(6).default([]),
+    languages: z.array(short(30)).max(6).default([]),
+  }).strict() }).strict();
+  r.post('/me/cv', ...student, validate(cvSchema), async (req, res) => {
     const last = await CvVersion.findOne({ studentId: req.user._id }).sort({ version: -1 });
     res.status(201).json({ cv: await CvVersion.create({ studentId: req.user._id, version: last ? last.version + 1 : 1, data: req.body.data }) });
+  });
+  // A mentor reads the CV versions of their own accepted mentees only.
+  r.get('/mentees/:studentId/cv', A, requireRole('mentor'), async (req, res) => {
+    toObjectId(req.params.studentId);
+    const { MentorRequest } = require('../models');
+    if (!(await MentorRequest.findOne({ studentId: req.params.studentId, mentorId: req.user._id, status: 'accepted' }))) throw notFound();
+    res.json({ versions: await CvVersion.find({ studentId: req.params.studentId }).sort({ version: -1 }).limit(5) });
   });
   r.get('/me/cv', ...student, async (req, res) => res.json({ versions: await CvVersion.find({ studentId: req.user._id }).sort({ version: -1 }) }));
   r.post('/cv/:id/review', A, requireRole('mentor'), validate(z.object({ text: z.string().min(2).max(500) }).strict()), async (req, res) => {

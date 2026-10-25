@@ -66,6 +66,7 @@ async function seedDemo({ auth }) {
   if (!(await Opportunity.findOne({ title: 'Junior Backend Developer (Demo)' }))) {
     await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
+  await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }
 module.exports = { seedDemo, ACCOUNTS };
@@ -74,10 +75,16 @@ if (require.main === module) {
   require('dotenv').config();
   (async () => {
     const { connect, mongoose } = require('../config/db');
-    const admin = require('firebase-admin');
-    if (!admin.apps.length) admin.initializeApp({ projectId: env.firebaseProjectId || 'demo-mentorlink' });
+    const { getAuth } = require('firebase-admin/auth');
+    const { getApps, getApp, initializeApp, cert } = require('firebase-admin/app');
+    const fs = require('fs'), path = require('path');
+    const file = path.join(__dirname, '..', '..', 'serviceAccount.json');
+    const opts = { projectId: env.firebaseProjectId || 'demo-mentorlink' };
+    if (fs.existsSync(file)) opts.credential = cert(JSON.parse(fs.readFileSync(file, 'utf8')));
+    else if (!process.env.FIREBASE_AUTH_EMULATOR_HOST && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error('Missing backend/serviceAccount.json. In Firebase Console: Project settings > Service accounts > Generate new private key, save it as backend/serviceAccount.json (never commit it).');
+    const app = getApps().length ? getApp() : initializeApp(opts);
     await connect(env.mongoUri);
-    console.table(await seedDemo({ auth: admin.auth() }));
+    console.table(await seedDemo({ auth: getAuth(app) }));
     await mongoose.disconnect();
   })().catch((e) => { console.error(e.message); process.exit(1); });
 }

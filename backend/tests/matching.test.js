@@ -133,7 +133,7 @@ describe('resource hub', () => {
     expect((await request(app).post('/api/admin/resources').set(bearer('mnt')).send(body)).status).toBe(403);
     expect((await request(app).post('/api/admin/resources').set(bearer('adm')).send({ ...body, url: 'http://example.com' })).status).toBe(400);
     expect((await request(app).post('/api/admin/resources').set(bearer('adm')).send(body)).status).toBe(201);
-    expect((await request(app).get('/api/resources?language=bn').set(bearer('stu'))).body.resources).toHaveLength(1);
+    expect((await request(app).get('/api/resources?language=bn').set(bearer('stu'))).body.resources.map((x) => x.title)).toContain('SQL in Bangla');
   });
 });
 
@@ -145,12 +145,48 @@ describe('quizzes', () => {
     const q = await request(app).get('/api/quizzes/sql').set(bearer('stu'));
     expect(q.status).toBe(200);
     expect(JSON.stringify(q.body)).not.toMatch(/"answer"/);
-    const r = await request(app).post('/api/quizzes/sql/submit').set(bearer('stu')).send({ answers: [1, 1, 1, 1, 1] });
-    expect(r.body).toMatchObject({ correct: 5, percent: 100, levelAwarded: 3 });
+    expect(q.body.questions).toHaveLength(8);
+    const r = await request(app).post('/api/quizzes/sql/submit').set(bearer('stu')).send({ answers: [1, 1, 1, 1, 1, 1, 0, 1] });
+    expect(r.body).toMatchObject({ correct: 8, percent: 100, levelAwarded: 3 });
     expect(await models.SkillEvidence.countDocuments({ skillKey: 'sql', type: 'quiz' })).toBe(1);
-    const low = await request(app).post('/api/quizzes/excel/submit').set(bearer('stu')).send({ answers: [3, 3, 3, 3, 3] });
+    const low = await request(app).post('/api/quizzes/excel/submit').set(bearer('stu')).send({ answers: [3, 3, 3, 3, 3, 3, 3, 3] });
     expect(low.body.levelAwarded).toBe(0);
     expect((await request(app).post('/api/quizzes/sql/submit').set(bearer('stu')).send({ answers: [1] })).status).toBe(400);
     expect((await request(app).get('/api/quizzes/sql').set(bearer('mnt'))).status).toBe(403);
+  });
+});
+
+describe('roadmaps', () => {
+  let app, edu;
+  beforeAll(async () => { app = await setup(); await seedLearning(); edu = await mkUni('EDU', 'EDU', 'Chattogram', 91.83, 22.35); await mkUser('rs', 'student', edu); await mkUser('rs2', 'student', edu); await mkUser('rm', 'mentor', edu); });
+  afterAll(teardown);
+  test('every skill has a roadmap with unique topic keys', async () => {
+    const l = await request(app).get('/api/roadmaps').set(bearer('rs'));
+    expect(l.body.roadmaps).toHaveLength(15);
+    const skills = await models.Skill.countDocuments();
+    expect(skills).toBe(15);
+    for (const m of await models.Roadmap.find()) {
+      const keys = m.stages.flatMap((s) => s.topics.map((t) => t.key));
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(m.stages.map((s) => s.level)).toEqual(['beginner', 'intermediate', 'advanced']);
+    }
+  });
+  test('detail has resources and quiz flag; ticking is private and never changes readiness evidence', async () => {
+    const d = await request(app).get('/api/roadmaps/sql').set(bearer('rs'));
+    expect(d.status).toBe(200);
+    expect(d.body.hasQuiz).toBe(true);
+    expect(d.body.resources.length).toBeGreaterThan(0);
+    const first = d.body.stages[0].topics[0].key;
+    expect(d.body.startHere).toBe(first);
+    expect((await request(app).put(`/api/roadmaps/sql/topics/${first}`).set(bearer('rs')).send({ done: true })).status).toBe(200);
+    const after = await request(app).get('/api/roadmaps/sql').set(bearer('rs'));
+    expect(after.body.doneCount).toBe(1); expect(after.body.startHere).not.toBe(first); expect(after.body.stages[0].topics[0].done).toBe(true);
+    expect((await request(app).get('/api/roadmaps/sql').set(bearer('rs2'))).body.doneCount).toBe(0); // other students do not see it
+    expect(await models.SkillEvidence.countDocuments({ skillKey: 'sql' })).toBe(0); // studying is not evidence
+    expect((await request(app).put(`/api/roadmaps/sql/topics/${first}`).set(bearer('rs')).send({ done: false })).status).toBe(200);
+    expect((await request(app).get('/api/roadmaps/sql').set(bearer('rs'))).body.doneCount).toBe(0);
+    expect((await request(app).put('/api/roadmaps/sql/topics/not-a-topic').set(bearer('rs')).send({ done: true })).status).toBe(404);
+    expect((await request(app).put(`/api/roadmaps/sql/topics/${first}`).set(bearer('rm')).send({ done: true })).status).toBe(403);
+    expect((await request(app).get('/api/roadmaps/nope').set(bearer('rs'))).status).toBe(404);
   });
 });

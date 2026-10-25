@@ -45,6 +45,8 @@ const resourceSchema = new Schema(
     status: { type: String, enum: ['approved', 'hidden'], default: 'approved' },
     addedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     reportCount: { type: Number, default: 0 },
+    lastLinkCheckedAt: Date,
+    linkStatus: { type: String, enum: ['ok', 'broken', 'blocked'] },
   },
   { timestamps: true }
 );
@@ -57,12 +59,25 @@ const resourceProgressSchema = new Schema(
 );
 resourceProgressSchema.index({ studentId: 1, resourceId: 1 }, { unique: true });
 
+// A study roadmap for one skill. Topics are goals only; links come from the approved resources of the same skill.
+const roadmapSchema = new Schema({
+  skillKey: { type: String, required: true, unique: true },
+  summaryEn: String, summaryBn: String,
+  stages: [{ level: { type: String, enum: ['beginner', 'intermediate', 'advanced'] }, titleEn: String, titleBn: String,
+    topics: [{ key: String, titleEn: String, titleBn: String, hours: Number }] }],
+});
+// A student ticks a topic as studied. Private to the student. It never changes a skill level by itself (levels come from evidence).
+const roadmapProgressSchema = new Schema({ studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true }, skillKey: { type: String, required: true }, topicKey: { type: String, required: true } }, { timestamps: true });
+roadmapProgressSchema.index({ studentId: 1, skillKey: 1, topicKey: 1 }, { unique: true });
+
 const quizSchema = new Schema({
   skillKey: { type: String, required: true, unique: true },
   questions: [{ q: String, options: [String], answer: Number }], // `answer` is NEVER sent to the client
 });
 module.exports = {
   Quiz: mongoose.model('Quiz', quizSchema),
+  Roadmap: mongoose.model('Roadmap', roadmapSchema),
+  RoadmapProgress: mongoose.model('RoadmapProgress', roadmapProgressSchema),
   Resource: mongoose.model('Resource', resourceSchema),
   ResourceProgress: mongoose.model('ResourceProgress', resourceProgressSchema),
   Skill: mongoose.model('Skill', skillSchema),
