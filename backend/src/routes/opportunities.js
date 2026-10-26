@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { Opportunity, Application, Report, CvVersion, SkillEvidence, User, STAGES } = require('../models');
+const { Opportunity, Application, Report, CvVersion, SkillEvidence, Skill, User, STAGES } = require('../models');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
@@ -74,17 +74,39 @@ module.exports = function opportunityRoutes(auth) {
     description: o.description, applicationDeadline: o.applicationDeadline, requiredSkills: o.requiredSkills,
     labels: { source: o.sourceLabel, organizationVerified: !!o.organizationId, listingReviewed: o.listingReviewed, noFeeDeclared: o.noFeeConfirmed }, fit,
   });
+  const fitOf = (o, have) => {
+    if (!o.requiredSkills.length) return undefined;
+    let n = 0, d = 0;
+    for (const s of o.requiredSkills) { d += s.weight; n += s.weight * Math.min(((have[s.skillKey] || {}).level || 0) / s.requiredLevel, 1); }
+    return d ? Math.round((100 * n) / d) : undefined;
+  };
   r.get('/opportunities', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
     const list = await Opportunity.find({ status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(100);
     let have = {};
     if (req.user.role === 'student') have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
-    const fit = (o) => {
-      if (req.user.role !== 'student' || !o.requiredSkills.length) return undefined;
-      let n = 0, d = 0;
-      for (const s of o.requiredSkills) { d += s.weight; n += s.weight * Math.min(((have[s.skillKey] || {}).level || 0) / s.requiredLevel, 1); }
-      return d ? Math.round((100 * n) / d) : undefined;
-    };
-    res.json({ opportunities: list.map((o) => publicOpp(o, fit(o))) });
+    const posters = new Map((await User.find({ _id: { $in: list.map((o) => o.postedBy) } }).select('displayName').lean()).map((u) => [String(u._id), u.displayName]));
+    res.json({ opportunities: list.map((o) => ({ ...publicOpp(o, req.user.role === 'student' ? fitOf(o, have) : undefined), postedByName: posters.get(String(o.postedBy)) || '' })) });
+  });
+  // Job detail: the fit percentage and a skill-by-skill breakdown (design: "Your fit before applying").
+  r.get('/opportunities/:id', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
+    toObjectId(req.params.id);
+    const o = await Opportunity.findOne({ _id: req.params.id, status: 'approved' });
+    if (!o) throw notFound('This opportunity is not available.');
+    const poster = await User.findById(o.postedBy).select('displayName').lean();
+    let fit, breakdown = [], projectedFit = null;
+    if (req.user.role === 'student') {
+      const have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
+      fit = fitOf(o, have);
+      const names = new Map((await Skill.find({ key: { $in: o.requiredSkills.map((s) => s.skillKey) } }).lean()).map((s) => [s.key, s]));
+      breakdown = o.requiredSkills.map((s) => {
+        const lvl = (have[s.skillKey] || {}).level || 0;
+        const nm = names.get(s.skillKey) || {};
+        return { skillKey: s.skillKey, nameEn: nm.nameEn || s.skillKey, nameBn: nm.nameBn || s.skillKey, need: s.requiredLevel, have: lvl, status: lvl >= s.requiredLevel ? 'met' : 'gap' };
+      });
+      const gapsOnly = breakdown.filter((b) => b.status === 'gap');
+      if (gapsOnly.length) projectedFit = 100; // fit if every listed gap were closed; shown with the gap list, not as a promise
+    }
+    res.json({ opportunity: { ...publicOpp(o, fit), postedByName: (poster || {}).displayName || '', closed: !!o.closed }, fit, breakdown, projectedFit });
   });
 
   // ---- applications ----
@@ -106,8 +128,8 @@ module.exports = function opportunityRoutes(auth) {
     res.status(201).json({ application: { id: app._id, stage: uiStage(app.stage) } });
   });
   r.get('/me/applications', ...student, async (req, res) => {
-    const apps = await Application.find({ studentId: req.user._id }).sort({ createdAt: -1 }).populate('opportunityId', 'title organization');
-    res.json({ applications: apps.map((a) => ({ id: a._id, opportunity: a.opportunityId, stage: uiStage(a.stage), backendStage: a.stage, withdrawn: a.stage === 'Withdrawn', statusMessage: a.statusMessage, outcomeFeedback: a.outcomeFeedback })) });
+    const apps = await Application.find({ studentId: req.user._id }).sort({ createdAt: -1 }).populate('opportunityId', 'title organization').populate('cvVersionId', 'version');
+    res.json({ applications: apps.map((a) => ({ id: a._id, opportunity: a.opportunityId, stage: uiStage(a.stage), backendStage: a.stage, withdrawn: a.stage === 'Withdrawn', statusMessage: a.statusMessage, outcomeFeedback: a.outcomeFeedback, appliedAt: a.createdAt, cvVersion: a.cvVersionId ? a.cvVersionId.version : null })) });
   });
   r.post('/applications/:id/withdraw', ...student, async (req, res) => {
     toObjectId(req.params.id);

@@ -38,7 +38,11 @@ module.exports = function coreRoutes(auth) {
       department: req.body.department,
       batchYear: req.body.batchYear,
       language: req.body.language || 'bn',
+      // The email domain matching the university is a hint for the department, not proof that the person owns the address.
+      emailDomainMatch: (uni.emailDomains || []).length > 0 && (uni.emailDomains || []).some((d) => String(req.firebase.email || '').toLowerCase().endsWith('@' + String(d).toLowerCase())),
     });
+    user.affiliationStatus = user.emailDomainMatch ? 'approved' : 'pending';
+    await user.save();
     await StudentProfile.create({ userId: user._id });
     res.status(201).json({ user: await me(user) });
   });
@@ -49,6 +53,10 @@ module.exports = function coreRoutes(auth) {
     showInDirectory: z.boolean().optional(),
     lowDataMode: z.boolean().optional(),
     language: z.enum(['bn', 'en']).optional(),
+    remindersOn: z.boolean().optional(),
+    quietHours: z.object({ from: z.number().int().min(0).max(23), to: z.number().int().min(0).max(23) }).strict().optional(),
+    shareProgressWithDept: z.boolean().optional(),
+    shareProgressWithMentors: z.boolean().optional(),
   }).strict();
   r.patch('/me/privacy', auth.authenticate, validate(privacySchema), async (req, res) => {
     Object.assign(req.user, req.body);
@@ -121,7 +129,9 @@ async function me(user) {
     id: user._id, email: user.email, displayName: user.displayName, role: user.role,
     department: user.department, batchYear: user.batchYear, language: user.language,
     verificationStatus: user.verificationStatus, showInDirectory: user.showInDirectory,
-    lowDataMode: user.lowDataMode, mentorApplication: user.mentorApplication,
+    lowDataMode: user.lowDataMode, mentorApplication: user.mentorApplication, departmentApplication: user.departmentApplication,
+    remindersOn: user.remindersOn, quietHours: user.quietHours, shareProgressWithDept: user.shareProgressWithDept, shareProgressWithMentors: user.shareProgressWithMentors,
+    emailDomainMatch: user.emailDomainMatch, affiliationStatus: user.affiliationStatus,
     university: uni ? publicUniversity(uni) : null,
   };
 }

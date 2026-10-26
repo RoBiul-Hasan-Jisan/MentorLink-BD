@@ -67,6 +67,8 @@ async function seedDemo({ auth }) {
     await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
+  await require('./demo_extras').seedExtras(); // workshop, Q&A, progress history, pending approvals
+  await require('./journeys').seedJourneys(); // Path Twin demo journeys
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }
 module.exports = { seedDemo, ACCOUNTS };

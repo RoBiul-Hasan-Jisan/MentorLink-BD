@@ -21,7 +21,10 @@ const mentorRequestSchema = new Schema(
     goalText: { type: String, required: true, maxlength: 400 },
     questions: { type: [String], validate: (v) => v.length >= 1 && v.length <= 3 },
     preferredSlots: [String],
-    status: { type: String, enum: ['pending', 'accepted', 'declined', 'expired'], default: 'pending' },
+    format: { type: String, enum: ['video', 'phone', 'in_person'], default: 'video' },
+    focusSkillKey: String, // the specific gap this request is about
+    focusKind: String,
+    status: { type: String, enum: ['pending', 'accepted', 'declined', 'expired', 'cancelled'], default: 'pending' },
     declineReason: { type: String, maxlength: 300 },
   },
   { timestamps: true }
@@ -37,6 +40,10 @@ const sessionSchema = new Schema(
     meetingLink: { type: String, maxlength: 300 },
     status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' },
     reminderSent: { type: Boolean, default: false },
+    durationMin: { type: Number, default: 45, min: 5, max: 240 },
+    rating: { stars: { type: Number, min: 1, max: 5 }, comment: { type: String, maxlength: 300 }, at: Date },
+    cancelledBy: ref('User'),
+    mentorNoShow: { type: Boolean, default: false },
     notes: { type: String, maxlength: 4000 },
     nextSteps: [{ text: String, taskId: ref('Task') }],
   },

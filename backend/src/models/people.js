@@ -30,6 +30,17 @@ const userSchema = new Schema(
       proof: { type: String, maxlength: 500 },
       submittedAt: Date,
     },
+    // Settings and consent (design: Profile screen)
+    remindersOn: { type: Boolean, default: true },
+    quietHours: { from: { type: Number, min: 0, max: 23, default: 22 }, to: { type: Number, min: 0, max: 23, default: 7 } },
+    shareProgressWithDept: { type: Boolean, default: false }, // counts only, never identity
+    shareProgressWithMentors: { type: Boolean, default: false },
+    shareOutcomesForResearch: { type: Boolean, default: false }, // anonymous, grouped results only (never individual rows)
+    emailDomainMatch: { type: Boolean, default: false }, // the sign-up email domain matches the chosen university (not proof of ownership)
+    affiliationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+    // A student asks to become department staff. Only an admin can approve (the server then sets the role).
+    departmentApplication: { status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' }, note: { type: String, maxlength: 300 }, submittedAt: Date },
+    deletedAt: Date,
     blockedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     deviceTokens: { type: [String], default: [] }, // FCM tokens. Never returned: every route maps explicit fields.
   },
@@ -63,6 +74,8 @@ const studentProfileSchema = new Schema(
     weeklyHours: { type: Number, default: 6, min: 0, max: 80 },
     languages: { type: [String], default: ['bn'] },
     requestedSlots: { type: [String], default: [] }, // e.g. "sun-20", "tue-21"
+    selectedTargets: { type: [String], default: [] }, // up to 5 chosen targets (several roadmaps at once)
+    dismissedMentors: [{ type: Schema.Types.ObjectId, ref: 'User' }], // "Not interested"
   },
   { timestamps: true }
 );
@@ -77,12 +90,15 @@ const mentorProfileSchema = new Schema(
     yearsExperience: { type: Number, default: 0, min: 0 },
     expertiseSkills: [{ skillKey: String, level: { type: Number, min: 1, max: 3 } }],
     languages: { type: [String], default: ['bn', 'en'] },
+    helpsWith: { type: [String], default: [] }, // kinds of help the mentor offers: technical_interview, portfolio_review, cv_review, roadmap_review, career_switch
     weeklyCapacity: { type: Number, default: 3, min: 0, max: 20 },
     availableSlots: { type: [String], default: [] },
     paused: { type: Boolean, default: false },
     acceptedRequests: { type: Number, default: 0 },
     sessionsCompleted: { type: Number, default: 0 },
     ratingAvg: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+    noShows: { type: Number, default: 0 }, // reported by students
     isRising: { type: Boolean, default: false },
   },
   { timestamps: true }

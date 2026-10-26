@@ -29,6 +29,7 @@ function makeAuth(verify) {
     await firebaseOnly(req, res, async () => {});
     const user = await User.findOne({ firebaseUid: req.firebase.uid });
     if (!user) throw forbidden('Finish your profile first.');
+    if (user.deletedAt) throw forbidden('This account was deleted.');
     req.user = user;
     next();
   }

@@ -82,8 +82,23 @@ const QUIZZES = {
     Q('A CV for a first job should mostly be...', ['Clear, one to two pages and relevant', 'Ten pages long', 'Handwritten notes', 'Only a photo'], 0),
   ],
 };
+
+// One topic label per question (same order as the questions). Used to show strong and weak areas after a quiz.
+const TOPICS = {
+  sql: ['Filtering', 'Joins', 'Aggregation', 'Aggregation', 'Querying', 'Changing data', 'Database design', 'Sorting'],
+  excel: ['Lookups', 'Cell references', 'Pivot tables', 'Conditional sums', 'Charts', 'Formulas', 'Formulas', 'Formatting rules'],
+  python: ['Data types', 'Lists', 'Functions', 'Operators', 'Libraries', 'Data types', 'Loops', 'Dictionaries'],
+  statistics: ['Averages', 'Averages', 'Hypothesis testing', 'Spread', 'Correlation', 'Averages', 'Sampling', 'Distributions'],
+  dashboard: ['Choosing charts', 'KPIs', 'Tools', 'Design', 'Interactivity', 'Choosing charts', 'Planning', 'Honest charts'],
+  git: ['Commits', 'Remotes', 'Basics', 'Branches', 'Remotes', 'Branches', 'Remotes', 'Conflicts'],
+  testing: ['Test design', 'Test types', 'Test design', 'Bug reports', 'Test types', 'Test types', 'Test design', 'Bug reports'],
+  communication: ['Interviews', 'Listening', 'Email', 'Interviews', 'Interviews', 'Interviews', 'Teamwork', 'CV'],
+};
 async function seedQuizzes() {
-  for (const [skillKey, questions] of Object.entries(QUIZZES)) await Quiz.updateOne({ skillKey }, { $set: { questions } }, { upsert: true });
+  for (const [skillKey, questions] of Object.entries(QUIZZES)) {
+    const t = TOPICS[skillKey] || [];
+    await Quiz.updateOne({ skillKey }, { $set: { questions: questions.map((q, i) => ({ ...q, topic: t[i] || 'General' })) } }, { upsert: true });
+  }
   return Object.keys(QUIZZES).length;
 }
-module.exports = { seedQuizzes };
+module.exports = { seedQuizzes, TOPICS };

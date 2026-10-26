@@ -15,13 +15,15 @@ function createApp({ verify } = {}) {
 
   app.use(helmet());
   app.use(cors({ origin: env.corsOrigins.length ? env.corsOrigins : true }));
+  // Verification uploads are base64 files (under 300 KB). Every other route keeps the small 100 KB limit.
+  app.use('/api/me/verification-doc', express.json({ limit: '450kb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(rateLimit({ windowMs: 60_000, limit: env.nodeEnv === 'test' ? 100000 : 300, standardHeaders: true, legacyHeaders: false }));
   app.use(privacyGuard);
 
   app.get('/health', (_q, r) => r.json({ ok: true }));
   app.use('/api', require('./routes/core')(auth));
-  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'admin']) {
+  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'admin', 'extras', 'journey', 'hub', 'community', 'loop']) {
     try { app.use('/api', require(`./routes/${name}`)(auth)); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
   }
   app.use((_q, _r) => { throw notFound('No such endpoint.'); });

@@ -11,17 +11,19 @@ module.exports = function adminRoutes(auth) {
   const admin = [auth.authenticate, requireRole('admin')];
 
   r.get('/admin/verification-queue', ...admin, async (_q, res) => {
-    const [users, mentorApps, opps] = await Promise.all([
+    const [users, mentorApps, opps, hidden] = await Promise.all([
       User.find({ verificationStatus: 'pending', role: { $in: ['student', 'mentor', 'department'] } }).select('displayName email role universityId department verificationProof').limit(100),
       User.find({ 'mentorApplication.status': 'pending' }).select('displayName email mentorApplication universityId'),
       Opportunity.find({ status: 'pending' }).limit(100),
+      Opportunity.find({ status: 'hidden' }).select('title organization suspiciousFlags status').limit(100), // auto-hidden after 3 reports: admin can restore or remove
     ]);
-    res.json({ users, mentorApplications: mentorApps, opportunities: opps });
+    res.json({ users, mentorApplications: mentorApps, opportunities: opps, hiddenOpportunities: hidden });
   });
   r.post('/admin/users/:id/verify', ...admin, validate(z.object({ decision: z.enum(['verified', 'rejected']) }).strict()), async (req, res) => {
     toObjectId(req.params.id);
     const u = await User.findByIdAndUpdate(req.params.id, { verificationStatus: req.body.decision }, { returnDocument: 'after' });
     if (!u) throw notFound();
+    if (req.body.decision === 'rejected') await require('../models').VerificationDoc.deleteMany({ userId: u._id }); // rejected proof is deleted
     await audit(req.user._id, `user_${req.body.decision}`, 'user', u._id);
     await notify(u._id, `Verification ${req.body.decision}`, '', 'verification');
     res.json({ ok: true });
@@ -37,6 +39,7 @@ module.exports = function adminRoutes(auth) {
       await MentorProfile.updateOne({ userId: u._id }, { $setOnInsert: { userId: u._id, roleTitle: u.mentorApplication.roleTitle, industry: u.mentorApplication.industry, yearsExperience: u.mentorApplication.yearsExperience, isRising: true } }, { upsert: true });
     }
     await u.save();
+    if (req.body.decision === 'rejected') await require('../models').VerificationDoc.deleteMany({ userId: u._id });
     await audit(req.user._id, `mentor_application_${req.body.decision}`, 'user', u._id);
     res.json({ ok: true, role: u.role });
   });

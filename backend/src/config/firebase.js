@@ -28,4 +28,9 @@ async function sendPush(tokens, title, body) {
   if (!tokens || !tokens.length || process.env.NODE_ENV === 'test') return;
   try { await sdk().messaging().sendEachForMulticast({ tokens, notification: { title, body } }); } catch (e) { console.warn('push failed:', e.message); }
 }
-module.exports = { verifyCredential, sendPush };
+// Best-effort: remove the Firebase sign-in when a user deletes their data.
+async function deleteFirebaseUser(uid) {
+  if (process.env.NODE_ENV === 'test') return;
+  try { await sdk().auth().deleteUser(uid); } catch (e) { console.warn('firebase delete failed:', e.message); }
+}
+module.exports = { verifyCredential, sendPush, deleteFirebaseUser };

@@ -8,6 +8,9 @@ const { validate } = require('../middleware/guards');
 const { bad, notFound, conflict } = require('../utils/httpError');
 const { computeReadiness } = require('../services/readiness');
 const { rankMentors, keywordBaseline } = require('../services/matching');
+const { TARGETS, analyse } = require('../data/targets');
+const { levelName } = require('../data/levels');
+const { recordSnapshot } = require('../services/progress');
 
 module.exports = function learningRoutes(auth) {
   const r = express.Router();
@@ -42,13 +45,14 @@ module.exports = function learningRoutes(auth) {
     const [evidence, skills] = await Promise.all([SkillEvidence.find({ studentId: user._id }), Skill.find()]);
     return { profile, role, result: computeReadiness({ role, evidence, skills, weeklyHours: profile.weeklyHours }) };
   }
-  r.get('/me/readiness', ...student, async (req, res) => { const x = await readinessFor(req.user); res.json({ ...x.result, roleTitleEn: x.role.titleEn, roleTitleBn: x.role.titleBn, weeklyHours: x.profile.weeklyHours }); });
+  r.get('/me/readiness', ...student, async (req, res) => { const x = await readinessFor(req.user); await recordSnapshot(req.user._id, x.result.roleKey, x.result.readiness); res.json({ ...x.result, roleTitleEn: x.role.titleEn, roleTitleBn: x.role.titleBn, weeklyHours: x.profile.weeklyHours }); });
 
   r.get('/matches', ...student, async (req, res) => {
     const { profile, role, result } = await readinessFor(req.user);
     const mentorUsers = await User.find({ role: 'mentor', verificationStatus: 'verified' });
     const profs = await MentorProfile.find({ userId: { $in: mentorUsers.map((u) => u._id) } });
-    const mentors = mentorUsers.map((u) => ({ user: u, profile: profs.find((p) => String(p.userId) === String(u._id)) })).filter((m) => m.profile);
+    const dismissed = new Set((profile.dismissedMentors || []).map(String));
+    const mentors = mentorUsers.map((u) => ({ user: u, profile: profs.find((p) => String(p.userId) === String(u._id)) })).filter((m) => m.profile && !dismissed.has(String(m.user._id)));
     const since = new Date(Date.now() - 14 * 864e5);
     const recent = await Match.find({ createdAt: { $gte: since } });
     const recentCounts = {};
@@ -81,7 +85,18 @@ module.exports = function learningRoutes(auth) {
     const pct = Math.round((100 * correct) / quiz.questions.length);
     const level = pct >= 90 ? 3 : pct >= 70 ? 2 : pct >= 40 ? 1 : 0;
     if (level > 0) await SkillEvidence.create({ studentId: req.user._id, skillKey: quiz.skillKey, type: 'quiz', level });
-    res.json({ correct, total: quiz.questions.length, percent: pct, levelAwarded: level });
+    // Strong and weak areas: per-topic results. A topic under 60% is "weak" and gets study advice.
+    const by = new Map();
+    quiz.questions.forEach((x, i) => { const t = x.topic || 'General'; const e = by.get(t) || { topic: t, correct: 0, total: 0 }; e.total += 1; if (x.answer === req.body.answers[i]) e.correct += 1; by.set(t, e); });
+    const topics = [...by.values()].map((e) => ({ ...e, percent: Math.round((100 * e.correct) / e.total) }));
+    const weak = topics.filter((e) => e.percent < 60).map((e) => e.topic);
+    const strong = topics.filter((e) => e.percent >= 80).map((e) => e.topic);
+    const lv = levelName(level);
+    const resources = weak.length ? (await Resource.find({ skillKey: quiz.skillKey, status: 'approved' }).sort({ language: 1, title: 1 }).limit(3)).map((x) => ({ id: x._id, title: x.title, url: x.url, language: x.language })) : [];
+    res.json({
+      correct, total: quiz.questions.length, percent: pct, levelAwarded: level, levelName: { en: lv.en, bn: lv.bn }, topics, weak, strong, resources,
+      next: level >= 3 && !weak.length ? 'done' : weak.length ? 'review_weak' : 'retake_later',
+    });
   });
 
   // ---- learning resource hub ----
@@ -158,6 +173,49 @@ module.exports = function learningRoutes(auth) {
     res.json({ ok: true, done: req.body.done });
   });
 
+  // ---- targets: pick a goal (e.g. Machine Learning), tick what you know, get a score and an ordered path ----
+  // Ticks are private self-reports stored under skillKey "target:<key>". A topic linked to a skill counts as VERIFIED
+  // when the student has quiz/project/endorsement evidence at that level. Self-ticks and verified topics both count toward the score,
+  // and the verified share is shown separately so nobody mistakes self-report for proof.
+  const findTarget = (k) => { const t = TARGETS.find((x) => x.key === String(k)); if (!t) throw notFound('Unknown target.'); return t; };
+  async function targetState(user, target) {
+    const [prog, ev, prof] = await Promise.all([
+      RoadmapProgress.find({ studentId: user._id, skillKey: `target:${target.key}` }).lean(),
+      SkillEvidence.find({ studentId: user._id, type: { $ne: 'self' } }).lean(),
+      StudentProfile.findOne({ userId: user._id }).lean(),
+    ]);
+    const evidence = {}; for (const e of ev) evidence[e.skillKey] = Math.max(evidence[e.skillKey] || 0, e.level);
+    return analyse(target, new Set(prog.map((p) => p.topicKey)), evidence, prof?.weeklyHours || 0);
+  }
+  r.get('/targets', ...student, async (req, res) => {
+    const out = [];
+    for (const t of TARGETS) { const a = await targetState(req.user, t); out.push({ kind: t.kind, key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, summaryEn: t.summaryEn, summaryBn: t.summaryBn, topicCount: t.topics.length, percent: a.percent, verifiedPercent: a.verifiedPercent, hoursLeft: a.hoursLeft, weeksLeft: a.weeksLeft }); }
+    res.json({ targets: out });
+  });
+  r.get('/targets/:key', ...student, async (req, res) => {
+    const t = findTarget(req.params.key);
+    const a = await targetState(req.user, t);
+    // Mentor advice for this target (order and notes only; it never changes the score).
+    const adv = await require('../models').MentorReview.find({ studentId: req.user._id, kind: 'advice', targetKey: t.key }).sort({ createdAt: -1 }).limit(30).lean();
+    const advUsers = new Map((await User.find({ _id: { $in: adv.map((x) => x.mentorId) } }).select('displayName').lean()).map((u) => [String(u._id), u.displayName]));
+    const advice = adv.map((x) => ({ topicKey: x.topicKey || null, action: x.action, note: x.note, mentor: require('../utils/helpers').firstNameInitial(advUsers.get(String(x.mentorId))), at: x.createdAt }));
+    const slim = (x) => ({ key: x.key, titleEn: x.titleEn, titleBn: x.titleBn, group: x.group, weight: x.w, hours: x.hours, status: x.status, needs: x.needs, missing: x.missing, skillKey: x.ev ? x.ev[0] : null });
+    res.json({
+      kind: t.kind, key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, summaryEn: t.summaryEn, summaryBn: t.summaryBn,
+      percent: a.percent, verifiedPercent: a.verifiedPercent, hoursLeft: a.hoursLeft, weeksLeft: a.weeksLeft, groups: a.groups,
+      advice, topics: a.topics.map(slim), path: a.path.map((x, i) => ({ ...slim(x), order: i + 1 })),
+      nextKey: a.path.find((x) => x.status === 'ready')?.key || null,
+      formula: 'Score = importance-weighted share of topics you know (core topics count 3, important 2, helpful 1). Self-ticked topics count, but only quiz/project/mentor evidence is shown as verified.',
+    });
+  });
+  r.put('/targets/:key/topics/:topicKey', ...student, validate(z.object({ known: z.boolean() }).strict()), async (req, res) => {
+    const t = findTarget(req.params.key);
+    if (!t.topics.some((x) => x.key === req.params.topicKey)) throw notFound();
+    const f = { studentId: req.user._id, skillKey: `target:${t.key}`, topicKey: req.params.topicKey };
+    if (req.body.known) await RoadmapProgress.updateOne(f, { $set: f }, { upsert: true }); else await RoadmapProgress.deleteOne(f);
+    res.json({ ok: true, known: req.body.known });
+  });
+
   // ---- mentor profile detail (public card + expertise; no contact details) ----
   r.get('/mentors/:id', ...student, async (req, res) => {
     toObjectId(req.params.id);
@@ -168,8 +226,9 @@ module.exports = function learningRoutes(auth) {
     const sk = new Map((await Skill.find({ key: { $in: p.expertiseSkills.map((e) => e.skillKey) } })).map((s) => [s.key, s]));
     res.json({ mentor: {
       id: u._id, name: u.displayName, department: u.department, batchYear: u.batchYear, roleTitle: p.roleTitle, industry: p.industry,
-      yearsExperience: p.yearsExperience, languages: p.languages, isRising: p.isRising, sessionsCompleted: p.sessionsCompleted,
-      openSlots: p.paused ? [] : p.availableSlots, paused: p.paused,
+      yearsExperience: p.yearsExperience, languages: p.languages, isRising: p.isRising, sessionsCompleted: p.sessionsCompleted, ratingAvg: p.ratingAvg, ratingCount: p.ratingCount, noShows: p.noShows,
+      openSlots: p.paused ? [] : p.availableSlots, paused: p.paused, ratingAvg: p.ratingAvg, ratingCount: p.ratingCount, noShows: p.noShows, weeklyCapacity: p.weeklyCapacity,
+      match: await Match.findOne({ studentId: req.user._id, mentorId: u._id }).select('score factorScores reasons -_id').lean(),
       expertise: p.expertiseSkills.map((e) => ({ skillKey: e.skillKey, level: e.level, nameEn: sk.get(e.skillKey)?.nameEn, nameBn: sk.get(e.skillKey)?.nameBn })),
     } });
   });

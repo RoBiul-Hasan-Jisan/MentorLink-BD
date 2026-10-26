@@ -1,6 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
-const { User, MentorProfile, MentorRequest, Session, Plan, Task, Message, Notification } = require('../models');
+const { User, MentorProfile, MentorRequest, Session, Plan, Task, Message, Notification, Match, StudentProfile, RoleTemplate, SkillEvidence, Skill } = require('../models');
+const { computeReadiness } = require('../services/readiness');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
@@ -20,6 +21,7 @@ module.exports = function mentoringRoutes(auth) {
     expertiseSkills: z.array(z.object({ skillKey: z.string(), level: z.number().int().min(1).max(3) })).max(15).optional(),
     languages: z.array(z.enum(['bn', 'en'])).optional(), weeklyCapacity: z.number().int().min(0).max(20).optional(),
     availableSlots: z.array(z.string().max(20)).max(14).optional(), paused: z.boolean().optional(),
+    helpsWith: z.array(z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch'])).max(5).optional(),
   }).strict(); // reliability counters cannot be set by the mentor
   r.get('/me/mentor-profile', ...mentor, async (req, res) => res.json({ profile: await MentorProfile.findOne({ userId: req.user._id }) }));
   r.put('/me/mentor-profile', ...mentor, validate(mpSchema), async (req, res) => {
@@ -29,7 +31,7 @@ module.exports = function mentoringRoutes(auth) {
   // ---- requests ----
   const reqSchema = z.object({
     mentorId: z.string(), goalText: z.string().trim().min(5).max(400),
-    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(),
+    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person']).optional(),
   }).strict();
   r.post('/requests', ...student, validate(reqSchema), async (req, res) => {
     toObjectId(req.body.mentorId, 'mentor id');
@@ -47,8 +49,34 @@ module.exports = function mentoringRoutes(auth) {
   });
   r.get('/requests', A, requireRole('student', 'mentor'), async (req, res) => {
     const key = req.user.role === 'student' ? 'studentId' : 'mentorId';
-    const list = await MentorRequest.find({ [key]: req.user._id }).sort({ createdAt: -1 });
-    res.json({ requests: list });
+    const otherKey = req.user.role === 'student' ? 'mentorId' : 'studentId';
+    const list = await MentorRequest.find({ [key]: req.user._id }).sort({ createdAt: -1 }).lean();
+    const users = await User.find({ _id: { $in: list.map((x) => x[otherKey]) } }).select('displayName department').lean();
+    const um = new Map(users.map((u) => [String(u._id), u]));
+    // A mentor sees the match score, readiness and the gaps they can help with, for students who sent them a request (design: request card).
+    const extra = new Map();
+    if (req.user.role === 'mentor' && list.length) {
+      const ids = list.map((x) => x.studentId);
+      const [matches, profiles, evidence, skills, mp] = await Promise.all([
+        Match.find({ mentorId: req.user._id, studentId: { $in: ids } }).lean(), StudentProfile.find({ userId: { $in: ids } }).lean(),
+        SkillEvidence.find({ studentId: { $in: ids } }).lean(), Skill.find().lean(), MentorProfile.findOne({ userId: req.user._id }).lean(),
+      ]);
+      const roles = new Map((await RoleTemplate.find().lean()).map((x) => [x.key, x]));
+      const strong = new Map(((mp && mp.expertiseSkills) || []).map((e) => [e.skillKey, e.level]));
+      for (const id of ids) {
+        const prof = profiles.find((x) => String(x.userId) === String(id));
+        const role = prof && roles.get(prof.careerGoalRoleKey);
+        const m = matches.find((x) => String(x.studentId) === String(id));
+        let readiness = null, gaps = [];
+        if (role) {
+          const r2 = computeReadiness({ role, evidence: evidence.filter((e) => String(e.studentId) === String(id)), skills, weeklyHours: prof.weeklyHours });
+          readiness = r2.readiness;
+          gaps = r2.gaps.slice(0, 3).map((g) => ({ skillKey: g.skillKey, nameEn: g.nameEn, nameBn: g.nameBn, canHelp: (strong.get(g.skillKey) || 0) >= 2 }));
+        }
+        extra.set(String(id), { matchScore: m ? m.score : null, readiness, gaps, goalRoleKey: prof ? prof.careerGoalRoleKey : null });
+      }
+    }
+    res.json({ requests: list.map((x) => ({ ...x, withName: (um.get(String(x[otherKey])) || {}).displayName || '', department: (um.get(String(x[otherKey])) || {}).department || '', ...(extra.get(String(x.studentId)) || {}) })) });
   });
   const decSchema = z.object({ decision: z.enum(['accept', 'decline']), reason: z.string().max(300).optional() }).strict();
   r.post('/requests/:id/decision', ...mentor, validate(decSchema), async (req, res) => {
@@ -91,14 +119,14 @@ module.exports = function mentoringRoutes(auth) {
     res.json({ sessions: list.map((x) => ({ ...x, withName: nameOf.get(String(x[other])) || '', withTitle: req.user.role === 'student' ? (titleOf.get(String(x.mentorId)) || '') : '' })) });
   });
   // Notes -> next steps -> tasks in the student's four-week plan.
-  const doneSchema = z.object({ notes: z.string().max(4000).optional(), nextSteps: z.array(z.object({ text: z.string().min(2).max(200), week: z.number().int().min(1).max(4).default(1) })).max(8).default([]) }).strict();
+  const doneSchema = z.object({ notes: z.string().max(4000).optional(), nextSteps: z.array(z.object({ text: z.string().min(2).max(200), week: z.number().int().min(1).max(4).default(1) })).max(8).default([]), durationMin: z.number().int().min(5).max(240).optional() }).strict();
   r.post('/sessions/:id/complete', ...mentor, validate(doneSchema), async (req, res) => {
     toObjectId(req.params.id);
     const s = await Session.findOne({ _id: req.params.id, mentorId: req.user._id });
     if (!s) throw notFound();
     if (s.status === 'completed') throw conflict('ALREADY_COMPLETED', 'Already completed.');
     const plan = (await Plan.findOne({ studentId: s.studentId })) || (await Plan.create({ studentId: s.studentId }));
-    s.status = 'completed'; s.notes = req.body.notes; s.nextSteps = [];
+    s.status = 'completed'; s.notes = req.body.notes; s.nextSteps = []; if (req.body.durationMin) s.durationMin = req.body.durationMin;
     for (const step of req.body.nextSteps) {
       const due = new Date(plan.startsOn.getTime() + step.week * 7 * 864e5);
       const t = await Task.create({ planId: plan._id, studentId: s.studentId, title: step.text, week: step.week, dueDate: due, sourceSessionId: s._id });
@@ -168,6 +196,10 @@ module.exports = function mentoringRoutes(auth) {
   });
   // ---- notifications, block ----
   r.get('/notifications', A, async (req, res) => res.json({ notifications: await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50) }));
+  r.post('/notifications/read-all', A, async (req, res) => {
+    await Notification.updateMany({ userId: req.user._id, read: { $ne: true } }, { read: true });
+    res.json({ ok: true });
+  });
   r.post('/notifications/:id/read', A, async (req, res) => {
     toObjectId(req.params.id);
     await Notification.updateOne({ _id: req.params.id, userId: req.user._id }, { read: true });

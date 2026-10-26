@@ -30,6 +30,8 @@ const skillEvidenceSchema = new Schema(
     level: { type: Number, min: 1, max: 3, required: true },
     url: { type: String, maxlength: 300 },
     endorsedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    reviewStatus: { type: String, enum: ['none', 'requested', 'endorsed', 'needs_work'], default: 'none' }, // project evidence reviewed by a mentor
+    reviewMentorId: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );
@@ -72,7 +74,7 @@ roadmapProgressSchema.index({ studentId: 1, skillKey: 1, topicKey: 1 }, { unique
 
 const quizSchema = new Schema({
   skillKey: { type: String, required: true, unique: true },
-  questions: [{ q: String, options: [String], answer: Number }], // `answer` is NEVER sent to the client
+  questions: [{ q: String, options: [String], answer: Number, topic: String }], // `answer` is NEVER sent to the client
 });
 module.exports = {
   Quiz: mongoose.model('Quiz', quizSchema),
