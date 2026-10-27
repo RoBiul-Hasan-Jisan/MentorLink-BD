@@ -69,6 +69,7 @@ async function seedDemo({ auth }) {
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
   await require('./demo_extras').seedExtras(); // workshop, Q&A, progress history, pending approvals
   await require('./journeys').seedJourneys(); // Path Twin demo journeys
+  await require('./demo_community').seedCommunity(); // Community feed: posts, comments, reactions, follows, two moderation examples
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }
 module.exports = { seedDemo, ACCOUNTS };
