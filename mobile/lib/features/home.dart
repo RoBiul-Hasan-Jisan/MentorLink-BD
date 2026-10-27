@@ -71,7 +71,7 @@ class StudentHome extends ConsumerWidget {
           AppCard(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(tr(context, 'This week', 'এই সপ্তাহ'), style: display(20, color: Brand.ink)),
-              GestureDetector(onTap: () => onTab(2), child: Text(tr(context, 'Open plan', 'পরিকল্পনা'), style: display(15, color: Brand.delta, w: FontWeight.w700))),
+              GestureDetector(onTap: () => context.push('/plan'), child: Text(tr(context, 'Open plan', 'পরিকল্পনা'), style: display(15, color: Brand.delta, w: FontWeight.w700))),
             ]),
             const SizedBox(height: 12),
             ProgressBar(tasks.isEmpty ? 0 : done / tasks.length),
@@ -81,7 +81,7 @@ class StudentHome extends ConsumerWidget {
               _TaskRow(task: t, onChanged: () => ref.invalidate(planProvider)),
           ])),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, margin: const EdgeInsets.only(right: 6), onTap: () => onTab(1), child: _mini(context, tr(context, 'Top mentor match', 'সেরা মেন্টর'), (matches?['matches'] as List?)?.isNotEmpty == true ? (matches!['matches'][0]['mentor']['name'] as String) : '—', (matches?['matches'] as List?)?.isNotEmpty == true ? tr(context, '${matches!['matches'][0]['score']}% match', '${matches['matches'][0]['score']}% মিল') : null, Tone.saffron))),
+            Expanded(child: AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, margin: const EdgeInsets.only(right: 6), onTap: () => onTab(2), child: _mini(context, tr(context, 'Top mentor match', 'সেরা মেন্টর'), (matches?['matches'] as List?)?.isNotEmpty == true ? (matches!['matches'][0]['mentor']['name'] as String) : '—', (matches?['matches'] as List?)?.isNotEmpty == true ? tr(context, '${matches!['matches'][0]['score']}% match', '${matches['matches'][0]['score']}% মিল') : null, Tone.saffron))),
             Expanded(child: AppCard(margin: const EdgeInsets.only(left: 6), onTap: () => onTab(3), child: _mini(context, tr(context, 'New vetted listing', 'নতুন যাচাইকৃত সুযোগ'), (opps?['opportunities'] as List?)?.isNotEmpty == true ? (opps!['opportunities'][0]['title'] as String) : '—', (opps?['opportunities'] as List?)?.isNotEmpty == true && opps!['opportunities'][0]['fit'] != null ? tr(context, '${opps['opportunities'][0]['fit']}% fit', '${opps['opportunities'][0]['fit']}% মিল') : null, Tone.green))),
           ]),
         ]))),
