@@ -261,3 +261,25 @@ Do these steps first. They are about keeping your keys safe, and they are a good
 - **Two moderation examples** for the admin: a post reported once (shows in the admin Reported list) and a post with 3 reporters that is already hidden (test Restore and Remove). Both are marked DEMO in their text.
 - Everything is invented demo content. Sign in as Robiul to see a populated feed, as Abrar to see mentor posts, and as Ayesha to test moderation.
 - Test added: `tests/demo_community.test.js` (data only, not run here: Jest could not be installed). The data was checked with a Node script (valid groups, text lengths, one reaction per person, all emails exist in the seed).
+
+## Update 29: Career Decision Lab (compare careers, what-if, next best step)
+One screen that joins pieces you already have: readiness, approved job postings, the topic prerequisite graph and mentor profiles. Open it from Profile > "Career Decision Lab" (`/decision-lab`).
+- **Compare**: your goal plus the two roles you are closest to (or pick up to 3). Glowing exploration graph: You -> roles (readiness %) -> top gap skills (level ring). Each role shows readiness, **proven readiness** (quiz / reviewed project / endorsement only), hours and weeks left.
+- **Why this order**: `Priority P = D x W x G`. D = share of relevant approved postings that ask for the skill (needs at least 3 postings, otherwise D = 1 and the screen says it is using the role requirements). W = skill importance in the role. G = (required level - current level) / required level. All three numbers are shown per skill.
+- **Prerequisites**: skill prerequisites are derived from the existing topic graph (`data/targets*.js`), for example Dashboards need SQL 1 and Excel 2. A blocked skill is never the "next step"; the screen says what to learn first.
+- **What-if**: tick skills, run the simulation. It shows the readiness change and the study hours it would cost, labelled SIMULATION. It writes nothing and never raises the proven score.
+- **Close the loop**: the next step opens the quiz (or roadmap/project), the roadmap, and gap-specific mentors (`/me/gaps/:skillKey/mentors`). After a quiz, coming back re-ranks the list.
+- API: `GET /me/decision-lab?roles=a,b,c`, `POST /me/decision-lab/simulate {roleKey, learn:[{skillKey, level}]}`. Code: `services/decisionlab.js` (pure functions), `routes/lab.js`, `features/decision_lab.dart`.
+- Limits (shown in the app): employer demand uses only the approved postings stored in MentorLink, not the whole market; readiness is preparedness under our model, not a chance of getting a job; weights and hours are planning estimates.
+- Tests: `tests/decisionlab.test.js` (13, logic) and `tests/lab_api.test.js` (5, API with an in-memory fake of the models, no MongoDB needed). Both pass. The Flutter screen has **not been compiled**: run `flutter analyze` in `mobile`.
+
+## Update 30: pilot study kit v2 (blinded A/B vs the keyword baseline)
+- `backend/study/export-sheet-ab.js` builds a blinded rating sheet for the students you name (consent first). Each student rates one shuffled pool made of MentorLink's top 5 and the keyword baseline's top 5, shown as neutral profile cards.
+- `backend/study/analyze-ab.js` reports rank-1 good rate, precision@3, mean rating, would-request rate and nDCG@5 for both methods, plus paired differences with 95% intervals and win / tie / loss counts.
+- Protocol: `backend/study/STUDY_PROTOCOL.md` ("Version 2"). Step-by-step guide with consent text and report template: the "Pilot Study Guide" document.
+- Tests: `tests/study_ab.test.js` (6 tests, pass; no database needed). The export script needs a real MongoDB and was only syntax-checked here, not run. The study itself has NOT been run, so there is still no accuracy result.
+
+## Update 31: demo data for testing the study
+- `backend/src/seed/demo_study.js`: 13 more demo mentors (23 verified with `seed:demo`), including a keyword decoy. `npm run study:dryrun` runs the whole study pipeline on invented students with no database. Its numbers are synthetic and must not be reported.
+- Demo-data fix: several demo mentors had a weekly capacity below their accepted count, so they could not take requests (and showed 0 open spots in the Decision Lab). Capacity is now set above the accepted count.
+- Tests: `tests/study_demo.test.js` (data checks, pooling, dry run). With the earlier new tests, 41 pass without a database.

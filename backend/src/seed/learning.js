@@ -51,4 +51,4 @@ async function seedLearning() {
   for (const r of ROLES) await RoleTemplate.updateOne({ key: r.key }, { $set: r }, { upsert: true });
   return { skills: ALL_SKILLS.length, roles: ROLES.length };
 }
-module.exports = { seedLearning };
+module.exports = { seedLearning, ROLES, SKILLS: S };

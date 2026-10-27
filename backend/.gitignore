@@ -3,3 +3,8 @@ node_modules
 serviceAccount.json
 study/codes.private.json
 study/ratings.csv
+
+study/ab-key.private.json
+study/ratings_blind.csv
+study/ratings_filled.csv
+study/demo-output/

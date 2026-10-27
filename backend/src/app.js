@@ -23,7 +23,7 @@ function createApp({ verify } = {}) {
 
   app.get('/health', (_q, r) => r.json({ ok: true }));
   app.use('/api', require('./routes/core')(auth));
-  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'admin', 'extras', 'journey', 'hub', 'community', 'loop']) {
+  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'admin', 'extras', 'journey', 'hub', 'community', 'loop', 'lab', 'career', 'analytics']) {
     try { app.use('/api', require(`./routes/${name}`)(auth)); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
   }
   app.use((_q, _r) => { throw notFound('No such endpoint.'); });
