@@ -254,3 +254,10 @@ Do these steps first. They are about keeping your keys safe, and they are a good
 - The demo cards (Student Robiul, Alumni mentor Abrar, Employer, Department staff Dayan, Administrator Ayesha) now show by default, like the web version, so you can test with one tap. You no longer need `--dart-define=DEMO=true`.
 - They only work after `DEMO_MODE=true npm run seed:demo` has created the demo users in your Firebase project and database.
 - **Before the pilot or any public build**, hide them: `flutter run --dart-define=DEMO=false` (or the same flag in `flutter build`). Demo accounts have known passwords.
+
+## Update 28: community demo data
+- `npm run seed:demo` now also fills the Community feed (`backend/src/seed/demo_community.js`, safe to run again; it adds only what is missing).
+- **12 posts** in different groups (General, Data Analysis, Backend Developer, Higher study, Machine Learning, BCS, Freelancing, Entrepreneurship), written by 20 of the demo students and mentors, with **comments and replies**, **reactions** (like / helpful / idea), one post with a real https link, and **follows** (people and groups), so "Following" and the group list are not empty.
+- **Two moderation examples** for the admin: a post reported once (shows in the admin Reported list) and a post with 3 reporters that is already hidden (test Restore and Remove). Both are marked DEMO in their text.
+- Everything is invented demo content. Sign in as Robiul to see a populated feed, as Abrar to see mentor posts, and as Ayesha to test moderation.
+- Test added: `tests/demo_community.test.js` (data only, not run here: Jest could not be installed). The data was checked with a Node script (valid groups, text lengths, one reaction per person, all emails exist in the seed).
