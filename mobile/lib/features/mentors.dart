@@ -8,7 +8,7 @@ import '../core/ui.dart';
 import 'widgets.dart';
 
 // Shared with the mentor profile screen.
-Future<void> sendMentorRequest(BuildContext c, WidgetRef r, String mentorId) => const MentorMatches()._request(c, r, mentorId);
+Future<void> sendMentorRequest(BuildContext c, WidgetRef r, String mentorId) async { c.push('/request/$mentorId'); }
 
 const _w = {'career': .30, 'gap': .25, 'experience': .15, 'language': .10, 'schedule': .10, 'reliability': .10};
 
@@ -62,7 +62,7 @@ class MentorMatches extends ConsumerWidget {
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 6, children: [Pill(tr(context, 'Alumni verified', 'অ্যালামনাই যাচাইকৃত')), if (mentor['isRising'] == true) Pill(tr(context, 'Rising mentor', 'উদীয়মান মেন্টর'), tone: Tone.saffron)]),
       const SizedBox(height: 12),
-      BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => _request(context, ref, mentor['id'])),
+      BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/${mentor['id']}')),
       Center(child: TextButton(onPressed: () => context.push('/mentor/${mentor['id']}'), child: Text(tr(context, 'View full profile', 'পূর্ণ প্রোফাইল দেখুন')))),
     ]));
   }

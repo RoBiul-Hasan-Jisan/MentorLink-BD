@@ -107,16 +107,29 @@ class CompleteProfileScreen extends ConsumerStatefulWidget {
 class _Complete extends ConsumerState<CompleteProfileScreen> {
   final name = TextEditingController(), dept = TextEditingController();
   String? uni;
+  String want = 'student'; // student | alumni | department. Only a REQUEST: an admin approves any role other than student.
+  final jobTitle = TextEditingController(), industry = TextEditingController(), years = TextEditingController(text: '2');
   bool busy = false;
   Future<void> save() async {
     if (uni == null || name.text.trim().length < 2) { toast(context, tr(context, 'Enter your name and choose your university', 'নাম লিখুন ও বিশ্ববিদ্যালয় বেছে নিন')); return; }
     setState(() => busy = true);
     try {
       await ref.read(dioProvider).post('/auth/register-profile', data: {'displayName': name.text.trim(), 'universityId': uni, if (dept.text.trim().isNotEmpty) 'department': dept.text.trim(), 'language': ref.read(localeProvider)});
+      try {
+        if (want == 'alumni' && jobTitle.text.trim().length >= 2 && industry.text.trim().length >= 2) {
+          await ref.read(dioProvider).post('/me/mentor-application', data: {'roleTitle': jobTitle.text.trim(), 'industry': industry.text.trim(), 'yearsExperience': double.tryParse(years.text) ?? 0});
+        } else if (want == 'department') {
+          await ref.read(dioProvider).post('/me/department-application', data: {});
+        }
+      } catch (_) {} // the account exists as a student; the application can be sent again from Profile
       ref.invalidate(meProvider);
     } catch (e) { if (mounted) toast(context, errorText(e)); }
     finally { if (mounted) setState(() => busy = false); }
   }
+  Widget _roleCard(String k, IconData icon, String en, String bn) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 6), child: InkWell(
+        borderRadius: BorderRadius.circular(14), onTap: () => setState(() => want = k),
+        child: Container(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6), decoration: BoxDecoration(color: want == k ? Brand.lightGreen : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: want == k ? Brand.delta : const Color(0xFFD8E2DB), width: 2)),
+          child: Column(children: [Icon(icon, color: Brand.forest), const SizedBox(height: 4), Text(tr(context, en, bn), textAlign: TextAlign.center, style: body(13, w: FontWeight.w700))])))));
   @override
   Widget build(BuildContext context) {
     final unis = ref.watch(universitiesProvider);
@@ -131,6 +144,23 @@ class _Complete extends ConsumerState<CompleteProfileScreen> {
       )),
       const SizedBox(height: 12),
       TextField(controller: dept, decoration: InputDecoration(labelText: tr(context, 'Department', 'বিভাগ'))),
+      const SizedBox(height: 16),
+      Text(tr(context, 'I am joining as', 'আমি যোগ দিচ্ছি'), style: body(15, color: Brand.muted)),
+      const SizedBox(height: 6),
+      Row(children: [
+        _roleCard('student', Icons.school_outlined, 'Student', 'শিক্ষার্থী'),
+        _roleCard('alumni', Icons.workspace_premium_outlined, 'Alumni mentor', 'অ্যালামনাই মেন্টর'),
+        _roleCard('department', Icons.apartment_outlined, 'Department', 'বিভাগ'),
+      ]),
+      if (want != 'student') Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr(context, 'You start as a student. An admin reviews your request before the role is given.', 'আপনি শিক্ষার্থী হিসেবে শুরু করবেন। রোল দেওয়ার আগে অ্যাডমিন যাচাই করবেন।'), style: body(13, color: Brand.muted))),
+      if (want == 'alumni') ...[
+        const SizedBox(height: 8),
+        TextField(controller: jobTitle, decoration: InputDecoration(labelText: tr(context, 'Job title', 'পদবি'))),
+        const SizedBox(height: 8),
+        TextField(controller: industry, decoration: InputDecoration(labelText: tr(context, 'Industry', 'শিল্প'))),
+        const SizedBox(height: 8),
+        TextField(controller: years, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr(context, 'Years of experience', 'অভিজ্ঞতার বছর'))),
+      ],
       const SizedBox(height: 20),
       BigButton(tr(context, 'Finish', 'শেষ করুন'), onPressed: busy ? null : save),
     ]);

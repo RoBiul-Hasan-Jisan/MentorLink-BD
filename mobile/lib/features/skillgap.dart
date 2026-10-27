@@ -56,7 +56,7 @@ class SkillGapScreen extends ConsumerWidget {
                 Text(tr(context, 'Confidence ${d['confidence']}% (more proof raises it)', 'আস্থা ${d['confidence']}% (প্রমাণ দিলে বাড়ে)'), style: body(14, color: Brand.muted)),
               ])),
               _resources(context, ref, gaps),
-              if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.pop()),
+              if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.push('/gap/${gaps.first['skillKey']}/mentors')),
             ]))),
           ]);
         }),

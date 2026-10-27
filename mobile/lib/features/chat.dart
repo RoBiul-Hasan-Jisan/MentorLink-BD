@@ -20,6 +20,7 @@ class _Chat extends ConsumerState<ChatScreen> {
   final msgs = <Map<String, dynamic>>[];
   io.Socket? socket;
   String? error;
+  String? unsent; // a message that failed to send; shown with a Retry button
 
   @override
   void initState() { super.initState(); _load(); }
@@ -34,10 +35,10 @@ class _Chat extends ConsumerState<ChatScreen> {
     } catch (e) { if (mounted) setState(() => error = errorText(e)); }
   }
   Future<void> _send() async {
-    final v = text.text.trim(); if (v.isEmpty) return;
+    final v = (unsent ?? text.text).trim(); if (v.isEmpty) return;
     text.clear();
-    try { await ref.read(dioProvider).post('/requests/${widget.requestId}/messages', data: {'text': v}); }
-    catch (e) { if (mounted) toast(context, errorText(e)); }
+    try { await ref.read(dioProvider).post('/requests/${widget.requestId}/messages', data: {'text': v}); if (mounted) setState(() => unsent = null); }
+    catch (e) { if (mounted) { setState(() => unsent = v); toast(context, errorText(e)); } }
   }
   @override
   void dispose() { socket?.dispose(); super.dispose(); }
@@ -49,6 +50,11 @@ class _Chat extends ConsumerState<ChatScreen> {
       Expanded(child: error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(error!, textAlign: TextAlign.center, style: body(16)))) : ListView(padding: const EdgeInsets.all(14), children: [for (final m in msgs) Align(
         alignment: m['senderId'] == myId ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(constraints: const BoxConstraints(maxWidth: 300), margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: m['senderId'] == myId ? Brand.delta : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8E3))), child: Text(m['text'], style: body(16, color: m['senderId'] == myId ? Colors.white : Brand.ink))))])),
+      if (unsent != null) Container(width: double.infinity, color: const Color(0xFFFDEDEA), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [
+        Expanded(child: Text(tr(context, 'Not sent. Check your connection.', 'পাঠানো হয়নি। ইন্টারনেট দেখুন।'), style: body(14, color: const Color(0xFF9B2C1F)))),
+        TextButton(onPressed: _send, child: Text(tr(context, 'Retry', 'আবার চেষ্টা'))),
+      ])),
+      Container(width: double.infinity, color: Brand.lightSaffron, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), child: Text(tr(context, 'Never pay anyone or share passwords or OTP codes here.', 'এখানে কাউকে টাকা দেবেন না বা পাসওয়ার্ড/ওটিপি দেবেন না।'), style: body(12, color: const Color(0xFF5A3600)))),
       SafeArea(top: false, child: Padding(padding: const EdgeInsets.all(10), child: Row(children: [
         Expanded(child: TextField(controller: text, onSubmitted: (_) => _send(), decoration: InputDecoration(hintText: tr(context, 'Write a message', 'বার্তা লিখুন'), contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14), border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none)))),
         const SizedBox(width: 8),

@@ -13,7 +13,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'home.dart';
 import 'jobs.dart';
+import 'dept.dart';
 import 'mentor.dart';
+import 'mentor_more.dart';
 import 'mentors.dart';
 import 'plan.dart';
 import 'widgets.dart';
@@ -67,7 +69,12 @@ class _ShellState extends ConsumerState<Shell> {
           profile,
         ];
       case 'mentor':
-        return [(Icons.inbox_outlined, tr(context, 'Requests', 'অনুরোধ'), const MentorRequests()), profile];
+        return [
+          (Icons.inbox_outlined, tr(context, 'Requests', 'অনুরোধ'), const MentorRequests()),
+          (Icons.work_outline, tr(context, 'Opportunities', 'সুযোগ'), const MentorOpportunities()),
+          (Icons.insights_outlined, tr(context, 'Impact', 'প্রভাব'), const MentorImpactScreen()),
+          profile,
+        ];
       case 'admin':
         return [
           (Icons.verified_outlined, tr(context, 'Queue', 'তালিকা'), const AdminQueue()),
@@ -77,7 +84,12 @@ class _ShellState extends ConsumerState<Shell> {
           profile,
         ];
       case 'department':
-        return [(Icons.insights_outlined, tr(context, 'Overview', 'সারসংক্ষেপ'), const DeptOverview()), profile];
+        return [
+          (Icons.insights_outlined, tr(context, 'Overview', 'সারসংক্ষেপ'), const DeptHome()),
+          (Icons.how_to_reg_outlined, tr(context, 'Approvals', 'অনুমোদন'), const DeptApprovals()),
+          (Icons.event_outlined, tr(context, 'Workshops', 'ওয়ার্কশপ'), const DeptWorkshops()),
+          profile,
+        ];
       case 'employer':
         return [(Icons.business_center_outlined, tr(context, 'Jobs', 'চাকরি'), const EmployerHome()), profile];
       default:
@@ -105,6 +117,10 @@ class ProfileScreen extends ConsumerWidget {
       Padding(padding: const EdgeInsets.all(16), child: Column(children: [
         if (u['role'] != 'employer') AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.map_outlined, color: Brand.delta), title: Text(tr(context, 'University map & directory', 'বিশ্ববিদ্যালয় মানচিত্র ও ডিরেক্টরি'), style: body(17, w: FontWeight.w700)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/university-map'))),
         AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
+          for (final e in _entries(context, u['role'] as String?))
+            ListTile(leading: Icon(e.$1, color: Brand.delta), title: Text(e.$2, style: body(16, w: FontWeight.w600)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push(e.$3)),
+        ])),
+        AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
           SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'showInDirectory': v}); ref.invalidate(meProvider); }),
           ListTile(leading: const Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
         ])),
@@ -115,6 +131,37 @@ class ProfileScreen extends ConsumerWidget {
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
       ])),
     ]);
+  }
+
+  List<(IconData, String, String)> _entries(BuildContext context, String? role) {
+    if (role == 'student') {
+      return [
+        (Icons.alt_route, tr(context, 'My paths', 'আমার পথ'), '/my-paths'),
+        (Icons.people_alt_outlined, tr(context, 'Path Twin: who was where I am', 'পাথ টুইন: আমার মতো কারা ছিলেন'), '/path-twins'),
+        (Icons.fact_check_outlined, tr(context, 'What employers ask for (gap check)', 'নিয়োগদাতারা কী চান (ঘাটতি যাচাই)'), '/job-gaps'),
+        (Icons.timeline, tr(context, 'Career outcome tracker', 'ক্যারিয়ার ফলাফল ট্র্যাকার'), '/outcome-tracker'),
+        (Icons.rate_review_outlined, tr(context, 'Mentor feedback on my work', 'আমার কাজে মেন্টরের ফিডব্যাক'), '/my-reviews'),
+        (Icons.insights_outlined, tr(context, 'My progress & badges', 'আমার অগ্রগতি ও ব্যাজ'), '/progress'),
+        (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
+        (Icons.mic_none, tr(context, 'Mock interviews', 'মক ইন্টারভিউ'), '/mock-interviews'),
+        (Icons.menu_book_outlined, tr(context, 'Free resources', 'বিনামূল্যে রিসোর্স'), '/resources'),
+        (Icons.groups_outlined, tr(context, 'Community feed', 'কমিউনিটি ফিড'), '/feed'),
+        (Icons.forum_outlined, tr(context, 'Pathways & Q&A', 'পথ ও প্রশ্নোত্তর'), '/pathways'),
+        (Icons.tune, tr(context, 'How matching works', 'ম্যাচিং কীভাবে কাজ করে'), '/how-matching'),
+        (Icons.flag_outlined, tr(context, 'Change career goal', 'ক্যারিয়ার লক্ষ্য বদলান'), '/goal'),
+        (Icons.verified_user_outlined, tr(context, 'Verify account', 'অ্যাকাউন্ট যাচাই'), '/verify'),
+        (Icons.privacy_tip_outlined, tr(context, 'Privacy & data', 'গোপনীয়তা ও ডেটা'), '/privacy'),
+      ];
+    }
+    return [
+      if (role == 'mentor') (Icons.fact_check_outlined, tr(context, 'Review mentees’ work', 'মেন্টিদের কাজ রিভিউ'), '/mentor/reviews'),
+      if (role == 'admin') (Icons.query_stats, tr(context, 'Does mentoring help? (impact)', 'মেন্টরিং কি কাজে লাগছে?'), '/admin-impact'),
+      if (role == 'mentor') (Icons.edit_note, tr(context, 'Mentor setup', 'মেন্টর সেটআপ'), '/mentor/setup'),
+      if (role == 'mentor') (Icons.timeline, tr(context, 'My journey (Path Twin)', 'আমার যাত্রা (পাথ টুইন)'), '/mentor/journey'),
+      if (role == 'admin') (Icons.admin_panel_settings_outlined, tr(context, 'Roles', 'রোল'), '/roles'),
+      if (role == 'mentor' || role == 'department' || role == 'admin') (Icons.groups_outlined, tr(context, 'Community feed', 'কমিউনিটি ফিড'), '/feed'),
+      (Icons.privacy_tip_outlined, tr(context, 'Privacy & data', 'গোপনীয়তা ও ডেটা'), '/privacy'),
+    ];
   }
 
   Future<void> _apply(BuildContext context, WidgetRef ref) async {
