@@ -172,7 +172,7 @@ class OutcomeTrackerScreen extends ConsumerWidget {
                     return;
                   }
                 } catch (_) {}
-                if (context.mounted) context.push('/my-projects');
+                if (context.mounted) context.push('/portfolio');
               }),
               const SizedBox(height: 8),
               Text('${d['note'] ?? ''}', textAlign: TextAlign.center, style: body(12, color: Brand.muted)),

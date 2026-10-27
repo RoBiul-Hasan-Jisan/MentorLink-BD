@@ -23,15 +23,19 @@ class _Cv extends ConsumerState<CvScreen> {
 
   List<String> _split(String t) => t.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
+  // Old or hand-made CV data may hold a plain string where a list is expected. Treat anything that is not a list of maps as empty.
+  List _list(dynamic v) => v is List ? v : const [];
+  Map _first(dynamic v) { final l = _list(v); return l.isNotEmpty && l.first is Map ? l.first as Map : const {}; }
+
   void _prefill(Map? d) {
     if (loaded || d == null) return;
     loaded = true;
     summary.text = (d['summary'] ?? '').toString();
-    skills.text = ((d['skills'] ?? []) as List).join(', ');
-    languages.text = ((d['languages'] ?? []) as List).join(', ');
-    final e = ((d['education'] ?? []) as List); if (e.isNotEmpty) { eduInst.text = '${e[0]['institution'] ?? ''}'; eduDeg.text = '${e[0]['degree'] ?? ''}'; eduYear.text = '${e[0]['year'] ?? ''}'; }
-    final p = ((d['projects'] ?? []) as List); if (p.isNotEmpty) { projTitle.text = '${p[0]['title'] ?? ''}'; projDesc.text = '${p[0]['description'] ?? ''}'; projUrl.text = '${p[0]['url'] ?? ''}'; }
-    final x = ((d['experience'] ?? []) as List); if (x.isNotEmpty) { expRole.text = '${x[0]['role'] ?? ''}'; expOrg.text = '${x[0]['organization'] ?? ''}'; expDetails.text = '${x[0]['details'] ?? ''}'; }
+    skills.text = _list(d['skills']).join(', ');
+    languages.text = _list(d['languages']).join(', ');
+    final e = _first(d['education']); if (e.isNotEmpty) { eduInst.text = '${e['institution'] ?? ''}'; eduDeg.text = '${e['degree'] ?? ''}'; eduYear.text = '${e['year'] ?? ''}'; }
+    final p = _first(d['projects']); if (p.isNotEmpty) { projTitle.text = '${p['title'] ?? ''}'; projDesc.text = '${p['description'] ?? ''}'; projUrl.text = '${p['url'] ?? ''}'; }
+    final x = _first(d['experience']); if (x.isNotEmpty) { expRole.text = '${x['role'] ?? ''}'; expOrg.text = '${x['organization'] ?? ''}'; expDetails.text = '${x['details'] ?? ''}'; }
   }
 
   Future<void> _save() async {
