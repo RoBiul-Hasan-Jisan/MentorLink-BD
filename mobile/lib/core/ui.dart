@@ -29,6 +29,20 @@ class _DiamondPainter extends CustomPainter {
   bool shouldRepaint(_) => false;
 }
 
+/// Flat forest-green panel with the diamond pattern (used beside the sign-in form on wide screens).
+class DiamondPanel extends StatelessWidget {
+  const DiamondPanel({super.key, required this.child, this.padding = const EdgeInsets.all(40)});
+  final Widget child; final EdgeInsets padding;
+  @override
+  Widget build(BuildContext context) => Container(
+        color: Brand.forest,
+        child: Stack(children: [
+          Positioned.fill(child: CustomPaint(painter: _DiamondPainter())),
+          Padding(padding: padding, child: child),
+        ]),
+      );
+}
+
 class GreenHeader extends StatelessWidget {
   const GreenHeader({super.key, required this.child, this.bottomPad = 40, this.radius = 40});
   final Widget child; final double bottomPad, radius;
