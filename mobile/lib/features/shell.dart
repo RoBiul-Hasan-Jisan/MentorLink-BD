@@ -7,6 +7,7 @@ import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
 import 'admin.dart';
+import 'admin_more.dart';
 import 'employer.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -68,7 +69,13 @@ class _ShellState extends ConsumerState<Shell> {
       case 'mentor':
         return [(Icons.inbox_outlined, tr(context, 'Requests', 'অনুরোধ'), const MentorRequests()), profile];
       case 'admin':
-        return [(Icons.verified_outlined, tr(context, 'Queue', 'তালিকা'), const AdminQueue()), profile];
+        return [
+          (Icons.verified_outlined, tr(context, 'Queue', 'তালিকা'), const AdminQueue()),
+          (Icons.business_outlined, tr(context, 'Companies', 'কোম্পানি'), const AdminCompanies()),
+          (Icons.menu_book_outlined, tr(context, 'Resources', 'রিসোর্স'), const AdminResources()),
+          (Icons.fact_check_outlined, tr(context, 'Insights', 'তথ্য'), const AdminInsights()),
+          profile,
+        ];
       case 'department':
         return [(Icons.insights_outlined, tr(context, 'Overview', 'সারসংক্ষেপ'), const DeptOverview()), profile];
       case 'employer':

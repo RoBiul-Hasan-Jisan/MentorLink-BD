@@ -44,12 +44,13 @@ class SkillGapScreen extends ConsumerWidget {
                 ]),
                 const SizedBox(height: 12),
                 if (gaps.isEmpty) Text(tr(context, 'No gaps. You meet every requirement.', 'কোনো ঘাটতি নেই।'), style: body(16)),
-                for (int i = 0; i < gaps.length; i++) Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
+                for (int i = 0; i < gaps.length; i++) InkWell(onTap: () => context.push('/roadmap/${gaps[i]['skillKey']}'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
                   SizedBox(width: 96, child: Text(nm(context, gaps[i], 'nameEn', 'nameBn'), style: display(17, color: Brand.ink, w: FontWeight.w700))),
                   Expanded(child: ProgressBar(((gaps[i]['current'] as num) / (gaps[i]['required'] as num)).toDouble(), color: i < 2 ? const Color(0xFFB3382B) : Brand.saffron)),
                   const SizedBox(width: 10),
                   Pill(tr(context, 'Gap ${i + 1}', 'ঘাটতি ${i + 1}'), tone: i < 2 ? Tone.red : Tone.saffron),
-                ])),
+                ]))),
+                if (gaps.isNotEmpty) Text(tr(context, 'Tap a gap to open its learning roadmap.', 'ঘাটতিতে ট্যাপ করলে শেখার রোডম্যাপ খুলবে।'), style: body(13, color: Brand.muted)),
                 const SizedBox(height: 6),
                 if (met.isNotEmpty) Text(tr(context, 'Met: $met', 'পূরণ হয়েছে: $met'), style: body(15, color: Brand.muted)),
                 Text(tr(context, 'Confidence ${d['confidence']}% (more proof raises it)', 'আস্থা ${d['confidence']}% (প্রমাণ দিলে বাড়ে)'), style: body(14, color: Brand.muted)),

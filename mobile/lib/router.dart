@@ -10,6 +10,7 @@ import 'features/notifications.dart';
 import 'features/quiz.dart';
 import 'features/jobs.dart';
 import 'features/cv.dart';
+import 'features/roadmap.dart';
 import 'features/mentor_detail.dart';
 import 'features/skillgap.dart';
 import 'features/welcome.dart';
@@ -50,6 +51,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/problem', builder: (_, __) => const ProblemScreen()),
       GoRoute(path: '/cv', builder: (_, __) => const CvScreen()),
       GoRoute(path: '/review-cv/:studentId', builder: (_, s) => ReviewCvScreen(studentId: s.pathParameters['studentId']!)),
+      GoRoute(path: '/roadmaps', builder: (_, __) => const RoadmapsScreen()),
+      GoRoute(path: '/roadmap/:skillKey', builder: (_, s) => RoadmapScreen(skillKey: s.pathParameters['skillKey']!)),
       GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
       GoRoute(path: '/skill-gap', builder: (_, __) => const SkillGapScreen()),
       GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
