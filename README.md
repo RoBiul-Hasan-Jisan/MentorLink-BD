@@ -100,3 +100,70 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 - Resources can be Saved / In progress / Done / Cleared (`PUT|DELETE /api/resources/:id/progress`) and reported as broken (`POST /api/resources/:id/report`, one report per student, hidden at 3 reports). Progress never raises a skill level.
 - Backend tests: 42 passing. The new Flutter code has not been compiled here.
 - Still not built: full CV builder, link checker, scheduled reminders, Bangla seed resources, larger quiz bank, TypeScript admin panel.
+
+
+## Update 4 (corrections)
+- Quiz bank is now 8 questions for each of 8 skills (64 questions). Quizzes are still short practice checks, not formal assessments.
+- Scheduled reminders already exist: `services/reminders.js` runs every 15 minutes from `server.js` (sessions within 24 h, tasks due within 48 h, each reminded once). Earlier notes saying it was missing were wrong.
+- The seed already contains two Bangla resources (10 Minute School, Programming Hero). Admins can add more.
+- Backend tests: 43 passing.
+- Still not built: full CV builder, automatic link checker, TypeScript admin panel, a measured match-accuracy study.
+
+## Update 5
+- Fixed firebase-admin v14 (no more admin.apps / admin.auth()); sign-in verification, push and seed:demo use the modular API.
+- seed:demo needs backend/serviceAccount.json (Firebase Console > Project settings > Service accounts > Generate new private key). Keep it out of Git.
+
+## Update 6
+- seed now removes stale indexes left in an old database (fixes E11000 name_1 on skills).
+
+## Update 7
+- CV builder: structured, versioned CV (summary, skills, languages, education, project, experience). No phone/email/address stored. Screen: /cv (opened from Plan > CV builder). Backend tests: 44 passing.
+- Mentor CV review exists in the API (POST /api/cv/:id/review) but has no mobile screen yet.
+
+## Update 8
+- Link checker: admin panel > Resources > Check all links (POST /api/admin/resources/check-links). https only, private addresses refused, redirects not followed; broken links are flagged, never hidden automatically.
+- Mentor can open a mentee's CV (Requests > accepted > Review CV) and leave a comment.
+- Backend tests: 46 passing; admin panel builds.
+- Still not built: TypeScript admin panel, a measured match-accuracy study.
+
+## Update 9
+- Admin panel is now TypeScript (strict mode; `next build` passes).
+- Match accuracy study kit in backend/study: STUDY_PROTOCOL.md, export-sheet.js (anonymous rating sheet), analyze.js (mean rating with 95% interval, rank-1 good rate, precision@3, Spearman, would-request rate). The kit is built and tested; the study itself has not been run, so there is no accuracy result yet.
+- Backend tests: 48 passing.
+
+## Update 10
+- Campus pins for DU, BUET, NSU, BRAC University and CUET were checked against Wikipedia / latitude.to (BRAC was about 2 km off and is fixed). They are not checked on Google Maps: please confirm each pin once before the demo.
+
+## Update 11
+- Admin tools are now inside the mobile app. Sign in with the normal Sign in screen (admin@demo.mentorlink.bd): tabs Queue, Companies, Resources (check links, add, hide), Insights (audit log, fairness, campuses). The web admin panel is optional and uses the same API and the same Firebase accounts.
+
+## Update 12
+- More demo people (all invented, password `Demo@12345`), spread over 7 universities: 10 extra students and 8 extra mentors. `npm run seed:demo` now creates 25 demo accounts in total.
+
+| Extra student | University | Goal |
+|---|---|---|
+| student.du@ Nusrat Jahan | University of Dhaka | Data Analyst |
+| student.buet@ Tanvir Ahmed | BUET | Junior Developer |
+| student.nsu@ Farhana Akter | North South University | Banking Trainee |
+| student.bracu@ Rakib Hasan | BRAC University | QA Engineer |
+| student.cuet@ Sadia Islam | CUET | Junior Developer |
+| student2.edu@ Mahmudul Karim | East Delta University | Management Trainee |
+| student2.su@ Anika Tabassum | Southern University | Higher-Study |
+| student2.du@ Imran Hossain | University of Dhaka | Data Analyst |
+| student2.nsu@ Jannatul Ferdous | North South University | Data Analyst |
+| student2.bracu@ Shakib Rahman | BRAC University | Banking Trainee |
+
+| Extra mentor | University | Role |
+|---|---|---|
+| mentor.nsu@ Rahim Ahmed | North South University | Data Analyst |
+| mentor.du@ Samira Chowdhury | University of Dhaka | Senior Officer, Retail Banking |
+| mentor.buet@ Kamal Uddin | BUET | Software Engineer |
+| mentor.bracu@ Tasnim Rahman | BRAC University | QA Lead |
+| mentor.cuet@ Farid Hossain | CUET | Backend Engineer |
+| mentor.edu@ Lutfun Nahar | East Delta University | HR Manager (rising) |
+| mentor.su@ Zahid Hasan | Southern University | Data Scientist (rising) |
+| mentor2.du@ Mehnaz Sultana | University of Dhaka | Research Associate |
+
+(Every email ends with `@demo.mentorlink.bd`.)
+- Learning roadmaps for all 15 skills (3 stages: beginner, intermediate, advanced; 133 topics with estimated hours). Open from Plan > Roadmaps, or tap a gap on the Skill-gap screen. Students tick topics; ticking is private and never raises a skill level. Links come from the approved resources of the same skill, and "Take the quiz" appears where a quiz exists. Hours are rough planning estimates.
+- Backend tests: 50 passing.
