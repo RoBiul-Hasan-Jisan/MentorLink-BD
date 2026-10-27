@@ -214,3 +214,43 @@ Where each of the five ideas lives:
 - **D. Mentor-in-the-loop**: `routes/loop.js` (review queue, review pack, endorse capped at the mentor's own level, advise on roadmap order). App: Profile > "Review mentees' work" (mentor), "Mentor feedback on my work" (student).
 - **E. Career Outcome Tracker**: `GET /me/outcome-tracker`, consent-based `GET /admin/impact` (groups under 5 hidden, observational caveat). App: Profile > "Career outcome tracker"; admin: "Does mentoring help?".
 The loop screens (`features/loop.dart`) existed but were not connected to the router; they are now. 108 backend tests pass. Flutter still uncompiled by me.
+
+## Update 23: content merged in from the web version
+- **14 new skill assessments** (84 questions, each with a topic tag) ported from the web version: Power BI, Programming Fundamentals, Mathematics, Data Analysis with Python, Machine Learning, HTML & CSS, JavaScript, Networking, Cybersecurity, Cloud & DevOps, UI/UX, Digital Marketing, Graphic Design, App Development. Data: `backend/src/seed/quizzes_more.js`; loaded by `seedQuizzes()` and `seedLearning()` (which also adds the 14 Skill rows with Bangla names). The existing SQL, Excel, Python, Statistics, Dashboards, Git, Testing and Communication quizzes are unchanged (the old tests depend on them).
+- Tests added: `tests/quizzes_more.test.js` (data only) and `tests/quizzes_more_api.test.js` (needs MongoDB). **Neither was run here**: no MongoDB, and `npm install` timed out. The quiz data itself was checked with a Node script (valid answer index, topics present, no duplicate options or questions).
+- Not merged yet: the web version's richer roadmap resources, option shuffling per attempt, and extra Bangla phrases.
+- Secrets (`.env`, `serviceAccount.json`, `google-services.json`) are NOT in this folder. Copy your own back in.
+
+## Learning phase: before you run it
+Do these steps first. They are about keeping your keys safe, and they are a good habit for every project.
+
+1. **Secret files are not in this folder.** I left out `backend/.env`, `backend/serviceAccount.json`, `admin-panel/.env.local` and `mobile/android_config/google-services.json`. Copy your own files back into the same places. Never upload them to GitHub (check that `.gitignore` lists them).
+2. **Your earlier zips contained real keys.** If anyone else has seen them (a teammate, a chat, a public repository), create new ones:
+   - Firebase: Project settings > Service accounts > Generate new private key, then delete the old key.
+   - MongoDB Atlas: Database Access > edit the user > set a new password, then update `MONGODB_URI` in `.env`.
+3. **Keep real keys out of zips you share.** Send `.env.example` instead.
+4. Then run the app: `npm test`, then `DEMO_MODE=true npm run seed:demo`, then `npm start` (see Setup above).
+
+## Update 24: learning links merged in from the web version
+- **46 free learning links** ported from the web version's roadmaps (`backend/src/seed/resources_more.js`), for the 14 new skills plus Python, SQL and Git. `seedLearning()` loads them next to the old links, so they show up in Resources, quiz advice for weak topics and the roadmap screens by skill.
+- Left out on purpose: the web version's "Video search" YouTube links (they are searches, not real pages) and 12 links the backend already had. Run Admin > Resources > Check all links before the pilot.
+- Test added: `tests/resources_more.test.js` (data only, not run here: Jest could not be installed in my environment).
+- Still not merged: the web version's stage topics, exercises and projects for the 10 career paths (they have no Bangla text or hours yet, which the backend roadmap format needs), and the Bangla learning links (the web version has almost none).
+
+## Update 25: sign-in screen now matches the web version
+- `mobile/lib/features/auth.dart` (`SignInScreen`): "Welcome back" heading with the one-role note, labelled Email and Password fields, **Log in**, **Forgot password?** (Firebase reset email), "New here? Sign up", and demo cards you tap to sign in (Student Robiul, Alumni mentor Abrar, Employer, Department staff Dayan, Administrator Ayesha). Demo cards show only when built with `--dart-define=DEMO=true`.
+- On wide screens (Flutter web in Chrome, tablets, width over 860 px) the green diamond panel with "Two paths meet in the middle." shows on the left, as on the web. On a phone only the form shows. New helper `DiamondPanel` in `core/ui.dart`.
+- The Employer card is new (the web version has no employer role). Bangla text is included.
+- **Not compiled or run here** (no Flutter SDK): run `flutter analyze` in `mobile` and send me any error.
+
+## Update 26: sign-up screens match the web version too
+- New shared frame `AuthShell` in `mobile/lib/features/auth.dart` used by Sign in, Sign up and About you, so all three look like the web version (green art panel on wide screens, same heading, labelled fields, rounded choice cards).
+- **Sign up step 1:** "Create your account", university email with hint, password (8+ characters), the Code of Conduct and data-use checkbox (Continue stays off until ticked), "Already registered? Log in". A confirmation email is sent after the account is created.
+- **Sign up step 2 (About you):** "Who are you?" cards (Student, Alumni mentor, Department), full name, university, department, and the mentor fields when Alumni mentor is chosen. Same backend calls as before: the account is always a student, and the mentor or department role is a request for an admin to approve.
+- The web version puts everything on one page. The app keeps two steps because the router moves a signed-in user to step 2 as soon as the Firebase account exists.
+- Not compiled or run here (no Flutter SDK): run `flutter analyze` in `mobile`.
+
+## Update 27: demo accounts always visible on the sign-in screen
+- The demo cards (Student Robiul, Alumni mentor Abrar, Employer, Department staff Dayan, Administrator Ayesha) now show by default, like the web version, so you can test with one tap. You no longer need `--dart-define=DEMO=true`.
+- They only work after `DEMO_MODE=true npm run seed:demo` has created the demo users in your Firebase project and database.
+- **Before the pilot or any public build**, hide them: `flutter run --dart-define=DEMO=false` (or the same flag in `flutter build`). Demo accounts have known passwords.

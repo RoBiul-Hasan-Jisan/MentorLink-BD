@@ -43,8 +43,12 @@ async function seedLearning() {
   await require('./quizzes').seedQuizzes();
   await require('./roadmaps').seedRoadmaps();
   for (const [skillKey, title, url, kind, language] of RESOURCES) await Resource.updateOne({ url }, { $set: { skillKey, title, kind, language: language || 'en', free: true, status: 'approved' } }, { upsert: true });
-  for (const [key, nameEn, nameBn, learningHours] of S) await Skill.updateOne({ key }, { $set: { nameEn, nameBn, learningHours } }, { upsert: true });
+  // Extra free links ported from the web version (same upsert by url as above).
+  for (const [skillKey, title, url, kind, language] of require('./resources_more').MORE_RESOURCES) await Resource.updateOne({ url }, { $set: { skillKey, title, kind, language: language || 'en', free: true, status: 'approved' } }, { upsert: true });
+  // S = the original skills; MORE_SKILLS = extra assessment skills ported from the web version.
+  const ALL_SKILLS = [...S, ...require('./quizzes_more').MORE_SKILLS];
+  for (const [key, nameEn, nameBn, learningHours] of ALL_SKILLS) await Skill.updateOne({ key }, { $set: { nameEn, nameBn, learningHours } }, { upsert: true });
   for (const r of ROLES) await RoleTemplate.updateOne({ key: r.key }, { $set: r }, { upsert: true });
-  return { skills: S.length, roles: ROLES.length };
+  return { skills: ALL_SKILLS.length, roles: ROLES.length };
 }
 module.exports = { seedLearning };

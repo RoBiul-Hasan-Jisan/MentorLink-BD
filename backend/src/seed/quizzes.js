@@ -99,6 +99,11 @@ async function seedQuizzes() {
     const t = TOPICS[skillKey] || [];
     await Quiz.updateOne({ skillKey }, { $set: { questions: questions.map((q, i) => ({ ...q, topic: t[i] || 'General' })) } }, { upsert: true });
   }
-  return Object.keys(QUIZZES).length;
+  // Extra assessments ported from the web version; each question already carries its own topic.
+  const { MORE_QUIZZES } = require('./quizzes_more');
+  for (const [skillKey, questions] of Object.entries(MORE_QUIZZES)) {
+    await Quiz.updateOne({ skillKey }, { $set: { questions } }, { upsert: true });
+  }
+  return Object.keys(QUIZZES).length + Object.keys(MORE_QUIZZES).length;
 }
 module.exports = { seedQuizzes, TOPICS };
