@@ -95,29 +95,140 @@ class StudentHome extends ConsumerWidget {
         if (pill != null) ...[const SizedBox(height: 8), Pill(pill, tone: tone)],
       ]);
 
-  Widget _nextSession(BuildContext context, Map<String, dynamic>? sessions) {
-    final list = ((sessions?['sessions'] ?? []) as List).where((s) => s['status'] == 'scheduled' && DateTime.parse(s['startsAt']).isAfter(DateTime.now().subtract(const Duration(hours: 1)))).toList();
-    if (list.isEmpty) return const SizedBox.shrink();
-    final first = list.first;
-    final d = DateTime.parse(first['startsAt']).toLocal();
-    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final now = DateTime.now();
-    final dayDiff = DateTime(d.year, d.month, d.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-    final h12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final clock = '$h12:${d.minute.toString().padLeft(2, '0')} ${d.hour >= 12 ? 'PM' : 'AM'}';
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final when = dayDiff == 0 ? tr(context, 'Today', 'আজ') : dayDiff == 1 ? tr(context, 'Tomorrow', 'আগামীকাল') : wd[d.weekday - 1];
-    final who = [first['withName'], first['withTitle']].where((x) => x != null && '$x'.isNotEmpty).join(', ');
-    return AppCard(padding: const EdgeInsets.all(14), child: Row(children: [
-      Container(width: 58, height: 58, decoration: BoxDecoration(color: Brand.lightSaffron, borderRadius: BorderRadius.circular(14)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('${d.day}', style: display(20, color: Brand.ink)), Text(mon[d.month - 1], style: body(13, color: Brand.ink, w: FontWeight.w700))])),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tr(context, 'Next session · $when, $clock', 'পরবর্তী সেশন · $when, $clock'), style: body(14, color: Brand.muted)),
-        Text(who.isEmpty ? tr(context, 'Mentor session', 'মেন্টর সেশন') : who, style: display(17, color: Brand.ink)),
-      ])),
-      FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(72, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => toast(context, (first['meetingLink'] ?? '').toString().isEmpty ? tr(context, 'No link yet', 'এখনও লিংক নেই') : first['meetingLink']), child: Text(tr(context, 'Join', 'যোগ দিন'))),
-    ]));
+Widget _nextSession(BuildContext context, Map<String, dynamic>? sessions) {
+  final rawSessions = sessions?['sessions'];
+
+  if (rawSessions is! List || rawSessions.isEmpty) {
+    return const SizedBox.shrink();
   }
+
+  // Ignore malformed session records instead of crashing the dashboard.
+  final validSessions = rawSessions.whereType<Map>().where((s) {
+    if (s['status'] != 'scheduled') return false;
+
+    final startsAt = s['startsAt'];
+    if (startsAt is! String || startsAt.trim().isEmpty) {
+      return false;
+    }
+
+    final date = DateTime.tryParse(startsAt);
+    return date != null &&
+        date.isAfter(DateTime.now().subtract(const Duration(hours: 1)));
+  }).toList();
+
+  if (validSessions.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
+  // Display the nearest upcoming session first.
+  validSessions.sort((a, b) {
+    final dateA = DateTime.parse(a['startsAt'] as String);
+    final dateB = DateTime.parse(b['startsAt'] as String);
+    return dateA.compareTo(dateB);
+  });
+
+  final first = validSessions.first;
+  final d = DateTime.parse(first['startsAt'] as String).toLocal();
+
+  const mon = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  final now = DateTime.now();
+
+  final dayDiff = DateTime(d.year, d.month, d.day)
+      .difference(DateTime(now.year, now.month, now.day))
+      .inDays;
+
+  final h12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  final clock =
+      '$h12:${d.minute.toString().padLeft(2, '0')} ${d.hour >= 12 ? 'PM' : 'AM'}';
+
+  const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  final when = dayDiff == 0
+      ? tr(context, 'Today', 'আজ')
+      : dayDiff == 1
+          ? tr(context, 'Tomorrow', 'আগামীকাল')
+          : wd[d.weekday - 1];
+
+  final who = [
+    first['withName'],
+    first['withTitle'],
+  ]
+      .where((x) => x != null && '$x'.trim().isNotEmpty)
+      .map((x) => '$x')
+      .join(', ');
+
+  final meetingLink = (first['meetingLink'] ?? '').toString();
+
+  return AppCard(
+    padding: const EdgeInsets.all(14),
+    child: Row(
+      children: [
+        Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            color: Brand.lightSaffron,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('${d.day}', style: display(20, color: Brand.ink)),
+              Text(
+                mon[d.month - 1],
+                style: body(13, color: Brand.ink, w: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr(
+                  context,
+                  'Next session · $when, $clock',
+                  'পরবর্তী সেশন · $when, $clock',
+                ),
+                style: body(14, color: Brand.muted),
+              ),
+              Text(
+                who.isEmpty
+                    ? tr(context, 'Mentor session', 'মেন্টর সেশন')
+                    : who,
+                style: display(17, color: Brand.ink),
+              ),
+            ],
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Brand.delta,
+            minimumSize: const Size(72, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          onPressed: () {
+            toast(
+              context,
+              meetingLink.isEmpty
+                  ? tr(context, 'No link yet', 'এখনও লিংক নেই')
+                  : meetingLink,
+            );
+          },
+          child: Text(tr(context, 'Join', 'যোগ দিন')),
+        ),
+      ],
+    ),
+  );
+}
 }
 
 class _TaskRow extends ConsumerWidget {

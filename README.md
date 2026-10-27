@@ -60,14 +60,16 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 | Admin | admin@demo.mentorlink.bd | Admin@12345 | n/a (Ayesha) |
 | Employer | employer@demo.mentorlink.bd | Demo@12345 | member of verified "Demo Tech Ltd" |
 
-## 5-minute demo
-1. **Robiul (student):** Home shows readiness for Data Analyst, ranked gaps, weeks to ready. Open the skill-gap report: radar, free resources, take the SQL quiz (server-graded, adds quiz evidence).
-2. **Mentors tab:** Abrar with the six-part score and "Why this mentor". Send a request.
-3. **Abrar (mentor):** accept, chat. (API) schedule a session and complete it with next steps: they become tasks in Robiul's four-week plan.
-4. **Robiul:** Plan tab: tick a task. Jobs tab: apply with the consent screen; the tracker shows the 5 stages.
-5. **Employer:** post a job (first post goes to admin review), open applicants (only consented fields), move a stage (invalid jumps are rejected).
-6. **Ayesha (admin panel):** approve the job, verify a company, check the audit log and the fairness tab. Report a job 3 times from different accounts: it auto-hides.
-7. **University map:** East Delta and Southern show at different campus pins. Members appear as "Robiul H.", never an address. The employer gets 403 on the directory.
+## 5-minute demo (sign in with the demo chips or the table above)
+1. **Robiul (student, East Delta):** Home shows readiness for Data Analyst and the next steps. Open Skill gap: radar and ranked gaps. Tap a gap to open its roadmap (beginner to advanced topics, "Start here").
+2. **Plan > Pick a target > Machine Learning:** tick what Robiul already knows (Python, NumPy/pandas, statistics). Show the score, the "proven" share, the group bars, and the ordered path: topics that can start now vs "first learn X".
+3. **Quiz:** take the SQL quiz (graded on the server). Go back to Skill gap: the level changed because of quiz evidence, not because of ticks.
+4. **Mentors tab:** top matches come from several universities (Abrar, Rahim Ahmed of North South, others). Open one: six-part score and "Why this mentor". Send a request.
+5. **Abrar (mentor):** accept the request, open chat. A session note becomes tasks in Robiul's four-week plan.
+6. **Robiul:** tick a task. Jobs tab: apply with the consent screen; the tracker shows the 5 stages.
+7. **Employer:** post a job (first post goes to admin review), open applicants (only consented fields), move a stage (invalid jumps are rejected).
+8. **Ayesha (admin, same app, normal Sign in):** Queue tab approves the job; Companies, Resources (check links) and Insights (audit log, fairness, campuses).
+9. **University map:** seven campuses at different pins; people appear as "Robiul H.", never an address. The employer gets 403 on the directory.
 
 ## Security and privacy review (what was checked)
 - **67 endpoints**; all require sign-in except `GET /api/universities` (needed at sign-up, contains no personal data). Role is checked on the server for every route; ownership is checked for requests, sessions, plans, chat, CVs, applications.
@@ -81,9 +83,9 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 
 ## Known limitations
 - No user study and no measured accuracy of the match score; the weights (30/25/15/10/10/10) are our own, documented, and adjustable. A keyword baseline is returned next to the matches for comparison.
-- Skill levels come from quiz, project or mentor evidence; the quiz bank is small (SQL, Excel, Python, 5 questions each).
-- Seeded learning resources are English; add Bangla ones from the admin panel.
-- Chat is plain text over Socket.IO; no file sharing. Reminders are in-app notifications plus push; no scheduled reminder job yet.
+- Skill levels come from quiz, project or mentor evidence; the quiz bank covers 8 skills with 8 questions each (small, written by us, not validated).
+- Seeded links are unchecked until a teammate opens each one (admin Resources > Check links helps). Add more from the admin panel.
+- Chat is plain text over Socket.IO; no file sharing. Reminders run every 15 minutes (in-app plus push); push has not been tested on a real phone.
 - FerretDB does not support every MongoDB feature (no 2dsphere index): set `MONGO_GEO_INDEX=true` on real MongoDB/Atlas.
 - We do not claim this is the first platform of its kind.
 
@@ -167,3 +169,48 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 (Every email ends with `@demo.mentorlink.bd`.)
 - Learning roadmaps for all 15 skills (3 stages: beginner, intermediate, advanced; 133 topics with estimated hours). Open from Plan > Roadmaps, or tap a gap on the Skill-gap screen. Students tick topics; ticking is private and never raises a skill level. Links come from the approved resources of the same skill, and "Take the quiz" appears where a quiz exists. Hours are rough planning estimates.
 - Backend tests: 50 passing.
+
+## Update 13: Pick a target (real-world path and score)
+- Plan tab, **Pick a target** (Machine Learning, Data Analysis, Backend Developer). Each target is a prerequisite graph of topics (`backend/src/data/targets.js`). Machine Learning has 24 topics, from Python, linear algebra and statistics through regression, metrics and scikit-learn to a project.
+- The student ticks what they already know. The server returns: readiness % (importance-weighted: core 3, important 2, helpful 1), a **proven %** (only topics backed by quiz/project/mentor evidence), score per group (Maths, Programming, ML core...), the remaining hours and weeks (null if weekly study hours are not set), and an **ordered path** where every topic comes after its prerequisites. Topics that can be started now are marked "Start now"; others say what to learn first.
+- Ticks are private self-reports (stored under `target:<key>`) and never create skill evidence.
+- Endpoints: `GET /api/targets`, `GET /api/targets/:key`, `PUT /api/targets/:key/topics/:topicKey {known}`. Tests: `backend/tests/targets.test.js` (54 tests pass in total).
+- Weights and hours are our planning estimates. The Flutter screen (`mobile/lib/features/targets.dart`) has not been compiled.
+
+## Update 14: synced with your local copy
+- Used your zip as the new base: your Flutter platform folders (android, ios, web...), the generated l10n files, and your safer `home.dart` (next-session card ignores malformed data).
+- Removed: unused old `mobile/lib/features/student.dart`, duplicate `admin-panel` `.js` files (the `.tsx`/`.ts` versions are the real ones), and the default Flutter test that pointed to a missing `MyApp` (replaced by a small Ring test).
+- `serviceAccount.json` is never included in zips. Keep your own copy in `backend/`.
+- Backend: 54 tests pass. Flutter still not compiled by me; run `flutter analyze` and send me the output.
+
+## Update 16: design/proposal gap build (part 1)
+New Flutter screens so the app matches the design PDF: Free resources, Privacy & data, Report user, Roles (admin), department Overview/Approvals/Workshops, mentor Requests/Impact/Setup, Sessions and notes, Progress & badges, Mock interviews, How matching works, Pathways and Q&A, Verify (email + student ID), Goal wizard, and a full Request-a-session form. Profile now links to all of them. After "About you", students go to Verify.
+Still open: jobs tabs and opportunity detail, application tracker stages, CV versions, notification grouping, admin queue proof viewer, phone OTP, PDF CV export.
+**None of the Flutter code has been compiled by me** (no Flutter SDK here). Backend: 76 tests pass. Please run `flutter analyze` in `mobile` and send me the output.
+
+## Update 17
+Notifications grouped (Today / Earlier) with "Mark all read". Admin queue now has tabs (Accounts, Mentors, Departments, Posts), a proof-image viewer (each view is audit-logged) and scam flags. Interview-stage applications link to Mock interviews. Not yet built: scam Restore/Remove list (no backend list endpoint for hidden posts), CV versions UI, phone OTP, PDF export. Flutter is still uncompiled by me: please run `flutter analyze`.
+
+## Update 18
+Sign-up now has role cards (Student / Alumni mentor / Department); alumni and department only create an application, an admin approves the role. Admin queue has a "Reported" tab with Restore/Remove for auto-hidden posts (the queue API now returns `hiddenOpportunities`). Chat shows a safety banner and a Retry bar for unsent messages. Flutter is still uncompiled by me: run `flutter analyze` in `mobile`.
+
+## Update 20: Path Twin (new feature)
+Matches a student to mentors by **where the student is now**, not by the job they want. A mentor's journey is a list of dated skill milestones (month 0 = graduation). The student's current evidence-based skill levels are compared (weighted Jaccard) with each mentor's skills **at graduation**; the closest "twins" are shown with what they learned next, in order, the months to their first job, and "what most twins learned next". Mentors opt in (`shared`), only skills and months are stored (no employer, no salary), names show as first name + initial. It shows what happened for them, not a promise.
+- API: `GET /api/me/path-twins` (student), `GET/PUT /api/me/journey` (mentor). Code: `backend/src/services/pathtwin.js`, `routes/journey.js`, `seed/journeys.js`, `tests/pathtwin.test.js` (6 new tests, 82 total pass).
+- App: `features/path_twin.dart` (Profile > "Path Twin" for students, "My journey" for mentors). Flutter still uncompiled by me: run `flutter analyze`.
+
+## Update 21: your platform description (paths, levels, multi-skill, community)
+- **15 targets**: 8 new career paths (Web, App, Cybersecurity, UI/UX, Cloud/DevOps, Networking, Digital Marketing, Graphic Design) in `backend/src/data/targets_more.js`, next to ML, Data Analysis, Backend and the pathways. Hours and weights are planning estimates, not measured data. Topic-level free materials still come per skill (Resources); topics without a linked skill do not have their own links yet.
+- **Named levels**: Beginner / Elementary / Intermediate / Advanced (labels over evidence levels 0-3). Quiz results now show the level, strong and weak topics (each question has a topic), and advice (resources + roadmap) for weak topics. Quizzes exist for 8 skills only.
+- **Multi-skill**: follow up to 5 targets (star on "Pick a target"); `GET /me/dashboard` (one roadmap card per target, skill levels, next step) and `GET /me/target-mentors` (top 3 mentors per target with reasons). Screen: Profile > My paths. Mentor fit is a transparent heuristic: mentor expertise skills vs the target's linked skills, plus job-title words.
+- **Community feed**: posts, comments, one-level replies, 3 reactions, follow people, join skill groups, search, report (3 reporters hide), admin moderation endpoints (`/admin/posts`). Screen: Profile > Community feed. Not done: an admin tab for feed moderation in the app, images in posts, notifications for reactions.
+- Backend tests: 96 pass. Flutter is still uncompiled by me: run `flutter analyze`.
+
+## Update 22: outcome-driven career intelligence (teammate pitch)
+Where each of the five ideas lives:
+- **A. Career Gap Intelligence**: `GET /me/readiness` (role vs evidence) and NEW `GET /me/job-gaps` (what approved postings for the goal ask for, split into proven / self-rated only / missing, with a sample-size note). App: Profile > "What employers ask for".
+- **B. Career Pathway Graph**: `data/targets*.js` (15 targets, prerequisite graph, verified vs self-ticked topics) + roadmaps. Projects and assessments link through the skill `ev` field.
+- **C. Gap-to-Mentor**: `GET /me/gaps/:skillKey/mentors` (with kind of help and the evidence for each claim). App: Skill gap > "Find mentors for ...".
+- **D. Mentor-in-the-loop**: `routes/loop.js` (review queue, review pack, endorse capped at the mentor's own level, advise on roadmap order). App: Profile > "Review mentees' work" (mentor), "Mentor feedback on my work" (student).
+- **E. Career Outcome Tracker**: `GET /me/outcome-tracker`, consent-based `GET /admin/impact` (groups under 5 hidden, observational caveat). App: Profile > "Career outcome tracker"; admin: "Does mentoring help?".
+The loop screens (`features/loop.dart`) existed but were not connected to the router; they are now. 108 backend tests pass. Flutter still uncompiled by me.

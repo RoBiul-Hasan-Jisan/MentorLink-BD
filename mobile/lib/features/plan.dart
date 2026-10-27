@@ -69,6 +69,8 @@ class _PlanState extends ConsumerState<PlanScreen> {
           const SizedBox(width: 12),
           Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/roadmaps'), child: Text(tr(context, 'Roadmaps', 'রোডম্যাপ'), style: display(17, color: Brand.delta))))),
         ]),
+        const SizedBox(height: 12),
+        SizedBox(height: 54, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/targets'), child: Text(tr(context, 'Pick a target (e.g. Machine Learning)', 'লক্ষ্য বেছে নিন (যেমন মেশিন লার্নিং)'), style: display(16, color: Colors.white)))),
         if (reqs.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(tr(context, 'Chat with your mentor', 'মেন্টরের সাথে চ্যাট'), style: display(19, color: Brand.ink)),

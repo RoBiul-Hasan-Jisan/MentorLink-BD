@@ -11,10 +11,20 @@ import 'features/quiz.dart';
 import 'features/jobs.dart';
 import 'features/cv.dart';
 import 'features/roadmap.dart';
+import 'features/targets.dart';
 import 'features/mentor_detail.dart';
 import 'features/skillgap.dart';
 import 'features/welcome.dart';
 import 'features/university.dart';
+import 'features/sessions.dart';
+import 'features/onboarding.dart';
+import 'features/path_twin.dart';
+import 'features/hub.dart';
+import 'features/feed.dart';
+import 'features/loop.dart';
+import 'features/job_gaps.dart';
+import 'features/jobs_more.dart';
+import 'features/mentor_more.dart';
 
 // The router only decides WHERE you land. The server still checks the role on every API call.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -39,11 +49,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       final me = meState.valueOrNull;
       if (me == null) return null;
       if (me['needsProfile'] == true) return loc == '/complete-profile' ? null : '/complete-profile';
+      if (loc == '/complete-profile' && me['role'] == 'student') return '/verify';
       if (loc == '/sign-in' || loc == '/sign-up' || loc == '/complete-profile' || loc == '/welcome' || loc == '/problem') return '/';
       return null;
     },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const Shell()),
+      ...pathTwinRoutes,
+      ...hubRoutes,
+      ...feedRoutes,
+      ...loopRoutes,
+      ...jobGapRoutes,
+      ...mentorMoreRoutes, // before '/mentor/:id' so '/mentor/setup' is not read as a mentor id
+      ...studentExtraRoutes, ...onboardingRoutes, ...jobsMoreRoutes,
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/quiz/:skill', builder: (_, s) => QuizScreen(skill: s.pathParameters['skill']!)),
       GoRoute(path: '/applicants/:id', builder: (_, s) => ApplicantsScreen(jobId: s.pathParameters['id']!, title: s.extra as String?)),
@@ -51,6 +69,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/problem', builder: (_, __) => const ProblemScreen()),
       GoRoute(path: '/cv', builder: (_, __) => const CvScreen()),
       GoRoute(path: '/review-cv/:studentId', builder: (_, s) => ReviewCvScreen(studentId: s.pathParameters['studentId']!)),
+      GoRoute(path: '/targets', builder: (_, __) => const TargetsScreen()),
+      GoRoute(path: '/target/:key', builder: (_, s) => TargetScreen(targetKey: s.pathParameters['key']!)),
       GoRoute(path: '/roadmaps', builder: (_, __) => const RoadmapsScreen()),
       GoRoute(path: '/roadmap/:skillKey', builder: (_, s) => RoadmapScreen(skillKey: s.pathParameters['skillKey']!)),
       GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
