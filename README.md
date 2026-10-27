@@ -283,3 +283,9 @@ One screen that joins pieces you already have: readiness, approved job postings,
 - `backend/src/seed/demo_study.js`: 13 more demo mentors (23 verified with `seed:demo`), including a keyword decoy. `npm run study:dryrun` runs the whole study pipeline on invented students with no database. Its numbers are synthetic and must not be reported.
 - Demo-data fix: several demo mentors had a weekly capacity below their accepted count, so they could not take requests (and showed 0 open spots in the Decision Lab). Capacity is now set above the accepted count.
 - Tests: `tests/study_demo.test.js` (data checks, pooling, dry run). With the earlier new tests, 41 pass without a database.
+
+## Update 32: review of the Combined zip
+- Fixed: Mentor feedback screen pushed `/my-projects`, which does not exist (opens a blank error page). It now opens `/portfolio`.
+- Fixed: `tests/quizzes_more.test.js` imported `QUIZZES` that `seed/quizzes.js` did not export; it is exported now.
+- Flutter syntax check (tree-sitter) on all 54 Dart files: 0 problems. Still not compiled: run `flutter analyze`.
+- The zip this came from held real keys (`backend/.env`, `serviceAccount.json`). They are removed from this copy; reset the Atlas password and rotate the Firebase key.
