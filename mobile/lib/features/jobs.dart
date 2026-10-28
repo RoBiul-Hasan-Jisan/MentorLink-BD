@@ -40,7 +40,7 @@ class _OppState extends ConsumerState<OpportunitiesScreen> {
     final fit = o['fit'] as num?;
     final labels = o['labels'] as Map;
     final src = labels['source'] == 'verified_alumni' ? tr(context, 'Verified alumni post', 'যাচাইকৃত অ্যালামনাই পোস্ট') : tr(context, 'Admin post', 'অ্যাডমিন পোস্ট');
-    return AppCard(border: first ? Brand.delta : null, padding: const EdgeInsets.all(18), onTap: () => context.push('/opportunity/${o['id']}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return AppCard(border: first ? Brand.delta : null, padding: const EdgeInsets.all(18), onTap: () => _detail(context, o), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(o['title'], style: display(21, color: Brand.ink)), Text('${o['organization']}${o['locationText'] != null ? ' · ${o['locationText']}' : ''}', style: body(15, color: Brand.muted))])),
         if (fit != null) Column(children: [Text('$fit%', style: display(24, color: fit >= 60 ? Brand.forest : const Color(0xFF9A5B00))), Text(tr(context, 'your fit', 'আপনার মিল'), style: body(14, color: Brand.muted))]),
@@ -131,7 +131,6 @@ class ApplicationsScreen extends ConsumerWidget {
         ]))),
       ]),
       if (withdrawn || notSel) Text(a['statusMessage'] ?? '', style: body(15, color: Brand.muted)),
-      if (stage == 'Interview' && !withdrawn) Padding(padding: const EdgeInsets.only(top: 8), child: BigButton(tr(context, 'Practise with a mock interview', 'মক ইন্টারভিউ অনুশীলন করুন'), outlined: true, onPressed: () => context.push('/mock-interviews'))),
       if (!withdrawn && !notSel && stage != 'Selected') TextButton(onPressed: () async { await ref.read(dioProvider).post('/applications/${a['id']}/withdraw'); ref.invalidate(applicationsProvider); }, child: Text(tr(context, 'Withdraw application', 'আবেদন প্রত্যাহার'), style: body(15, color: const Color(0xFF9B2C1F), w: FontWeight.w700))),
     ]));
   }
