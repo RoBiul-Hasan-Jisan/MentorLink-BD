@@ -65,23 +65,19 @@ function analyzeAB(rows, key) {
 }
 module.exports = { parseCsv, scoreList, analyzeAB, ci, tCrit };
 
-function formatReport(r) {
+if (require.main === module) {
+  const [sheet, keyFile] = process.argv.slice(2);
+  if (!sheet || !keyFile) { console.error('Usage: node study/analyze-ab.js study/ratings_blind.csv study/ab-key.private.json'); process.exit(1); }
+  const r = analyzeAB(parseCsv(fs.readFileSync(sheet, 'utf8')), JSON.parse(fs.readFileSync(keyFile, 'utf8')));
   const pct = (x) => (Number.isNaN(x) ? 'n/a' : `${(100 * x).toFixed(0)}%`);
   const f2 = (x) => (Number.isNaN(x) ? 'n/a' : x.toFixed(2));
-  const lines = [`Students analysed: ${r.students}   Excluded (incomplete ratings): ${r.excluded.length ? r.excluded.join(', ') : 'none'}   Mean mentors in both lists: ${f2(r.meanOverlap)} of 5`];
-  const row = (label, k, fmt) => { const m = r.metrics[k]; lines.push(`${label.padEnd(30)} system ${fmt(m.system).padStart(5)}   baseline ${fmt(m.baseline).padStart(5)}   diff ${fmt(m.diff).padStart(6)}  95% CI ${fmt(m.diffCI95[0])} to ${fmt(m.diffCI95[1])}   (system better ${m.wins}, same ${m.ties}, worse ${m.losses})`); };
+  const row = (label, k, fmt) => { const m = r.metrics[k]; console.log(`${label.padEnd(30)} system ${fmt(m.system).padStart(5)}   baseline ${fmt(m.baseline).padStart(5)}   diff ${fmt(m.diff).padStart(6)}  95% CI ${fmt(m.diffCI95[0])} to ${fmt(m.diffCI95[1])}   (system better ${m.wins}, same ${m.ties}, worse ${m.losses})`); };
+  console.log(`Students analysed: ${r.students}   Excluded (incomplete ratings): ${r.excluded.length ? r.excluded.join(', ') : 'none'}   Mean mentors in both lists: ${f2(r.meanOverlap)} of 5`);
   row('Rank-1 rated good (4-5)', 'top1Good', pct);
   row('Precision@3 (good in top 3)', 'precisionAt3', pct);
   row('Mean rating of top 5 (1-5)', 'meanRating', f2);
   row('Would send a request', 'wouldRequest', pct);
   row('nDCG@5 (ordering quality)', 'ndcg5', f2);
-  lines.push(r.note, 'A CI that includes 0 means this pilot cannot tell the two methods apart.');
-  return lines.join('\n');
-}
-module.exports.formatReport = formatReport;
-
-if (require.main === module) {
-  const [sheet, keyFile] = process.argv.slice(2);
-  if (!sheet || !keyFile) { console.error('Usage: node study/analyze-ab.js study/ratings_blind.csv study/ab-key.private.json'); process.exit(1); }
-  console.log(formatReport(analyzeAB(parseCsv(fs.readFileSync(sheet, 'utf8')), JSON.parse(fs.readFileSync(keyFile, 'utf8')))));
+  console.log(r.note);
+  console.log('A CI that includes 0 means this pilot cannot tell the two methods apart.');
 }

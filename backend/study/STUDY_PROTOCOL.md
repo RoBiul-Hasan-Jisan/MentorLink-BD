@@ -39,8 +39,3 @@ The first version only rates MentorLink's own top 5, so it cannot show the weigh
 4. Analyse: `node study/analyze-ab.js study/ratings_filled.csv study/ab-key.private.json`. It reports, per method, rank-1 good rate, precision@3, mean rating, would-request rate and nDCG@5, plus the paired difference (system minus baseline) with a 95% interval and how many students favoured each method. Students with any unrated mentor are excluded, not guessed.
 5. Read it honestly: if the interval for a difference includes 0, this pilot cannot tell the methods apart. Report that as it is.
 Notes: the baseline breaks ties by mentor id so it is repeatable; the seed used for shuffling is stored in the key file; `ab-key.private.json` and the sheets are git-ignored.
-
-### Test the pipeline first (demo data, no real people)
-- `npm run seed:demo` now also creates 13 more demo mentors (23 verified in total): several per career goal, different industries, and a "keyword decoy" (title "Data Entry Analyst" with weak skills). It also fixes demo mentors whose capacity was lower than their accepted count, so they can receive requests.
-- `npm run study:dryrun` (no database needed) runs the real matching code on 24 invented students, builds the blind sheet, simulates ratings with a made-up rater model, and prints the analysis. Files go to `study/demo-output/` (git-ignored).
-- The dry-run numbers are NOT a result. The simulated rater looks at profile fit, which is close to what the system itself uses, so it favours the system by construction. Use it only to check that the sheet, the key and the report work. Never put those numbers in your report or slides.
