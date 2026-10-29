@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -67,8 +66,10 @@ class _PlanState extends ConsumerState<PlanScreen> {
         Row(children: [
           Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _cv, child: Text(tr(context, 'CV builder', 'সিভি বিল্ডার'), style: display(17, color: Brand.delta))))),
           const SizedBox(width: 12),
-          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => toast(context, tr(context, 'Pathways are coming in the next version.', 'পথনির্দেশ পরের সংস্করণে আসছে।')), child: Text(tr(context, 'Pathways', 'পথনির্দেশ'), style: display(17, color: Brand.delta))))),
+          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/roadmaps'), child: Text(tr(context, 'Roadmaps', 'রোডম্যাপ'), style: display(17, color: Brand.delta))))),
         ]),
+        const SizedBox(height: 12),
+        SizedBox(height: 54, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/targets'), child: Text(tr(context, 'Pick a target (e.g. Machine Learning)', 'লক্ষ্য বেছে নিন (যেমন মেশিন লার্নিং)'), style: display(16, color: Colors.white)))),
         if (reqs.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(tr(context, 'Chat with your mentor', 'মেন্টরের সাথে চ্যাট'), style: display(19, color: Brand.ink)),
@@ -78,11 +79,5 @@ class _PlanState extends ConsumerState<PlanScreen> {
     });
   }
 
-  Future<void> _cv() async {
-    try {
-      final dio = ref.read(dioProvider);
-      final r = await dio.post('/me/cv', data: {'data': {'summary': 'Student at my university', 'updatedFrom': 'app'}});
-      if (mounted) toast(context, tr(context, 'CV version ${r.data['cv']['version']} saved', 'সিভি সংস্করণ ${r.data['cv']['version']} সংরক্ষিত'));
-    } catch (e) { if (mounted) toast(context, errorText(e)); }
-  }
+  void _cv() => context.push('/cv');
 }

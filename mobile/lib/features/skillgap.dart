@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -36,22 +38,75 @@ class SkillGapScreen extends ConsumerWidget {
             ])),
             Transform.translate(offset: const Offset(0, -60), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
               AppCard(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(context, 'Close these first', 'আগে এগুলো পূরণ করুন'), style: display(20, color: Brand.ink)),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(tr(context, 'Close these first', 'আগে এগুলো পূরণ করুন'), style: display(20, color: Brand.ink)),
+                  if (gaps.isNotEmpty && ['sql', 'excel', 'python'].contains(gaps.first['skillKey'])) InkWell(borderRadius: BorderRadius.circular(24), onTap: () => context.push('/quiz/${gaps.first['skillKey']}'), child: Pill(tr(context, 'Take ${nm(context, gaps.first, 'nameEn', 'nameBn')} quiz', '${nm(context, gaps.first, 'nameEn', 'nameBn')} কুইজ'), tone: Tone.blue)),
+                ]),
                 const SizedBox(height: 12),
                 if (gaps.isEmpty) Text(tr(context, 'No gaps. You meet every requirement.', 'কোনো ঘাটতি নেই।'), style: body(16)),
-                for (int i = 0; i < gaps.length; i++) Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
+                for (int i = 0; i < gaps.length; i++) InkWell(onTap: () => context.push('/roadmap/${gaps[i]['skillKey']}'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
                   SizedBox(width: 96, child: Text(nm(context, gaps[i], 'nameEn', 'nameBn'), style: display(17, color: Brand.ink, w: FontWeight.w700))),
                   Expanded(child: ProgressBar(((gaps[i]['current'] as num) / (gaps[i]['required'] as num)).toDouble(), color: i < 2 ? const Color(0xFFB3382B) : Brand.saffron)),
                   const SizedBox(width: 10),
                   Pill(tr(context, 'Gap ${i + 1}', 'ঘাটতি ${i + 1}'), tone: i < 2 ? Tone.red : Tone.saffron),
-                ])),
+                ]))),
+                if (gaps.isNotEmpty) Text(tr(context, 'Tap a gap to open its learning roadmap.', 'ঘাটতিতে ট্যাপ করলে শেখার রোডম্যাপ খুলবে।'), style: body(13, color: Brand.muted)),
                 const SizedBox(height: 6),
                 if (met.isNotEmpty) Text(tr(context, 'Met: $met', 'পূরণ হয়েছে: $met'), style: body(15, color: Brand.muted)),
                 Text(tr(context, 'Confidence ${d['confidence']}% (more proof raises it)', 'আস্থা ${d['confidence']}% (প্রমাণ দিলে বাড়ে)'), style: body(14, color: Brand.muted)),
               ])),
-              if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.pop()),
+              _resources(context, ref, gaps),
+              if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.push('/gap/${gaps.first['skillKey']}/mentors')),
             ]))),
           ]);
         }),
       );
+
+  Future<void> _setStatus(BuildContext context, WidgetRef ref, String id, String status) async {
+    try { await ref.read(dioProvider).put('/resources/$id/progress', data: {'status': status}); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+  }
+
+  Future<void> _report(BuildContext context, WidgetRef ref, String id) async {
+    try {
+      await ref.read(dioProvider).post('/resources/$id/report', data: {'reason': 'Broken or unhelpful link'});
+      ref.invalidate(resourcesProvider);
+      if (context.mounted) toast(context, tr(context, 'Thanks, we will review it.', 'ধন্যবাদ, আমরা দেখব।'));
+    } catch (e) { if (context.mounted) toast(context, errorText(e)); }
+  }
+
+  Widget _resources(BuildContext context, WidgetRef ref, List<Map> gaps) {
+    final keys = gaps.map((g) => g['skillKey']).toSet();
+    final all = (ref.watch(resourcesProvider).valueOrNull?['resources'] as List? ?? []).cast<Map>();
+    final list = all.where((r) => keys.contains(r['skillKey'])).toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    return AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(tr(context, 'Start with free resources', 'বিনামূল্যের রিসোর্স দিয়ে শুরু করুন'), style: display(20, color: Brand.ink)),
+      const SizedBox(height: 8),
+      for (final r in list) InkWell(
+        onTap: () async {
+          final ok = await launchUrl(Uri.parse(r['url']), mode: LaunchMode.externalApplication);
+          if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
+          if (r['status'] == null) await _setStatus(context, ref, r['id'], 'in_progress');
+        },
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
+          Icon(switch (r['status']) { 'completed' => Icons.check_circle, 'in_progress' => Icons.timelapse, 'saved' => Icons.bookmark, _ => Icons.open_in_new }, color: r['status'] == 'completed' ? Brand.delta : (r['status'] == null ? Brand.muted : Brand.saffron), size: 20), const SizedBox(width: 10),
+          Expanded(child: Text(r['title'], style: body(16, w: FontWeight.w600))),
+          Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 20, color: Brand.muted),
+            onSelected: (v) async {
+              if (v == 'report') { await _report(context, ref, r['id']); } else if (v == 'clear') { try { await ref.read(dioProvider).delete('/resources/${r['id']}/progress'); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); } } else { await _setStatus(context, ref, r['id'], v); }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'saved', child: Text(tr(context, 'Save for later', 'পরে দেখব'))),
+              PopupMenuItem(value: 'in_progress', child: Text(tr(context, 'In progress', 'চলছে'))),
+              PopupMenuItem(value: 'completed', child: Text(tr(context, 'Mark done', 'শেষ'))),
+              PopupMenuItem(value: 'clear', child: Text(tr(context, 'Clear', 'মুছুন'))),
+              PopupMenuItem(value: 'report', child: Text(tr(context, 'Report broken link', 'লিংক নষ্ট জানান'))),
+            ],
+          ),
+        ])),
+      ),
+    ]));
+  }
 }

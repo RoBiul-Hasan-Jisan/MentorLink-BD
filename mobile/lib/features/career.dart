@@ -71,6 +71,8 @@ class CareerHub extends ConsumerWidget {
         _tile(context, Icons.alt_route, tr(context, 'My paths', 'আমার পথ'), tr(context, 'Targets and roadmaps you follow', 'যে লক্ষ্য ও রোডম্যাপ অনুসরণ করছেন'), '/my-paths'),
         _tile(context, Icons.people_alt_outlined, tr(context, 'Path Twin', 'পাথ টুইন'), tr(context, 'Mentors who were where you are', 'আপনার মতো জায়গায় থাকা মেন্টর'), '/path-twins'),
         Padding(padding: const EdgeInsets.fromLTRB(2, 14, 2, 8), child: Text(tr(context, 'Build proof', 'প্রমাণ তৈরি করুন'), style: display(18, color: Brand.ink))),
+        _tile(context, Icons.bolt_outlined, tr(context, 'Mentor Sprint', 'মেন্টর স্প্রিন্ট'), tr(context, '7 days on one skill, then a mentor review', '৭ দিনে একটি দক্ষতা, তারপর মেন্টর রিভিউ'), '/sprints'),
+        _tile(context, Icons.badge_outlined, tr(context, 'Career Passport', 'ক্যারিয়ার পাসপোর্ট'), tr(context, 'Your proof in one shareable link', 'আপনার প্রমাণ এক শেয়ারযোগ্য লিংকে'), '/passport'),
         _tile(context, Icons.folder_special_outlined, tr(context, 'Projects & GitHub', 'প্রজেক্ট ও GitHub'), tr(context, 'Add projects, link GitHub, ask for review', 'প্রজেক্ট যোগ, GitHub যুক্ত, রিভিউ চান'), '/portfolio'),
         _tile(context, Icons.support_agent, tr(context, 'Find help for a problem', 'সমস্যার জন্য সাহায্য খুঁজুন'), tr(context, 'A skill gap or a kind of help to a mentor', 'দক্ষতার ঘাটতি বা সাহায্যের ধরন থেকে মেন্টর'), '/help-finder'),
         _tile(context, Icons.work_outline, tr(context, 'What employers ask for', 'নিয়োগদাতারা কী চান'), tr(context, 'Gap check against real postings', 'আসল পোস্টিংয়ের সঙ্গে ঘাটতি যাচাই'), '/job-gaps'),

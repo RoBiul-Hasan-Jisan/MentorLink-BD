@@ -7,4 +7,5 @@ module.exports = {
   ...require('./community'),
   ...require('./loop'),
   ...require('./portfolio'),
+  ...require('./startup'),
 };
