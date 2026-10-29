@@ -24,6 +24,8 @@ dependencies:
   url_launcher: ^6.3.0
   image_picker: ^1.1.2
   qr_flutter: ^4.1.0
+  pdf: ^3.11.1
+  printing: ^5.13.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
