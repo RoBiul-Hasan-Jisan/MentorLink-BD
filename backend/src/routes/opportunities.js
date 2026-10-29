@@ -1,5 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
+const { normalizeCv, stripContact, cvTips } = require('../services/cv');
 const { Opportunity, Application, Report, CvVersion, SkillEvidence, Skill, User, STAGES } = require('../models');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
@@ -18,26 +19,34 @@ module.exports = function opportunityRoutes(auth) {
   // A structured CV. No phone, email or home address fields: contact details are never stored in a CV
   // (the app shares only what the student ticks on the consent screen).
   const short = (n) => z.string().trim().max(n);
-  const cvSchema = z.object({ data: z.object({
-    summary: short(600).default(''),
-    education: z.array(z.object({ institution: short(120), degree: short(120), year: short(20).optional() }).strict()).max(5).default([]),
-    skills: z.array(short(40)).max(25).default([]),
-    projects: z.array(z.object({ title: short(100), description: short(400).default(''), url: z.string().trim().url().max(200).optional() }).strict()).max(6).default([]),
-    experience: z.array(z.object({ role: short(100), organization: short(100), period: short(40).optional(), details: short(400).default('') }).strict()).max(6).default([]),
-    languages: z.array(short(30)).max(6).default([]),
-  }).strict() }).strict();
+  // CV format v2 (see services/cv.js). Any shape is cleaned and size-limited by normalizeCv; the contact block is validated here.
+  const cvSchema = z.object({ data: z.record(z.string(), z.any()) }).strict();
+  const cleanCv = (data, user) => {
+    const cv = normalizeCv(data, user);
+    if (cv.contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cv.contact.email)) throw bad('BAD_EMAIL', 'That email address does not look right.');
+    if (cv.contact.phone && !/^[+\d][\d\s-]{5,}$/.test(cv.contact.phone)) throw bad('BAD_PHONE', 'That phone number does not look right.');
+    return cv;
+  };
   r.post('/me/cv', ...student, validate(cvSchema), async (req, res) => {
+    const data = cleanCv(req.body.data, req.user);
     const last = await CvVersion.findOne({ studentId: req.user._id }).sort({ version: -1 });
-    res.status(201).json({ cv: await CvVersion.create({ studentId: req.user._id, version: last ? last.version + 1 : 1, data: req.body.data }) });
+    res.status(201).json({ cv: await CvVersion.create({ studentId: req.user._id, version: last ? last.version + 1 : 1, data }) });
   });
-  // A mentor reads the CV versions of their own accepted mentees only.
+  // Rule-based tips (no AI service, no cost). Nothing is saved.
+  r.post('/me/cv/check', ...student, validate(cvSchema), async (req, res) => res.json(cvTips(normalizeCv(req.body.data, req.user))));
+  // A mentor reads the CV versions of their own accepted mentees only, WITHOUT the contact block.
   r.get('/mentees/:studentId/cv', A, requireRole('mentor'), async (req, res) => {
     toObjectId(req.params.studentId);
     const { MentorRequest } = require('../models');
     if (!(await MentorRequest.findOne({ studentId: req.params.studentId, mentorId: req.user._id, status: 'accepted' }))) throw notFound();
-    res.json({ versions: await CvVersion.find({ studentId: req.params.studentId }).sort({ version: -1 }).limit(5) });
+    const who = await User.findById(req.params.studentId).select('displayName').lean();
+    const versions = await CvVersion.find({ studentId: req.params.studentId }).sort({ version: -1 }).limit(5).lean();
+    res.json({ versions: versions.map((v) => ({ ...v, data: stripContact(normalizeCv(v.data, who || {})) })) });
   });
-  r.get('/me/cv', ...student, async (req, res) => res.json({ versions: await CvVersion.find({ studentId: req.user._id }).sort({ version: -1 }) }));
+  r.get('/me/cv', ...student, async (req, res) => {
+    const versions = await CvVersion.find({ studentId: req.user._id }).sort({ version: -1 }).lean();
+    res.json({ versions: versions.map((v) => ({ ...v, data: normalizeCv(v.data, req.user) })) });
+  });
   r.post('/cv/:id/review', A, requireRole('mentor'), validate(z.object({ text: z.string().min(2).max(500) }).strict()), async (req, res) => {
     toObjectId(req.params.id);
     const cv = await CvVersion.findById(req.params.id);
@@ -152,7 +161,7 @@ module.exports = function opportunityRoutes(auth) {
     const apps = await Application.find({ opportunityId: opp._id }).populate('studentId', 'displayName department').populate('cvVersionId');
     res.json({ applications: apps.map((a) => {
       const f = a.consentSnapshot.sharedFields;
-      return { id: a._id, stage: a.stage, name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? a.cvVersionId.data : undefined, note: a.applicantNote };
+      return { id: a._id, stage: a.stage, name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote };
     }) });
   });
   r.patch('/applications/:id/stage', A, requireRole('mentor', 'admin'), validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
