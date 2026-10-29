@@ -46,6 +46,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   FilterChip(label: Text(tr(context, 'Name', 'নাম')), selected: true, onSelected: null),
                   FilterChip(label: Text('CV'), selected: true, onSelected: null),
                   FilterChip(label: Text(tr(context, 'Skill levels', 'স্কিল লেভেল')), selected: shared.contains('skills'), onSelected: (v) => set(() { if (v) { shared.add('skills'); } else { shared.remove('skills'); } })),
+                  FilterChip(label: Text(tr(context, 'Contact (phone, email)', 'যোগাযোগ (ফোন, ইমেইল)')), selected: shared.contains('contact'), onSelected: (v) => set(() { if (v) { shared.add('contact'); } else { shared.remove('contact'); } })),
                 ]),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,

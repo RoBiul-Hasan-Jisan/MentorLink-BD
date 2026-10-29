@@ -302,3 +302,11 @@ All four reuse existing evidence, mentor review and company rules. The server en
 - Passport links point to `API_URL` (`/p/<slug>`). For a real pilot, host the backend on a public https address so the QR code opens on any phone.
 - Tests: `tests/startup.test.js` (14, logic) and `tests/startup_api.test.js` (6, API with an in-memory fake of the models). Both pass. Not run: the Mongoose queries against a real MongoDB, and the Flutter screens (**not compiled**: run `flutter pub get` then `flutter analyze`).
 - **Business idea (not built):** free for students and mentors; companies pay only a success fee after a hire made through the Talent Pool. No payment code exists. No applicant is ever charged.
+
+## Update 34 - CV maker v2
+- New CV format (same layout as the demo PDF): header, summary, skills, projects, experience, education, achievements, languages.
+- Edit screen: drag sections and items (projects, bullets, links) with the handle, hide a section with the eye, pick Classic/Compact and an accent colour, "Check my CV" gives rule-based tips (no API).
+- Preview tab shows the real PDF (same bytes as the download). "Download PDF" uses the `pdf` + `printing` packages. Fonts load from Google Fonts on first use (internet needed once); Noto Sans Bengali is a fallback for Bangla text.
+- Web: `web/index.html` now loads pdf.js for the preview. Run `flutter pub get`.
+- Privacy: phone and email are stored in the CV but employers and mentors only see them if the student ticks "Contact" when applying.
+- Older v1 CVs are converted automatically when opened.
