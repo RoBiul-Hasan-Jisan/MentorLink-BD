@@ -278,3 +278,8 @@ One screen that joins pieces you already have: readiness, approved job postings,
 - `backend/study/analyze-ab.js` reports rank-1 good rate, precision@3, mean rating, would-request rate and nDCG@5 for both methods, plus paired differences with 95% intervals and win / tie / loss counts.
 - Protocol: `backend/study/STUDY_PROTOCOL.md` ("Version 2"). Step-by-step guide with consent text and report template: the "Pilot Study Guide" document.
 - Tests: `tests/study_ab.test.js` (6 tests, pass; no database needed). The export script needs a real MongoDB and was only syntax-checked here, not run. The study itself has NOT been run, so there is still no accuracy result.
+
+## Update 31: demo data for testing the study
+- `backend/src/seed/demo_study.js`: 13 more demo mentors (23 verified with `seed:demo`), including a keyword decoy. `npm run study:dryrun` runs the whole study pipeline on invented students with no database. Its numbers are synthetic and must not be reported.
+- Demo-data fix: several demo mentors had a weekly capacity below their accepted count, so they could not take requests (and showed 0 open spots in the Decision Lab). Capacity is now set above the accepted count.
+- Tests: `tests/study_demo.test.js` (data checks, pooling, dry run). With the earlier new tests, 41 pass without a database.

@@ -14,11 +14,9 @@ const env = require('../src/config/env');
 const { connect, mongoose } = require('../src/config/db');
 const M = require('../src/models');
 const { keywordBaseline } = require('../src/services/matching');
+const { mulberry32, csv, baselineTop, buildPool, mentorCard } = require('./pool');
 
 const arg = (name) => { const i = process.argv.indexOf(`--${name}`); return i > -1 ? process.argv[i + 1] : null; };
-const mulberry32 = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const clean = (x) => String(x == null ? '' : x).replace(/[",\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
-const csv = (cells) => cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
 
 (async () => {
   const emails = (arg('students') || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -41,24 +39,19 @@ const csv = (cells) => cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).jo
   for (const st of students) {
     const sp = (await M.StudentProfile.findOne({ userId: st._id }).lean()) || {};
     const role = sp.careerGoalRoleKey ? await M.RoleTemplate.findOne({ key: sp.careerGoalRoleKey }).lean() : null;
-    const saved = await M.Match.find({ studentId: st._id }).sort({ _id: 1 }).lean(); // saved in rank order by GET /matches
+    const known = new Set(mentors.map((m) => String(m.user._id)));
+    const saved = (await M.Match.find({ studentId: st._id }).sort({ _id: 1 }).lean()).filter((m) => known.has(String(m.mentorId))); // saved in rank order by GET /matches
     if (!role || !saved.length) { skipped.push(st.email); continue; }
     const blocked = new Set([...(st.blockedBy || []), ...(sp.dismissedMentors || [])].map(String));
     const eligible = mentors.filter((m) => !m.profile.paused && String(m.user._id) !== String(st._id) && !blocked.has(String(m.user._id)) && !(m.user.blockedBy || []).map(String).includes(String(st._id)));
-    const base = keywordBaseline({ student: { user: st, profile: sp }, role, mentors: eligible })
-      .sort((a, b) => b.score - a.score || String(a.mentorId).localeCompare(String(b.mentorId))).slice(0, 5); // ties broken by id, so it is repeatable
+    const base = baselineTop(keywordBaseline({ student: { user: st, profile: sp }, role, mentors: eligible }));
     const s = code(sc, st._id, 'S', 'students');
-    const pool = new Map();
-    saved.slice(0, 5).forEach((m, i) => pool.set(String(m.mentorId), { sys: i + 1, sysScore: m.score, base: null }));
-    base.forEach((m, i) => { const e = pool.get(String(m.mentorId)) || { sys: null, sysScore: null, base: null }; e.base = i + 1; e.baseScore = m.score; pool.set(String(m.mentorId), e); });
     key.students[s] = { id: String(st._id), rows: {} };
-    const rows = [...pool.entries()].map(([mid, e]) => ({ mid, e, r: rnd() })).sort((a, b) => a.r - b.r);
-    for (const { mid, e } of rows) {
-      const m = mentors.find((x) => String(x.user._id) === mid); const p = m.profile;
-      const mcode = code(mc, mid, 'M', 'mentors');
-      const card = `Role: ${clean(p.roleTitle)} / Industry: ${clean(p.industry)} / Experience: ${p.yearsExperience || 0} years / Languages: ${(p.languages || []).join(' ')} / Skills: ${(p.expertiseSkills || []).map((x) => `${clean(x.skillKey)} L${x.level}`).join(' ')}`;
-      key.students[s].rows[mcode] = { systemRank: e.sys, systemScore: e.sysScore, baselineRank: e.base, baselineScore: e.baseScore == null ? null : e.baseScore };
-      lines.push(csv([s, mcode, card, '', '']));
+    for (const e of buildPool({ system: saved.slice(0, 5).map((m) => ({ mentorId: m.mentorId, score: m.score })), baseline: base, rnd })) {
+      const m = mentors.find((x) => String(x.user._id) === e.mentorId);
+      const mcode = code(mc, e.mentorId, 'M', 'mentors');
+      key.students[s].rows[mcode] = { systemRank: e.systemRank, systemScore: e.systemScore, baselineRank: e.baselineRank, baselineScore: e.baselineScore };
+      lines.push(csv([s, mcode, mentorCard(m.profile), '', '']));
     }
   }
   fs.writeFileSync(`${__dirname}/ab-key.private.json`, JSON.stringify(key, null, 2));
