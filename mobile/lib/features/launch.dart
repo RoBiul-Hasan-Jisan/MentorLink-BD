@@ -49,7 +49,7 @@ class BriefCard extends ConsumerWidget {
 
   Future<void> _shareWeek(BuildContext context, WidgetRef ref) async {
     try {
-      final c = await getJson(ref, '/me/week-card');
+      final c = (await ref.read(dioProvider).get('/me/week-card')).data as Map;
       final items = ((c['items'] ?? []) as List).cast<Map>();
       final text = '${tr(context, c['headlineEn'] ?? '', c['headlineBn'] ?? '')}\n'
           '${items.map((x) => '• ${tr(context, x['en'] ?? '', x['bn'] ?? '')}').join('\n')}\n'
