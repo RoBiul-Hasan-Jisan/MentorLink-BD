@@ -1,0 +1,10 @@
+MentorLink BD - Career tab, pathway map, Projects & GitHub, plan review, help finder, department analytics
+
+1. Unzip over your project folder (same paths). .env and serviceAccount.json are NOT included and are not touched.
+2. backend: npm test            (DB-free suites: npx jest tests/career_features.test.js tests/career_api.test.js)
+3. backend: npm run seed:demo   (23 verified demo mentors + demo projects, a demo GitHub link and a plan review request)
+4. mobile:  flutter analyze     (student.dart was an old unused copy of the home/mentors/jobs/plan screens and is removed)
+
+Student bottom nav is now Home, Career, Mentors, Jobs, Profile. The 4-week plan opens from Career (route /plan).
+Department gets an Analytics tab (groups under 5 are hidden). Mentors get "Plan reviews" in Profile.
+Real pilot: use real volunteer students and mentors, never the demo accounts.
