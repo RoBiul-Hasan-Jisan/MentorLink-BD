@@ -310,3 +310,7 @@ All four reuse existing evidence, mentor review and company rules. The server en
 - Web: `web/index.html` now loads pdf.js for the preview. Run `flutter pub get`.
 - Privacy: phone and email are stored in the CV but employers and mentors only see them if the student ticks "Contact" when applying.
 - Older v1 CVs are converted automatically when opened.
+
+## Build fixes (v35)
+- launch.dart: week card uses dio directly (getJson only accepts a provider Ref).
+- pubspec: dependency_overrides archive 4.0.7, because image 4.11 (needed by pdf/printing) fails with archive 4.0.9.
