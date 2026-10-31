@@ -181,6 +181,11 @@ module.exports = function opportunityRoutes(auth) {
   // ---- anti-scam reporting ----
   r.post('/reports', A, requireRole('student', 'mentor'), validate(z.object({ targetType: z.enum(['opportunity', 'user']), targetId: z.string(), reason: z.string().trim().min(3).max(300) }).strict()), async (req, res) => {
     toObjectId(req.body.targetId, 'target id');
+    // The target must exist; people cannot report themselves; nothing here tells the target who reported.
+    if (req.body.targetType === 'user') {
+      if (String(req.body.targetId) === String(req.user._id)) throw bad('SELF_REPORT', 'You cannot report yourself.');
+      if (!(await User.exists({ _id: req.body.targetId, deletedAt: { $exists: false } }))) throw notFound('User not found.');
+    } else if (!(await Opportunity.exists({ _id: req.body.targetId }))) throw notFound('Opportunity not found.');
     try { await Report.create({ ...req.body, reporterId: req.user._id }); } catch (e) { if (e.code === 11000) throw conflict('ALREADY_REPORTED', 'You already reported this.'); throw e; }
     let hidden = false;
     if (req.body.targetType === 'opportunity') {

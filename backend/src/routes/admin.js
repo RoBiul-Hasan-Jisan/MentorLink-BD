@@ -55,7 +55,28 @@ module.exports = function adminRoutes(auth) {
     await audit(req.user._id, `opportunity_${req.body.decision}`, 'opportunity', o._id);
     res.json({ status: o.status });
   });
-  r.get('/admin/audit-logs', ...admin, async (_q, res) => res.json({ logs: await AuditLog.find().sort({ createdAt: -1 }).limit(100) }));
+  // Safety reports (users, opportunities, resources). The reporter is never shown; the queue shows what was reported and why.
+  r.get('/admin/reports', ...admin, async (req, res) => {
+    const status = ['open', 'actioned', 'dismissed'].includes(String(req.query.status)) ? String(req.query.status) : 'open';
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+    const list = await Report.find({ status }).sort({ createdAt: -1 }).limit(limit).select('targetType targetId reason status createdAt').lean();
+    const userIds = list.filter((x) => x.targetType === 'user').map((x) => x.targetId);
+    const names = new Map((await User.find({ _id: { $in: userIds } }).select('displayName role').lean()).map((u) => [String(u._id), u]));
+    res.json({ status, reports: list.map((x) => ({ id: x._id, targetType: x.targetType, targetId: x.targetId, reason: x.reason, status: x.status, createdAt: x.createdAt, targetName: (names.get(String(x.targetId)) || {}).displayName || null, targetRole: (names.get(String(x.targetId)) || {}).role || null })) });
+  });
+  r.post('/admin/reports/:id/resolve', ...admin, validate(z.object({ decision: z.enum(['actioned', 'dismissed']) }).strict()), async (req, res) => {
+    toObjectId(req.params.id);
+    const rep = await Report.findOneAndUpdate({ _id: req.params.id, status: 'open' }, { status: req.body.decision }, { returnDocument: 'after' });
+    if (!rep) throw notFound('No open report with this id.');
+    await audit(req.user._id, `report_${req.body.decision}`, 'report', rep._id, { targetType: rep.targetType });
+    res.json({ ok: true, status: rep.status });
+  });
+  r.get('/admin/audit-logs', ...admin, async (req, res) => {
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || '100'), 10) || 100));
+    const filter = {};
+    if (req.query.before) { const b = new Date(String(req.query.before)); if (!Number.isNaN(b.getTime())) filter.createdAt = { $lt: b }; }
+    res.json({ logs: await AuditLog.find(filter).sort({ createdAt: -1 }).limit(limit) });
+  });
 
   // Fairness check: share of recent recommendations per mentor.
   r.get('/admin/fairness', ...admin, async (_q, res) => {

@@ -97,7 +97,9 @@ function compareRoles(items) {
 
 // What if the student reached these levels? learn = [{ skillKey, level }]. Hypothetical evidence is typed 'self'
 // so it can never count as proof, and the hours it would cost are reported with it.
-function simulate({ role, evidence, skills, weeklyHours, learn }) {
+// weeklyHours is the study pace ASSUMED for this scenario (the route passes the request's scenario value, else the saved
+// profile value). It only changes the week estimates; it is never stored. delta is in percentage points.
+function simulate({ role, evidence, skills, weeklyHours, learn, hoursSource }) {
   const have = levelsFromEvidence(evidence);
   const skillMap = new Map(skills.map((s) => [s.key, s]));
   const extra = [], steps = [];
@@ -121,6 +123,8 @@ function simulate({ role, evidence, skills, weeklyHours, learn }) {
     delta: after.readiness - before.readiness,
     provenReadiness: { before: proven, after: proven }, // unchanged on purpose
     studyHoursNeeded: addedHours,
+    studyWeeksNeeded: weeklyHours > 0 ? Math.ceil(addedHours / weeklyHours) : null,
+    assumption: { weeklyHours: weeklyHours > 0 ? weeklyHours : null, source: weeklyHours > 0 ? (hoursSource || 'profile') : 'none' },
     steps,
   };
 }

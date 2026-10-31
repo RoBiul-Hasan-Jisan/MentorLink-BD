@@ -101,9 +101,13 @@ const notificationSchema = new Schema(
     body: { type: String, default: '' },
     kind: { type: String, default: 'info' },
     read: { type: Boolean, default: false },
+    // Where tapping the notification should go (see utils/notifyTarget.js). Optional: older notifications have none.
+    targetType: { type: String },
+    targetId: { type: String },
   },
   { timestamps: true }
 );
+notificationSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = {
   Match: mongoose.model('Match', matchSchema),

@@ -6,10 +6,15 @@ const env = require('./config/env');
 const { makeAuth } = require('./middleware/auth');
 const { privacyGuard, errorHandler } = require('./middleware/guards');
 const { notFound } = require('./utils/httpError');
+const { mongoose } = require('./config/db');
 
 // verify is injected so tests can run without Firebase.
 function createApp({ verify } = {}) {
   const app = express();
+  if (env.nodeEnv === 'production' && !env.corsOrigins.length) {
+    // With no allowlist the API accepts requests from any website origin. Tokens travel in a header (not a cookie), which limits the risk, but production should still name its origins.
+    console.warn('WARNING: CORS_ORIGINS is empty in production. Set it to the exact admin-panel / web-app origins.');
+  }
   verify = verify || require('./config/firebase').verifyCredential;
   const auth = makeAuth(verify);
 
@@ -21,10 +26,17 @@ function createApp({ verify } = {}) {
   app.use(rateLimit({ windowMs: 60_000, limit: env.nodeEnv === 'test' ? 100000 : 300, standardHeaders: true, legacyHeaders: false }));
   app.use(privacyGuard);
 
+  // /health = the process is up (liveness). /ready = the database is connected (readiness); use it for load-balancer checks.
   app.get('/health', (_q, r) => r.json({ ok: true }));
+  app.get('/ready', (_q, r) => {
+    const up = mongoose.connection.readyState === 1;
+    r.status(up ? 200 : 503).json({ ready: up });
+  });
   app.use('/api', require('./routes/core')(auth));
+  // Every route module is REQUIRED. A missing file or a missing dependency inside one must stop startup with a clear error;
+  // it used to be skipped silently, which left whole features returning 404 with no explanation.
   for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'admin', 'extras', 'journey', 'hub', 'community', 'loop', 'lab', 'career', 'analytics']) {
-    try { app.use('/api', require(`./routes/${name}`)(auth)); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
+    app.use('/api', require(`./routes/${name}`)(auth));
   }
   // Launch features (passport, sprints, brief, talent pool). The public passport page lives at /p/:slug.
   const startup = require('./routes/startup')(auth);

@@ -67,6 +67,7 @@ module.exports = function labRoutes(auth) {
     });
     res.json({
       goalRoleKey: c.profile.careerGoalRoleKey || null,
+      weeklyHours: c.profile.weeklyHours > 0 ? c.profile.weeklyHours : null, // saved study commitment (read only here)
       roles: lab.compareRoles(results).map(shape),
       available: c.roles.map((x) => ({ key: x.key, titleEn: x.titleEn, titleBn: x.titleBn })),
       formula: 'Priority = demand share (D) x importance (W) x gap (G). Demand uses approved postings when there are at least 3, otherwise D = 1.',
@@ -77,6 +78,7 @@ module.exports = function labRoutes(auth) {
   const simSchema = z.object({
     roleKey: z.string().min(1).max(60),
     learn: z.array(z.object({ skillKey: z.string().min(1).max(40), level: z.number().int().min(1).max(3) }).strict()).min(1).max(10),
+    weeklyHours: z.number().int().min(1).max(80).optional(), // hypothetical study pace for THIS simulation only; never saved
   }).strict();
   r.post('/me/decision-lab/simulate', ...student, validate(simSchema), async (req, res) => {
     const c = await context(req.user);
@@ -84,7 +86,9 @@ module.exports = function labRoutes(auth) {
     if (!role) throw bad('UNKNOWN_ROLE', 'Unknown role.');
     const known = new Set(c.skills.map((s) => s.key));
     if (req.body.learn.some((l) => !known.has(l.skillKey))) throw bad('UNKNOWN_SKILL', 'Unknown skill.');
-    res.json(lab.simulate({ role, evidence: c.evidence, skills: c.skills, weeklyHours: c.profile.weeklyHours, learn: req.body.learn }));
+    const scenario = req.body.weeklyHours;
+    const weeklyHours = scenario !== undefined ? scenario : c.profile.weeklyHours;
+    res.json(lab.simulate({ role, evidence: c.evidence, skills: c.skills, weeklyHours, hoursSource: scenario !== undefined ? 'scenario' : 'profile', learn: req.body.learn }));
   });
 
   return r;

@@ -7,13 +7,19 @@ async function audit(actorId, action, targetType, targetId, detail) {
   return AuditLog.create({ actorId, action, targetType, targetId, detail });
 }
 
-// In-app notification record. A push (Firebase Cloud Messaging) can be sent from here later.
-async function notify(userId, title, body = '', kind = 'info') {
-  const n = await Notification.create({ userId, title, body, kind });
+// In-app notification record, plus a push (Firebase Cloud Messaging) when the person has a device registered.
+//  - `target` is an optional { type, id } telling the app where to go when the notification is tapped (see utils/notifyTarget.js).
+//  - Reminders (kind 'reminder') are not created at all when the person switched "Session reminders" off.
+//  - Pushes are held back during the person's quiet hours; the in-app notification is still stored.
+async function notify(userId, title, body = '', kind = 'info', target) {
+  const { buildTarget, inQuietHours } = require('./notifyTarget');
+  let u = null;
+  try { u = await require('../models').User.findById(userId).select('deviceTokens remindersOn quietHours'); } catch { u = null; }
+  if (kind === 'reminder' && u && u.remindersOn === false) return null;
+  const t = buildTarget(target);
+  const n = await Notification.create({ userId, title, body, kind, ...(t ? { targetType: t.type, ...(t.id ? { targetId: t.id } : {}) } : {}) });
   try {
-    const { User } = require('../models');
-    const u = await User.findById(userId);
-    if (u && u.deviceTokens.length) require('../config/firebase').sendPush(u.deviceTokens, title, body);
+    if (u && u.deviceTokens && u.deviceTokens.length && !inQuietHours(u.quietHours)) require('../config/firebase').sendPush(u.deviceTokens, title, body);
   } catch { /* push is best effort */ }
   return n;
 }

@@ -1,15 +1,17 @@
 // Socket.IO chat. Same Firebase check as REST; a socket may only join a room for an ACCEPTED request it belongs to.
 const { Server } = require('socket.io');
 const { User, MentorRequest } = require('./models');
+const env = require('./config/env');
 
 function attach(server, verify = require('./config/firebase').verifyCredential) {
-  const io = new Server(server, { cors: { origin: true } });
+  // Same origin allowlist as the REST API (CORS_ORIGINS). Empty list = allow any origin, as before.
+  const io = new Server(server, { cors: { origin: env.corsOrigins.length ? env.corsOrigins : true } });
   io.use(async (socket, next) => {
     try {
       const t = socket.handshake.auth && socket.handshake.auth.token;
       const { uid } = await verify(t);
       const u = await User.findOne({ firebaseUid: uid });
-      if (!u) return next(new Error('no profile'));
+      if (!u || u.deletedAt) return next(new Error('no profile')); // deleted accounts cannot open a chat socket
       socket.user = u; next();
     } catch { next(new Error('unauthenticated')); }
   });
