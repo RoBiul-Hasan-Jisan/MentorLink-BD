@@ -1,0 +1,32 @@
+# Secrets: never commit or zip these. Use the *.example files as templates.
+.env
+.env.*
+!.env.example
+!.env.local.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.local.example
+serviceAccount*.json
+**/serviceAccount*.json
+*-firebase-adminsdk-*.json
+**/*-firebase-adminsdk-*.json
+
+# Dependencies and build output
+node_modules/
+.next/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Study-data files that must stay private
+backend/study/codes.private.json
+backend/study/ab-key.private.json
+backend/study/ratings*.csv
+backend/study/demo-output/
+
+# OS / editor
+.DS_Store
+.idea/
+*.iml
