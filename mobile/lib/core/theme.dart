@@ -26,15 +26,7 @@ ThemeData buildTheme() {
     ),
     cardTheme: CardThemeData(color: Colors.white, elevation: 0, margin: const EdgeInsets.symmetric(vertical: 6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
     filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(44, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true, fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFC9D3CC))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFC9D3CC))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Brand.delta, width: 2)),
-      hintStyle: const TextStyle(color: Brand.muted, fontSize: 14),
-      helperStyle: const TextStyle(color: Brand.muted, fontSize: 13),
-      helperMaxLines: 3,
-    ),
+    inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
     appBarTheme: const AppBarTheme(backgroundColor: Brand.paper, foregroundColor: Brand.forest, elevation: 0),
   );
 }

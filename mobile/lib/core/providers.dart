@@ -5,8 +5,6 @@ import 'api.dart';
 
 final dioProvider = Provider<Dio>((_) => buildDio());
 final authStateProvider = StreamProvider<User?>((_) => FirebaseAuth.instance.authStateChanges());
-// The language the user chose. main() loads the saved choice before the app starts and overrides this provider, and
-// MentorLinkApp saves every change, so the language never flips back on its own (restart, relaunch, sign-in/out).
 final localeProvider = StateProvider<String>((_) => 'bn');
 
 // GET helper that returns decoded JSON.
