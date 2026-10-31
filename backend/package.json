@@ -8,8 +8,7 @@
     "dev": "node --watch src/server.js",
     "test": "jest --runInBand --forceExit",
     "seed:universities": "node src/seed/universities.js",
-    "seed:demo": "node src/seed/demo.js",
-    "study:dryrun": "node study/dry-run.js"
+    "seed:demo": "node src/seed/demo.js"
   },
   "jest": {
     "testEnvironment": "node",
