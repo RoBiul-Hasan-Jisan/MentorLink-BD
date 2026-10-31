@@ -25,6 +25,7 @@ String mentorSlotLabel(String s) {
 String _formatLabel(BuildContext context, String f) {
   if (f == 'phone') return tr(context, 'Phone call', 'ফোন কল');
   if (f == 'in_person') return tr(context, 'In person', 'সরাসরি');
+  if (f == 'message') return tr(context, 'Message / chat', 'মেসেজ / চ্যাট');
   return tr(context, 'Video link', 'ভিডিও লিংক');
 }
 

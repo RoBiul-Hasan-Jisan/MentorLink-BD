@@ -10,6 +10,36 @@ import 'widgets.dart';
 // Shared with the mentor profile screen.
 Future<void> sendMentorRequest(BuildContext c, WidgetRef r, String mentorId) async { c.push('/request/$mentorId'); }
 
+/// The latest open (pending or accepted) request this student has with [mentorId], or null.
+Map? openRequestWith(WidgetRef ref, String mentorId) {
+  final list = (ref.watch(requestsProvider).valueOrNull?['requests'] as List? ?? const []);
+  for (final r in list) {
+    if (r is Map && '${r['mentorId']}' == mentorId && (r['status'] == 'pending' || r['status'] == 'accepted')) return r;
+  }
+  return null;
+}
+
+/// "Send request" button that turns into a status once a request is open, so the student is not asked to send it again.
+class MentorRequestButton extends ConsumerWidget {
+  const MentorRequestButton({super.key, required this.mentorId});
+  final String mentorId;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = openRequestWith(ref, mentorId);
+    if (open == null) return BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/$mentorId'));
+    final accepted = open['status'] == 'accepted';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(16)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(accepted ? Icons.check_circle : Icons.schedule_send, color: Brand.forest, size: 20),
+        const SizedBox(width: 8),
+        Flexible(child: Text(accepted ? tr(context, 'Request accepted', 'অনুরোধ গ্রহণ করা হয়েছে') : tr(context, 'Request sent. Waiting for reply', 'অনুরোধ পাঠানো হয়েছে। উত্তরের অপেক্ষায়'), textAlign: TextAlign.center, style: body(15, color: Brand.forest, w: FontWeight.w800))),
+      ]),
+    );
+  }
+}
+
 const _w = {'career': .30, 'gap': .25, 'experience': .15, 'language': .10, 'schedule': .10, 'reliability': .10};
 
 class MentorMatches extends ConsumerWidget {
@@ -62,7 +92,7 @@ class MentorMatches extends ConsumerWidget {
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 6, children: [Pill(tr(context, 'Alumni verified', 'অ্যালামনাই যাচাইকৃত')), if (mentor['isRising'] == true) Pill(tr(context, 'Rising mentor', 'উদীয়মান মেন্টর'), tone: Tone.saffron)]),
       const SizedBox(height: 12),
-      BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/${mentor['id']}')),
+      MentorRequestButton(mentorId: '${mentor['id']}'),
       Center(child: TextButton(onPressed: () => context.push('/mentor/${mentor['id']}'), child: Text(tr(context, 'View full profile', 'পূর্ণ প্রোফাইল দেখুন')))),
     ]));
   }

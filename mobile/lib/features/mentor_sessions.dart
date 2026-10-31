@@ -17,6 +17,7 @@ const _modes = [
   ('video', 'Video', 'ভিডিও'),
   ('phone', 'Phone', 'ফোন'),
   ('in_person', 'In person', 'সরাসরি'),
+  ('message', 'Message', 'মেসেজ'),
 ];
 
 String _two(int n) => n.toString().padLeft(2, '0');
