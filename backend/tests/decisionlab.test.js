@@ -89,6 +89,48 @@ describe('what-if simulation', () => {
   });
 });
 
+describe('what-if weekly study hours scenario', () => {
+  const evid = [ev('sql', 'quiz', 2)];
+  const learn = [{ skillKey: 'sql', level: 3 }, { skillKey: 'excel', level: 3 }]; // 70 study hours
+  test('the scenario pace changes the week estimates and is reported as the assumption', () => {
+    const slow = simulate({ role, evidence: evid, skills, weeklyHours: 5, hoursSource: 'scenario', learn });
+    const fast = simulate({ role, evidence: evid, skills, weeklyHours: 10, hoursSource: 'scenario', learn });
+    expect(slow.studyHoursNeeded).toBe(70); expect(fast.studyHoursNeeded).toBe(70);
+    expect(slow.studyWeeksNeeded).toBe(14); expect(fast.studyWeeksNeeded).toBe(7);
+    expect(slow.before.weeksLeft).toBeGreaterThan(fast.before.weeksLeft);
+    expect(slow.assumption).toEqual({ weeklyHours: 5, source: 'scenario' });
+    expect(fast.after.readiness).toBe(slow.after.readiness); // pace never changes the score, only the time
+  });
+  test('without any weekly hours there are no week estimates (not a guess)', () => {
+    for (const wh of [0, undefined, null]) {
+      const s = simulate({ role, evidence: evid, skills, weeklyHours: wh, learn });
+      expect(s.studyWeeksNeeded).toBeNull();
+      expect(s.before.weeksLeft).toBeNull(); expect(s.after.weeksLeft).toBeNull();
+      expect(s.assumption).toEqual({ weeklyHours: null, source: 'none' });
+    }
+  });
+  test('the saved-profile pace is labelled as such', () => {
+    expect(simulate({ role, evidence: evid, skills, weeklyHours: 6, hoursSource: 'profile', learn }).assumption).toEqual({ weeklyHours: 6, source: 'profile' });
+  });
+});
+
+describe('simulations never create evidence or raise demonstrated readiness', () => {
+  test('the input evidence is not mutated and proven readiness is identical before and after, for every skill', () => {
+    const evid = [ev('sql', 'quiz', 1), ev('excel', 'self', 2)];
+    const snapshot = JSON.stringify(evid);
+    const all = role.requiredSkills.map((r) => ({ skillKey: r.skillKey, level: 3 }));
+    const s = simulate({ role, evidence: evid, skills, weeklyHours: 8, hoursSource: 'scenario', learn: all });
+    expect(JSON.stringify(evid)).toBe(snapshot);
+    expect(s.after.readiness).toBeGreaterThan(s.before.readiness);
+    expect(s.provenReadiness.after).toBe(s.provenReadiness.before);
+    expect(s.hypothetical).toBe(true);
+  });
+  test('delta is the absolute percentage-point change', () => {
+    const s = simulate({ role, evidence: [], skills, weeklyHours: 5, learn: [{ skillKey: 'sql', level: 3 }] });
+    expect(s.delta).toBe(s.after.readiness - s.before.readiness);
+  });
+});
+
 describe('role comparison', () => {
   test('ranks by readiness, then by hours left', () => {
     const items = [{ readiness: 40, totalHours: 100 }, { readiness: 70, totalHours: 80 }, { readiness: 70, totalHours: 50 }];
