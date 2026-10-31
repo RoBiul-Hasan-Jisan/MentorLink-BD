@@ -21,7 +21,8 @@ const mentorRequestSchema = new Schema(
     goalText: { type: String, required: true, maxlength: 400 },
     questions: { type: [String], validate: (v) => v.length >= 1 && v.length <= 3 },
     preferredSlots: [String],
-    format: { type: String, enum: ['video', 'phone', 'in_person'], default: 'video' },
+    format: { type: String, enum: ['video', 'phone', 'in_person', 'message'], default: 'video' },
+    message: { type: String, maxlength: 500 }, // optional note to the mentor
     focusSkillKey: String, // the specific gap this request is about
     focusKind: String,
     status: { type: String, enum: ['pending', 'accepted', 'declined', 'expired', 'cancelled'], default: 'pending' },
@@ -36,7 +37,7 @@ const sessionSchema = new Schema(
     studentId: ref('User', { required: true, index: true }),
     mentorId: ref('User', { required: true, index: true }),
     startsAt: { type: Date, required: true },
-    mode: { type: String, enum: ['video', 'phone', 'in_person'], default: 'video' },
+    mode: { type: String, enum: ['video', 'phone', 'in_person', 'message'], default: 'video' },
     meetingLink: { type: String, maxlength: 300 },
     status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' },
     reminderSent: { type: Boolean, default: false },

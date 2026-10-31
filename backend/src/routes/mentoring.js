@@ -32,7 +32,7 @@ module.exports = function mentoringRoutes(auth) {
   // ---- requests ----
   const reqSchema = z.object({
     mentorId: z.string(), goalText: z.string().trim().min(5).max(400),
-    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person']).optional(),
+    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person', 'message']).optional(), message: z.string().trim().max(500).optional(),
   }).strict();
   r.post('/requests', ...student, validate(reqSchema), async (req, res) => {
     toObjectId(req.body.mentorId, 'mentor id');
@@ -105,7 +105,7 @@ module.exports = function mentoringRoutes(auth) {
   });
 
   // ---- sessions ----
-  const sesSchema = z.object({ requestId: z.string(), startsAt: z.coerce.date(), mode: z.enum(['video', 'phone', 'in_person']).optional(), meetingLink: z.string().max(300).optional() }).strict();
+  const sesSchema = z.object({ requestId: z.string(), startsAt: z.coerce.date(), mode: z.enum(['video', 'phone', 'in_person', 'message']).optional(), meetingLink: z.string().max(300).optional() }).strict();
   r.post('/sessions', ...mentor, validate(sesSchema), async (req, res) => {
     toObjectId(req.body.requestId);
     const rq = await MentorRequest.findOne({ _id: req.body.requestId, mentorId: req.user._id, status: 'accepted' });
