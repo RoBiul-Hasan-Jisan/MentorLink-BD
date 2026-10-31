@@ -6,7 +6,6 @@ const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { notify, toObjectId } = require('../utils/helpers');
-const { normalizeMeetingLink } = require('../utils/links');
 
 module.exports = function mentoringRoutes(auth) {
   const r = express.Router();
@@ -32,7 +31,7 @@ module.exports = function mentoringRoutes(auth) {
   // ---- requests ----
   const reqSchema = z.object({
     mentorId: z.string(), goalText: z.string().trim().min(5).max(400),
-    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person', 'message']).optional(), message: z.string().trim().max(500).optional(),
+    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person']).optional(),
   }).strict();
   r.post('/requests', ...student, validate(reqSchema), async (req, res) => {
     toObjectId(req.body.mentorId, 'mentor id');
@@ -45,7 +44,7 @@ module.exports = function mentoringRoutes(auth) {
     const open = await MentorRequest.countDocuments({ mentorId: m._id, status: 'pending' });
     if (mp.acceptedRequests + open >= mp.weeklyCapacity) throw conflict('MENTOR_AT_CAPACITY', 'This mentor has no open spots.');
     const doc = await MentorRequest.create({ ...req.body, studentId: req.user._id, mentorId: m._id });
-    await notify(m._id, 'New mentor request', `${req.user.displayName} sent you a request.`, 'request', { type: 'request', id: String(doc._id) });
+    await notify(m._id, 'New mentor request', `${req.user.displayName} sent you a request.`, 'request');
     res.status(201).json({ request: doc });
   });
   r.get('/requests', A, requireRole('student', 'mentor'), async (req, res) => {
@@ -82,42 +81,30 @@ module.exports = function mentoringRoutes(auth) {
   const decSchema = z.object({ decision: z.enum(['accept', 'decline']), reason: z.string().max(300).optional() }).strict();
   r.post('/requests/:id/decision', ...mentor, validate(decSchema), async (req, res) => {
     toObjectId(req.params.id);
-    const existing = await MentorRequest.findOne({ _id: req.params.id, mentorId: req.user._id });
-    if (!existing) throw notFound();
-    if (existing.status !== 'pending') throw conflict('ALREADY_DECIDED', 'This request was already answered.');
+    const doc = await MentorRequest.findOne({ _id: req.params.id, mentorId: req.user._id });
+    if (!doc) throw notFound();
+    if (doc.status !== 'pending') throw conflict('ALREADY_DECIDED', 'This request was already answered.');
     if (req.body.decision === 'accept') {
       const mp = await MentorProfile.findOne({ userId: req.user._id });
-      if (!mp) throw notFound('Set up your mentor profile first.');
       if (mp.acceptedRequests >= mp.weeklyCapacity) throw conflict('MENTOR_AT_CAPACITY', 'You are at capacity.');
-    }
-    // Claim the decision atomically: a double tap or two devices cannot answer (or count) the same request twice.
-    const doc = await MentorRequest.findOneAndUpdate(
-      { _id: existing._id, mentorId: req.user._id, status: 'pending' },
-      { $set: req.body.decision === 'accept' ? { status: 'accepted' } : { status: 'declined', declineReason: req.body.reason } },
-      { returnDocument: 'after' });
-    if (!doc) throw conflict('ALREADY_DECIDED', 'This request was already answered.');
-    if (req.body.decision === 'accept') {
-      const mp = await MentorProfile.findOneAndUpdate({ userId: req.user._id }, { $inc: { acceptedRequests: 1 } }, { returnDocument: 'after' });
-      if (mp && mp.acceptedRequests >= mp.weeklyCapacity && !mp.paused) { mp.paused = true; await mp.save(); } // auto-pause at capacity
-    }
-    await notify(doc.studentId, `Request ${doc.status}`, doc.declineReason || '', 'request', { type: doc.status === 'accepted' ? 'chat' : 'request', id: String(doc._id) });
+      doc.status = 'accepted';
+      mp.acceptedRequests += 1;
+      if (mp.acceptedRequests >= mp.weeklyCapacity) mp.paused = true; // auto-pause at capacity
+      await mp.save();
+    } else { doc.status = 'declined'; doc.declineReason = req.body.reason; }
+    await doc.save();
+    await notify(doc.studentId, `Request ${doc.status}`, doc.declineReason || '', 'request');
     res.json({ request: doc });
   });
 
   // ---- sessions ----
-  const sesSchema = z.object({ requestId: z.string(), startsAt: z.coerce.date(), mode: z.enum(['video', 'phone', 'in_person', 'message']).optional(), meetingLink: z.string().max(300).optional() }).strict();
+  const sesSchema = z.object({ requestId: z.string(), startsAt: z.coerce.date(), mode: z.enum(['video', 'phone', 'in_person']).optional(), meetingLink: z.string().max(300).optional() }).strict();
   r.post('/sessions', ...mentor, validate(sesSchema), async (req, res) => {
     toObjectId(req.body.requestId);
     const rq = await MentorRequest.findOne({ _id: req.body.requestId, mentorId: req.user._id, status: 'accepted' });
     if (!rq) throw forbidden('Sessions need an accepted request.');
-    if (!(req.body.startsAt.getTime() > Date.now())) throw bad('PAST', 'Pick a time in the future.');
-    const body = { ...req.body };
-    if (body.meetingLink !== undefined && String(body.meetingLink).trim() !== '') {
-      body.meetingLink = normalizeMeetingLink(body.meetingLink);
-      if (!body.meetingLink) throw bad('BAD_MEETING_LINK', 'The meeting link must be a secure https link.');
-    } else delete body.meetingLink;
-    const s = await Session.create({ ...body, studentId: rq.studentId, mentorId: req.user._id });
-    await notify(rq.studentId, 'Session scheduled', s.startsAt.toISOString(), 'session', { type: 'session', id: String(s._id) });
+    const s = await Session.create({ ...req.body, studentId: rq.studentId, mentorId: req.user._id });
+    await notify(rq.studentId, 'Session scheduled', s.startsAt.toISOString(), 'session');
     res.status(201).json({ session: s });
   });
   r.get('/sessions', A, requireRole('student', 'mentor'), async (req, res) => {
@@ -147,7 +134,7 @@ module.exports = function mentoringRoutes(auth) {
     }
     await s.save();
     await MentorProfile.updateOne({ userId: req.user._id }, { $inc: { sessionsCompleted: 1 } });
-    await notify(s.studentId, 'Session notes ready', `${req.body.nextSteps.length} new step(s) in your plan.`, 'plan', { type: 'session', id: String(s._id) });
+    await notify(s.studentId, 'Session notes ready', `${req.body.nextSteps.length} new step(s) in your plan.`, 'plan');
     res.json({ session: s });
   });
 
@@ -199,7 +186,7 @@ module.exports = function mentoringRoutes(auth) {
     const io = req.app.get('io');
     if (io) io.to(`req:${rq._id}`).emit('message', msg);
     const other = String(rq.studentId) === String(req.user._id) ? rq.mentorId : rq.studentId;
-    await notify(other, 'New message', req.body.text.slice(0, 80), 'chat', { type: 'chat', id: String(rq._id) });
+    await notify(other, 'New message', req.body.text.slice(0, 80), 'chat');
     res.status(201).json({ message: msg });
   });
 
@@ -208,24 +195,7 @@ module.exports = function mentoringRoutes(auth) {
     res.json({ ok: true });
   });
   // ---- notifications, block ----
-  // ?limit=1..100 (default 50) and ?before=<ISO date> page backwards. Each item carries `target` ({type,id}) when the app can open something.
-  r.get('/notifications', A, async (req, res) => {
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
-    const filter = { userId: req.user._id };
-    if (req.query.before) {
-      const b = new Date(String(req.query.before));
-      if (Number.isNaN(b.getTime())) throw bad('BAD_BEFORE', 'before must be a date.');
-      filter.createdAt = { $lt: b };
-    }
-    const [list, unreadCount] = await Promise.all([
-      Notification.find(filter).sort({ createdAt: -1 }).limit(limit).lean(),
-      Notification.countDocuments({ userId: req.user._id, read: { $ne: true } }),
-    ]);
-    res.json({
-      notifications: list.map(({ targetType, targetId, ...n }) => ({ ...n, target: targetType ? { type: targetType, ...(targetId ? { id: targetId } : {}) } : null })),
-      unreadCount, hasMore: list.length === limit,
-    });
-  });
+  r.get('/notifications', A, async (req, res) => res.json({ notifications: await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50) }));
   r.post('/notifications/read-all', A, async (req, res) => {
     await Notification.updateMany({ userId: req.user._id, read: { $ne: true } }, { read: true });
     res.json({ ok: true });
@@ -238,7 +208,6 @@ module.exports = function mentoringRoutes(auth) {
   r.post('/users/:id/block', A, async (req, res) => {
     toObjectId(req.params.id);
     if (String(req.params.id) === String(req.user._id)) throw bad('SELF_BLOCK', 'You cannot block yourself.');
-    if (!(await User.exists({ _id: req.params.id }))) throw notFound('User not found.');
     await User.updateOne({ _id: req.user._id }, { $addToSet: { blockedBy: req.params.id } });
     res.json({ ok: true });
   });
