@@ -223,12 +223,9 @@ class _ReportUserScreenState extends ConsumerState<ReportUserScreen> {
   bool alsoBlock = false;
   bool busy = false;
 
-  // The target comes from the link (/report-user?id=...&name=...). Only a well-formed user id is accepted.
-  static final _idPattern = RegExp(r'^[a-fA-F0-9]{24}$');
-
   Future<void> _send(List<String> reasons) async {
     final id = '${widget.target['id'] ?? ''}';
-    if (picked == null || !_idPattern.hasMatch(id)) return;
+    if (picked == null || id.isEmpty) return;
     setState(() => busy = true);
     try {
       final dio = ref.read(dioProvider);
@@ -252,14 +249,9 @@ class _ReportUserScreenState extends ConsumerState<ReportUserScreen> {
       tr(context, 'Pressured me to leave the app', 'অ্যাপের বাইরে যেতে চাপ দিয়েছে'),
       tr(context, 'Something else', 'অন্য কিছু'),
     ];
-    final targetId = '${widget.target['id'] ?? ''}';
-    final targetName = '${widget.target['name'] ?? ''}'.trim();
-    final validTarget = _idPattern.hasMatch(targetId);
     return Scaffold(
       appBar: AppBar(title: Text(tr(context, 'Report this user', 'এই ব্যবহারকারীকে রিপোর্ট করুন'))),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        if (!validTarget) AppCard(color: const Color(0xFFFDEDEA), child: Text(tr(context, 'This report link is not valid. Open the report option from the person\'s profile or request instead.', 'এই রিপোর্ট লিংকটি সঠিক নয়। ব্যক্তির প্রোফাইল বা অনুরোধ থেকে রিপোর্ট অপশন খুলুন।'), style: body(15, color: const Color(0xFF9B2C1F), w: FontWeight.w700))),
-        if (validTarget && targetName.isNotEmpty) Text(tr(context, 'Reporting: $targetName', 'রিপোর্ট করা হচ্ছে: $targetName'), style: body(17, w: FontWeight.w800)),
         Text(tr(context, 'Only the safety team sees your report.', 'শুধু নিরাপত্তা দল আপনার রিপোর্ট দেখে।'), style: body(15, color: Brand.muted)),
         const SizedBox(height: 8),
         for (int i = 0; i < reasons.length; i++)
@@ -279,7 +271,7 @@ class _ReportUserScreenState extends ConsumerState<ReportUserScreen> {
           onChanged: (v) => setState(() => alsoBlock = v),
         ),
         const SizedBox(height: 8),
-        BigButton(tr(context, 'Send report', 'রিপোর্ট পাঠান'), onPressed: (picked == null || busy || !validTarget) ? null : () => _send(reasons)),
+        BigButton(tr(context, 'Send report', 'রিপোর্ট পাঠান'), onPressed: (picked == null || busy) ? null : () => _send(reasons)),
         const SizedBox(height: 10),
         Text(tr(context, 'Serious reports are reviewed within 24 hours and logged in the audit trail.', 'গুরুতর রিপোর্ট ২৪ ঘণ্টার মধ্যে দেখা হয় এবং অডিট লগে থাকে।'), textAlign: TextAlign.center, style: body(13, color: Brand.muted)),
       ]),

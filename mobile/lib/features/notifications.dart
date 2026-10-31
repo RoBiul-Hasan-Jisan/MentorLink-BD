@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api.dart';
-import '../core/notify_route.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -33,14 +32,10 @@ class NotificationsScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(14),
       color: read ? Colors.white : const Color(0xFFF0F9F4),
       onTap: () async {
-        // Mark read first (a failure must not block opening the item), then go to where the notification points.
         try {
           await ref.read(dioProvider).post('/notifications/${n['_id'] ?? n['id']}/read');
         } catch (_) {}
         ref.invalidate(notificationsProvider);
-        final role = '${ref.read(meProvider).valueOrNull?['role'] ?? ''}';
-        final route = notificationRoute(n, role: role);
-        if (route != null && context.mounted) context.push(route);
       },
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(read ? Icons.notifications_none : Icons.notifications_active, color: Brand.delta),
