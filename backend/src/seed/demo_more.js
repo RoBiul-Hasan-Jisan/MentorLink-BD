@@ -52,8 +52,8 @@ async function seedMoreDemo({ auth }) {
   }
   for (const [email, name, uni, dept, batch, roleKey, related, title, industry, years, expertise, languages, slots, accepted, completed, rising] of MENTORS) {
     const u = await upsertUser(auth, email, name, 'mentor', uni, dept, batch);
-    await MentorProfile.updateOne({ userId: u._id }, { $set: { roleKey, relatedRoleKeys: related, roleTitle: title, industry, yearsExperience: years, expertiseSkills: Object.entries(expertise).map(([skillKey, level]) => ({ skillKey, level })), languages, weeklyCapacity: Math.max(4, accepted + 3), availableSlots: slots, acceptedRequests: accepted, sessionsCompleted: completed, isRising: rising, paused: false } }, { upsert: true });
+    await MentorProfile.updateOne({ userId: u._id }, { $set: { roleKey, relatedRoleKeys: related, roleTitle: title, industry, yearsExperience: years, expertiseSkills: Object.entries(expertise).map(([skillKey, level]) => ({ skillKey, level })), languages, weeklyCapacity: 4, availableSlots: slots, acceptedRequests: accepted, sessionsCompleted: completed, isRising: rising, paused: false } }, { upsert: true });
   }
   return { students: STUDENTS.length, mentors: MENTORS.length };
 }
-module.exports = { seedMoreDemo, STUDENTS, MENTORS, upsertUser, UNI };
+module.exports = { seedMoreDemo, STUDENTS, MENTORS };
