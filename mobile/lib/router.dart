@@ -70,7 +70,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ...studentExtraRoutes, ...onboardingRoutes, ...jobsMoreRoutes,
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/quiz/:skill', builder: (_, s) => QuizScreen(skill: s.pathParameters['skill']!)),
-      GoRoute(path: '/applicants/:id', builder: (_, s) => ApplicantsScreen(jobId: s.pathParameters['id']!, title: s.extra as String?)),
+      GoRoute(path: '/applicants/:id', builder: (_, s) => ApplicantsScreen(jobId: s.pathParameters['id']!, title: s.extra is String ? s.extra as String : s.uri.queryParameters['title'])),
       GoRoute(path: '/mentor/:id', builder: (_, s) => MentorDetailScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/problem', builder: (_, __) => const ProblemScreen()),
       GoRoute(path: '/cv', builder: (_, __) => const CvScreen()),

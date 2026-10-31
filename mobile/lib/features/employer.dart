@@ -59,10 +59,17 @@ class EmployerHome extends ConsumerWidget {
 class ApplicantsScreen extends ConsumerWidget {
   const ApplicantsScreen({super.key, required this.jobId, this.title});
   final String jobId; final String? title;
+  // Direct link / refresh: the title is looked up from the recruiter's own job list instead of router state.
+  String? _jobTitle(WidgetRef ref) {
+    final jobs = ref.watch(employerJobsProvider).valueOrNull;
+    if (jobs == null) return null;
+    for (final j in (jobs['jobs'] as List)) { if (j is Map && '${j['_id']}' == jobId) return '${j['title']}'; }
+    return null;
+  }
   static const next = {'Applied': ['Under Review', 'Shortlisted', 'Rejected'], 'Under Review': ['Shortlisted', 'Rejected'], 'Shortlisted': ['Interview', 'Rejected'], 'Interview': ['Offer', 'Rejected'], 'Offer': ['Hired', 'Rejected']};
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(body: Column(children: [
-        GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12), Expanded(child: Text(title ?? tr(context, 'Applicants', 'আবেদনকারী'), style: display(22, color: Colors.white)))])),
+        GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12), Expanded(child: Text(title ?? _jobTitle(ref) ?? tr(context, 'Applicants', 'আবেদনকারী'), style: display(22, color: Colors.white)))])),
         Expanded(child: AsyncBody(value: ref.watch(applicantsProvider(jobId)), onRetry: () => ref.invalidate(applicantsProvider(jobId)), builder: (d) {
           final list = (d['applicants'] as List).cast<Map>();
           if (list.isEmpty) return Center(child: Text(tr(context, 'No applicants yet.', 'এখনও কোনো আবেদনকারী নেই।'), style: body(17, color: Brand.muted)));

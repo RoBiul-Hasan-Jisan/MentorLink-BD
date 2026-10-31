@@ -125,11 +125,11 @@ class ProfileScreen extends ConsumerWidget {
             ListTile(leading: Icon(e.$1, color: Brand.delta), title: Text(e.$2, style: body(16, w: FontWeight.w600)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push(e.$3)),
         ])),
         AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
-          SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'showInDirectory': v}); ref.invalidate(meProvider); }),
+          SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'showInDirectory': v})),
           ListTile(leading: const Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
         ])),
         if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
-        AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'lowDataMode': v}); ref.invalidate(meProvider); })),
+        AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'lowDataMode': v}))),
         if (isStudent) _CompanyTile(),
         AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
@@ -155,6 +155,7 @@ class ProfileScreen extends ConsumerWidget {
     }
     return [
       if (role == 'mentor') (Icons.fact_check_outlined, tr(context, 'Review mentees’ work', 'মেন্টিদের কাজ রিভিউ'), '/mentor/reviews'),
+      if (role == 'mentor') (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
       if (role == 'mentor') (Icons.checklist, tr(context, 'Plan reviews', 'পরিকল্পনা রিভিউ'), '/mentor/plan-reviews'),
       if (role == 'mentor') (Icons.bolt_outlined, tr(context, 'Sprint reviews', 'স্প্রিন্ট রিভিউ'), '/mentor/sprint-reviews'),
       if (role == 'admin') (Icons.query_stats, tr(context, 'Does mentoring help? (impact)', 'মেন্টরিং কি কাজে লাগছে?'), '/admin-impact'),

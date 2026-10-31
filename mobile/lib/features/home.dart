@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api.dart';
+import '../core/links.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -217,14 +218,8 @@ Widget _nextSession(BuildContext context, Map<String, dynamic>? sessions) {
               borderRadius: BorderRadius.circular(14),
             ),
           ),
-          onPressed: () {
-            toast(
-              context,
-              meetingLink.isEmpty
-                  ? tr(context, 'No link yet', 'এখনও লিংক নেই')
-                  : meetingLink,
-            );
-          },
+          // Opens the meeting (https only). The link is never shown in a toast.
+          onPressed: () => openMeetingLink(context, meetingLink),
           child: Text(tr(context, 'Join', 'যোগ দিন')),
         ),
       ],
