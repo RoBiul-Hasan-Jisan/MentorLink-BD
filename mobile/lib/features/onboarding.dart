@@ -212,7 +212,6 @@ class RequestSessionScreen extends ConsumerStatefulWidget {
 
 class _RequestState extends ConsumerState<RequestSessionScreen> {
   final goal = TextEditingController();
-  final note = TextEditingController();
   final qs = [TextEditingController(), TextEditingController(), TextEditingController()];
   final slots = <String>{};
   String format = 'video';
@@ -233,7 +232,6 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
         'questions': questions,
         'preferredSlots': slots.toList(),
         'format': format,
-        if (note.text.trim().isNotEmpty) 'message': note.text.trim(),
       });
       ref.invalidate(requestsProvider);
       if (mounted) {
@@ -260,25 +258,9 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
         ])),
         Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr(context, 'Your goal', 'আপনার লক্ষ্য'), style: body(16, w: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(tr(context, 'Tell the mentor what you want to get out of this session, so they can prepare.', 'এই সেশন থেকে কী পেতে চান লিখুন, যাতে মেন্টর আগে থেকে প্রস্তুতি নিতে পারেন।'), style: body(13, color: Brand.muted)),
-            const SizedBox(height: 8),
-            TextField(controller: goal, maxLength: 400, minLines: 3, maxLines: 5, textInputAction: TextInputAction.newline, decoration: InputDecoration(
-              hintText: tr(context, 'Example: I want to become a backend developer. Please review my roadmap and tell me what to learn first.', 'যেমন: আমি ব্যাকএন্ড ডেভেলপার হতে চাই। আমার রোডম্যাপ দেখে বলুন প্রথমে কী শিখব।'))),
-            const SizedBox(height: 10),
-            Text(tr(context, 'Your questions', 'আপনার প্রশ্ন'), style: body(16, w: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(tr(context, 'Ask what you want answered in the session. Keep them about your goal, your skills or your career. Question 1 is required.', 'সেশনে কী জানতে চান তা লিখুন। প্রশ্নগুলো আপনার লক্ষ্য, স্কিল বা ক্যারিয়ার নিয়ে হলে ভালো। প্রশ্ন ১ আবশ্যক।'), style: body(13, color: Brand.muted)),
-            const SizedBox(height: 4),
+            TextField(controller: goal, maxLength: 400, maxLines: 3, decoration: InputDecoration(labelText: tr(context, 'What do you want from this session?', 'এই সেশন থেকে কী চান?'))),
             for (int i = 0; i < 3; i++)
-              Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: qs[i], maxLength: 200, minLines: 2, maxLines: 4, decoration: InputDecoration(
-                labelText: '${tr(context, 'Question', 'প্রশ্ন')} ${i + 1}${i == 0 ? ' *' : ''}',
-                hintText: [
-                  tr(context, 'Example: Which skill should I learn first for this role?', 'যেমন: এই পদের জন্য প্রথমে কোন স্কিল শিখব?'),
-                  tr(context, 'Example: How did you prepare for your first interview?', 'যেমন: প্রথম ইন্টারভিউয়ের প্রস্তুতি কীভাবে নিয়েছিলেন?'),
-                  tr(context, 'Example: What projects should I show in my CV?', 'যেমন: সিভিতে কোন প্রজেক্ট দেখাব?'),
-                ][i]))),
+              Padding(padding: const EdgeInsets.only(top: 8), child: TextField(controller: qs[i], maxLength: 200, decoration: InputDecoration(labelText: '${tr(context, 'Question', 'প্রশ্ন')} ${i + 1}${i == 0 ? ' *' : ''}'))),
           ])),
           AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(context, 'Preferred times', 'পছন্দের সময়'), style: body(16, w: FontWeight.w700)),
@@ -288,16 +270,10 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
             ]),
             const SizedBox(height: 10),
             Text(tr(context, 'Format', 'ফরম্যাট'), style: body(16, w: FontWeight.w700)),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final f in [('video', tr(context, 'Video', 'ভিডিও')), ('phone', tr(context, 'Phone', 'ফোন')), ('in_person', tr(context, 'In person', 'সরাসরি')), ('message', tr(context, 'Message', 'মেসেজ'))])
+            Wrap(spacing: 8, children: [
+              for (final f in const [('video', 'Video'), ('phone', 'Phone'), ('in_person', 'In person')])
                 ChoiceChip(label: Text(f.$2), selected: format == f.$1, onSelected: (_) => setState(() => format = f.$1)),
             ]),
-          ])),
-          AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr(context, 'Message to the mentor (optional)', 'মেন্টরকে মেসেজ (ঐচ্ছিক)'), style: body(16, w: FontWeight.w700)),
-            const SizedBox(height: 8),
-            TextField(controller: note, maxLength: 500, minLines: 2, maxLines: 5, decoration: InputDecoration(
-              hintText: tr(context, 'Say hello, share anything else the mentor should know.', 'সালাম/শুভেচ্ছা জানান, মেন্টরের আর কিছু জানা দরকার হলে লিখুন।'))),
           ])),
           AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Text(
             tr(context, 'Sessions are free. Never pay a mentor. Your CV and skill levels are shared only after the mentor accepts.', 'সেশন বিনামূল্যে। মেন্টরকে টাকা দেবেন না। মেন্টর গ্রহণের পরই আপনার সিভি ও স্কিল শেয়ার হয়।'),
