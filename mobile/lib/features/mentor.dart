@@ -5,7 +5,6 @@ import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
-import 'mentor_sessions.dart';
 import 'widgets.dart';
 
 final mentorHomeProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => getJson(ref, '/me/mentor-profile'));
@@ -25,7 +24,6 @@ String mentorSlotLabel(String s) {
 String _formatLabel(BuildContext context, String f) {
   if (f == 'phone') return tr(context, 'Phone call', 'ফোন কল');
   if (f == 'in_person') return tr(context, 'In person', 'সরাসরি');
-  if (f == 'message') return tr(context, 'Message / chat', 'মেসেজ / চ্যাট');
   return tr(context, 'Video link', 'ভিডিও লিংক');
 }
 
@@ -300,20 +298,8 @@ class _MentorRequestDetailState extends ConsumerState<MentorRequestDetail> {
               const SizedBox(width: 12),
               Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(0, 56)), onPressed: _busy ? null : () => _decide('accept'), child: Text(tr(context, 'Accept', 'গ্রহণ')))),
             ]),
-          ] else ...[
+          ] else
             Pill('${r['status'] ?? ''}', tone: r['status'] == 'accepted' ? Tone.green : Tone.grey),
-            if (r['status'] == 'accepted') ...[
-              const SizedBox(height: 14),
-              BigButton(tr(context, 'Schedule a session', 'সেশন নির্ধারণ করুন'), onPressed: () => scheduleSessionDialog(context, ref, r)),
-              const SizedBox(height: 10),
-              BigButton(tr(context, 'Open chat', 'চ্যাট খুলুন'), outlined: true, onPressed: () => context.push('/chat/${r['_id']}')),
-            ],
-          ],
-          if ('${r['studentId'] ?? ''}'.isNotEmpty) Align(alignment: Alignment.centerLeft, child: TextButton.icon(
-            onPressed: () => context.push(Uri(path: '/report-user', queryParameters: {'id': '${r['studentId']}', 'name': name}).toString()),
-            icon: const Icon(Icons.flag_outlined, size: 18),
-            label: Text(tr(context, 'Report this student', 'এই শিক্ষার্থীকে রিপোর্ট করুন')),
-          )),
           const SizedBox(height: 24),
         ])),
       ]),
