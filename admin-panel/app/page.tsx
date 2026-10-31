@@ -43,7 +43,7 @@ function Login() {
   );
 }
 
-const TABS = ['Queue', 'Reports', 'Companies', 'Resources', 'Audit log', 'Fairness', 'Universities'];
+const TABS = ['Queue', 'Companies', 'Resources', 'Audit log', 'Fairness', 'Universities'];
 function Panel({ me }: { me: Me }) {
   const [tab, setTab] = useState('Queue');
   return (
@@ -52,7 +52,6 @@ function Panel({ me }: { me: Me }) {
       <div className="wrap">
         <div className="tabs">{TABS.map((t) => <button key={t} className={`tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
         {tab === 'Queue' && <Queue />}
-        {tab === 'Reports' && <Reports />}
         {tab === 'Companies' && <Companies />}
         {tab === 'Resources' && <Resources />}
         {tab === 'Audit log' && <Audit />}
@@ -86,32 +85,6 @@ function Queue() {
       {data.users.map((u: Row) => <div className="card row" key={u._id}><div><h3>{u.displayName}</h3><span className="pill">{u.role}</span><span className="muted">{u.email}</span></div><Buttons path={`/admin/users/${u._id}/verify`} yes="verified" no="rejected" /></div>)}
       {data.opportunities.map((o: Row) => <div className="card row" key={o._id}><div><h3>{o.title}</h3><div className="muted">{o.organization}</div>{o.suspiciousFlags.map((f: string) => <span key={f} className="pill warn">⚠ {f}</span>)}<p>{o.description}</p></div><Buttons path={`/admin/opportunities/${o._id}/review`} yes="approve" no="reject" /></div>)}
     </>
-  );
-}
-
-// Safety reports (users, jobs, resources). The reporter is never shown. Each decision is written to the audit log by the server.
-function Reports() {
-  const { data, err, reload } = useLoad('/admin/reports?status=open');
-  const [msg, setMsg] = useState(''); const [busy, setBusy] = useState('');
-  async function resolve(id: string, decision: string) {
-    if (!window.confirm(decision === 'actioned' ? 'Mark this report as actioned?' : 'Dismiss this report?')) return;
-    setMsg(''); setBusy(id);
-    try { await api(`/admin/reports/${id}/resolve`, { method: 'POST', body: { decision } }); reload(); } catch (e: any) { setMsg(e.message); }
-    setBusy('');
-  }
-  if (err) return <div className="err">{err}</div>;
-  if (!data) return <p>Loading…</p>;
-  return (
-    <div>
-      {msg && <div className="err">{msg}</div>}
-      {!data.reports.length && <p className="muted">No open reports.</p>}
-      {data.reports.map((r: Row) => (
-        <div className="card row" key={r.id}>
-          <div><h3>{r.targetName || r.targetType} <span className="pill">{r.targetType}</span></h3><div className="muted">{r.reason}</div><div className="muted">{new Date(r.createdAt).toLocaleString()}</div></div>
-          <div><button className="btn" disabled={busy === r.id} onClick={() => resolve(r.id, 'actioned')}>Actioned</button> <button className="btn alt" disabled={busy === r.id} onClick={() => resolve(r.id, 'dismissed')}>Dismiss</button></div>
-        </div>
-      ))}
-    </div>
   );
 }
 
