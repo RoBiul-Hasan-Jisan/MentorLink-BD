@@ -34,6 +34,6 @@ flutter:
   uses-material-design: true
   generate: true
 
-# image 4.11 (used by pdf/printing) breaks with archive 4.0.9 (decodeLazy missing). Pin the last good archive.
+# image 4.11+ (used by pdf/printing) calls ZLibDecoder.decodeLazy, which exists only in archive 4.4.0 and newer.
 dependency_overrides:
-  archive: 4.0.7
+  archive: ^4.5.0

@@ -313,7 +313,7 @@ All four reuse existing evidence, mentor review and company rules. The server en
 
 ## Build fixes (v35)
 - launch.dart: week card uses dio directly (getJson only accepts a provider Ref).
-- pubspec: dependency_overrides archive 4.0.7, because image 4.11 (needed by pdf/printing) fails with archive 4.0.9.
+- pubspec: dependency_overrides archive ^4.5.0 (image 4.11+ needs ZLibDecoder.decodeLazy, added in archive 4.4.0). Delete pubspec.lock before pub get.
 
 ## Hosted backend
 Default API is https://dryrunapp.onrender.com (mobile/lib/core/api.dart). Override with --dart-define=API_URL=... for local runs. Render free plan sleeps when idle, so the first request can take about a minute (timeouts raised to 60 s). Seed the demo data on Render once if needed.
