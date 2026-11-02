@@ -59,17 +59,29 @@ class EmployerHome extends ConsumerWidget {
 class ApplicantsScreen extends ConsumerWidget {
   const ApplicantsScreen({super.key, required this.jobId, this.title});
   final String jobId; final String? title;
+  // Direct link / refresh: the title is looked up from the recruiter's own job list instead of router state.
+  String? _jobTitle(WidgetRef ref) {
+    final jobs = ref.watch(employerJobsProvider).valueOrNull;
+    if (jobs == null) return null;
+    for (final j in (jobs['jobs'] as List)) { if (j is Map && '${j['_id']}' == jobId) return '${j['title']}'; }
+    return null;
+  }
   static const next = {'Applied': ['Under Review', 'Shortlisted', 'Rejected'], 'Under Review': ['Shortlisted', 'Rejected'], 'Shortlisted': ['Interview', 'Rejected'], 'Interview': ['Offer', 'Rejected'], 'Offer': ['Hired', 'Rejected']};
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(body: Column(children: [
-        GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12), Expanded(child: Text(title ?? tr(context, 'Applicants', 'আবেদনকারী'), style: display(22, color: Colors.white)))])),
+        GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const SizedBox(width: 12), Expanded(child: Text(title ?? _jobTitle(ref) ?? tr(context, 'Applicants', 'আবেদনকারী'), style: display(22, color: Colors.white)))])),
         Expanded(child: AsyncBody(value: ref.watch(applicantsProvider(jobId)), onRetry: () => ref.invalidate(applicantsProvider(jobId)), builder: (d) {
           final list = (d['applicants'] as List).cast<Map>();
           if (list.isEmpty) return Center(child: Text(tr(context, 'No applicants yet.', 'এখনও কোনো আবেদনকারী নেই।'), style: body(17, color: Brand.muted)));
           return ListView(padding: const EdgeInsets.all(16), children: [for (final a in list) AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Text(a['name'] ?? tr(context, 'Name not shared', 'নাম শেয়ার করা হয়নি'), style: display(19, color: Brand.ink))), Pill(a['stage'], tone: Tone.blue)]),
             Text(tr(context, 'Shared with you: ${(a['sharedFields'] as List).join(', ')}', 'আপনার সাথে শেয়ার: ${(a['sharedFields'] as List).join(', ')}'), style: body(14, color: Brand.muted)),
-            if (a['cv'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('${(a['cv'] as Map)['summary'] ?? ''}', style: body(15))),
+            if (a['cv'] is Map) Padding(padding: const EdgeInsets.only(top: 6), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if ('${(a['cv'] as Map)['headline'] ?? ''}'.isNotEmpty) Text('${(a['cv'] as Map)['headline']}', style: body(15, w: FontWeight.w700)),
+              Text('${(a['cv'] as Map)['summary'] ?? ''}', style: body(15)),
+              if (((a['cv'] as Map)['projects'] is List) && ((a['cv'] as Map)['projects'] as List).isNotEmpty) Text('${tr(context, 'Projects', 'প্রজেক্ট')}: ${((a['cv'] as Map)['projects'] as List).map((p) => p is Map ? '${p['title']}' : '').where((x) => x.isNotEmpty).join(', ')}', style: body(14, color: Brand.muted)),
+              if ((((a['cv'] as Map)['contact'] as Map?)?['email'] ?? '').toString().isNotEmpty) Text('${((a['cv'] as Map)['contact'] as Map)['email']}  ${((a['cv'] as Map)['contact'] as Map)['phone'] ?? ''}', style: body(14, color: Brand.forest)),
+            ])),
             if (next[a['stage']] != null) Wrap(spacing: 8, children: [for (final s in next[a['stage']]!) ActionChip(label: Text(s), onPressed: () async {
               try { await ref.read(dioProvider).patch('/employer/applications/${a['id']}/stage', data: {'stage': s}); ref.invalidate(applicantsProvider(jobId)); }
               catch (e) { if (context.mounted) toast(context, errorText(e)); }

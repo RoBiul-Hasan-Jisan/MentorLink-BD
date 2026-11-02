@@ -6,6 +6,7 @@ const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { audit, notify, toObjectId } = require('../utils/helpers');
+const { normalizeCv, stripContact } = require('../services/cv');
 const { scamFlags, uiStage, canMove } = require('../services/scam');
 const { STAGES } = require('../models');
 
@@ -82,7 +83,7 @@ module.exports = function employerRoutes(auth) {
     const apps = await Application.find({ opportunityId: j._id }).populate('studentId', 'displayName department').populate('cvVersionId');
     res.json({ applicants: apps.map((a) => {
       const f = a.consentSnapshot.sharedFields; // only what the student agreed to share
-      return { id: a._id, stage: a.stage, studentSees: uiStage(a.stage), name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? a.cvVersionId.data : undefined, note: a.applicantNote, sharedFields: f, consentedAt: a.consentSnapshot.consentedAt };
+      return { id: a._id, stage: a.stage, studentSees: uiStage(a.stage), name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote, sharedFields: f, consentedAt: a.consentSnapshot.consentedAt };
     }) });
   });
   r.patch('/employer/applications/:id/stage', ...emp, validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {

@@ -46,12 +46,13 @@ test('comments, one-level replies, notifications', async () => {
   expect(await models.Notification.countDocuments({ userId: S1._id })).toBeGreaterThan(0);
 });
 
-test('one reaction per person; same reaction again removes it', async () => {
-  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'helpful' })).body.myReaction).toBe('helpful');
-  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'like' })).body.myReaction).toBe('like');
+test('each kind of reaction is independent; the same kind again removes it', async () => {
+  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'helpful' })).body.myReactions).toEqual(['helpful']);
+  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'like' })).body.myReactions.sort()).toEqual(['helpful', 'like']);
   let p = (await j('get', `/api/posts/${postId}`, 's1')).body.post;
-  expect(p.reactions).toEqual({ like: 1 });
-  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'like' })).body.myReaction).toBeNull();
+  expect(p.reactions).toEqual({ helpful: 1, like: 1 });
+  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'like' })).body.myReactions).toEqual(['helpful']);
+  expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'helpful' })).body.myReaction).toBeNull();
   expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'bad' })).status).toBe(400);
 });
 

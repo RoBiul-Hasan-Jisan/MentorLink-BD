@@ -67,7 +67,12 @@ class MentorDetailScreen extends ConsumerWidget {
             ])),
             Text(tr(context, 'Contact details stay private. Chat opens only after the mentor accepts.', 'যোগাযোগের তথ্য গোপন থাকে। মেন্টর গ্রহণ করলেই চ্যাট খোলে।'), textAlign: TextAlign.center, style: body(13, color: Brand.muted)),
             const SizedBox(height: 12),
-            BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => sendMentorRequest(context, ref, m['id'])),
+            MentorRequestButton(mentorId: '${m['id']}'),
+            Align(alignment: Alignment.center, child: TextButton.icon(
+              onPressed: () => context.push(Uri(path: '/report-user', queryParameters: {'id': '${m['id']}', 'name': '${m['name'] ?? ''}'}).toString()),
+              icon: const Icon(Icons.flag_outlined, size: 18),
+              label: Text(tr(context, 'Report this mentor', 'এই মেন্টরকে রিপোর্ট করুন')),
+            )),
             const SizedBox(height: 24),
           ]))),
         ]);

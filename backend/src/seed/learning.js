@@ -14,6 +14,17 @@ const ROLES = [
   R('banking-trainee', 'Banking Trainee Officer', 'ব্যাংকিং ট্রেইনি অফিসার', [['banking', 3, 2], ['accounting', 3, 2], ['excel', 2, 2], ['communication', 2, 3]]),
   R('management-trainee', 'Management Trainee', 'ম্যানেজমেন্ট ট্রেইনি', [['communication', 3, 3], ['leadership', 3, 2], ['excel', 2, 2]]),
   R('higher-study', 'Higher-Study Applicant', 'উচ্চশিক্ষা আবেদনকারী', [['ielts', 3, 3], ['research', 3, 2], ['statistics', 1, 2], ['communication', 2, 2]]),
+  // More goals. They only use skills that already have a roadmap, resources and a quiz.
+  R('backend-developer', 'Backend Developer', 'ব্যাকএন্ড ডেভেলপার', [['backend', 3, 3], ['sql', 2, 2], ['git', 2, 2], ['dsa', 2, 2], ['testing', 1, 2]]),
+  R('data-scientist', 'Data Scientist (Trainee)', 'ডেটা সায়েন্টিস্ট (ট্রেইনি)', [['python', 3, 3], ['statistics', 3, 3], ['sql', 2, 2], ['dashboard', 1, 2], ['git', 1, 2]]),
+  R('business-analyst', 'Business Analyst', 'বিজনেস অ্যানালিস্ট', [['excel', 3, 3], ['sql', 2, 2], ['communication', 3, 3], ['dashboard', 2, 2], ['statistics', 1, 2]]),
+  R('data-engineer', 'Junior Data Engineer', 'জুনিয়র ডেটা ইঞ্জিনিয়ার', [['python', 3, 3], ['sql', 3, 3], ['git', 2, 2], ['backend', 1, 2]]),
+  R('accounts-executive', 'Accounts / Finance Executive', 'অ্যাকাউন্টস / ফাইন্যান্স এক্সিকিউটিভ', [['accounting', 3, 3], ['excel', 3, 3], ['communication', 2, 2], ['banking', 1, 2]]),
+  R('operations-executive', 'Operations / Project Coordinator', 'অপারেশনস / প্রজেক্ট কোঅর্ডিনেটর', [['leadership', 3, 2], ['communication', 3, 3], ['excel', 2, 2]]),
+  R('hr-executive', 'HR Executive', 'এইচআর এক্সিকিউটিভ', [['communication', 3, 3], ['leadership', 2, 2], ['excel', 2, 2]]),
+  R('sales-marketing', 'Sales and Marketing Executive', 'সেলস ও মার্কেটিং এক্সিকিউটিভ', [['communication', 3, 3], ['excel', 2, 2], ['leadership', 1, 2], ['statistics', 1, 1]]),
+  R('research-assistant', 'Research Assistant', 'রিসার্চ অ্যাসিস্ট্যান্ট', [['research', 3, 3], ['statistics', 2, 2], ['python', 1, 2], ['communication', 2, 2], ['ielts', 1, 2]]),
+  R('bank-it-officer', 'Bank IT / Digital Banking Officer', 'ব্যাংক আইটি / ডিজিটাল ব্যাংকিং অফিসার', [['banking', 2, 2], ['sql', 2, 2], ['excel', 2, 2], ['communication', 2, 2], ['testing', 1, 2]]),
 ];
 // Real, free, public learning pages. Every URL is UNCHECKED: a teammate must open each one before demo day (see README).
 // Bangla entries are provider home pages only (no deep links invented); admins can add exact course links from the admin panel.
@@ -51,4 +62,4 @@ async function seedLearning() {
   for (const r of ROLES) await RoleTemplate.updateOne({ key: r.key }, { $set: r }, { upsert: true });
   return { skills: ALL_SKILLS.length, roles: ROLES.length };
 }
-module.exports = { seedLearning };
+module.exports = { seedLearning, ROLES, SKILLS: S };

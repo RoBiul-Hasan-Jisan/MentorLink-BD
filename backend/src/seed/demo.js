@@ -52,9 +52,9 @@ async function seedDemo({ auth }) {
   ]);
   await StudentProfile.updateOne({ userId: ids['student.su@demo.mentorlink.bd']._id }, { $set: { careerGoalRoleKey: 'management-trainee', weeklyHours: 4 } }, { upsert: true });
   const m1 = ids['mentor1@demo.mentorlink.bd'], m2 = ids['mentor2@demo.mentorlink.bd'];
-  await MentorProfile.updateOne({ userId: m1._id }, { $set: { roleKey: 'data-analyst', relatedRoleKeys: ['junior-developer'], roleTitle: 'Senior Data Analyst', industry: 'Fintech', yearsExperience: 8, expertiseSkills: [{ skillKey: 'sql', level: 3 }, { skillKey: 'python', level: 2 }, { skillKey: 'excel', level: 3 }, { skillKey: 'dashboard', level: 3 }, { skillKey: 'statistics', level: 2 }], languages: ['bn', 'en'], weeklyCapacity: 5, availableSlots: ['sun-20', 'tue-21'], acceptedRequests: 8, sessionsCompleted: 7, paused: false } }, { upsert: true });
+  await MentorProfile.updateOne({ userId: m1._id }, { $set: { roleKey: 'data-analyst', relatedRoleKeys: ['junior-developer'], roleTitle: 'Senior Data Analyst', industry: 'Fintech', yearsExperience: 8, expertiseSkills: [{ skillKey: 'sql', level: 3 }, { skillKey: 'python', level: 2 }, { skillKey: 'excel', level: 3 }, { skillKey: 'dashboard', level: 3 }, { skillKey: 'statistics', level: 2 }], languages: ['bn', 'en'], weeklyCapacity: 12, availableSlots: ['sun-20', 'tue-21'], acceptedRequests: 8, sessionsCompleted: 7, paused: false } }, { upsert: true });
   await MentorProfile.updateOne({ userId: m2._id }, { $set: { roleKey: 'management-trainee', relatedRoleKeys: ['banking-trainee'], roleTitle: 'Management Trainee Lead', industry: 'FMCG', yearsExperience: 3, expertiseSkills: [{ skillKey: 'communication', level: 3 }, { skillKey: 'leadership', level: 2 }], languages: ['bn'], weeklyCapacity: 4, availableSlots: ['wed-20'], isRising: true, paused: false } }, { upsert: true });
-  await CvVersion.updateOne({ studentId: stu._id, version: 1 }, { $set: { data: { summary: 'CSE student, interested in data.', education: 'East Delta University, CSE' } } }, { upsert: true });
+  await CvVersion.updateOne({ studentId: stu._id, version: 1 }, { $set: { data: require('../services/cv').sampleCv() } }, { upsert: true }); // demo CV in the v2 layout (no phone or email)
   const adm = ids['admin@demo.mentorlink.bd'];
   if (!(await Opportunity.findOne({ title: 'Junior Data Analyst (Demo)' }))) {
     await Opportunity.create({ postedBy: adm._id, title: 'Junior Data Analyst (Demo)', organization: 'Demo Fintech Ltd', type: 'job', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Support the analytics team with SQL reports and dashboards. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'sql', requiredLevel: 2, weight: 3 }, { skillKey: 'excel', requiredLevel: 2, weight: 2 }], noFeeConfirmed: true, sourceLabel: 'admin', listingReviewed: true, status: 'approved' });
@@ -67,9 +67,12 @@ async function seedDemo({ auth }) {
     await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
+  await require('./demo_study').seedStudyMentors({ auth }); // 13 more mentors so the matching study has enough variety
   await require('./demo_extras').seedExtras(); // workshop, Q&A, progress history, pending approvals
   await require('./journeys').seedJourneys(); // Path Twin demo journeys
   await require('./demo_community').seedCommunity(); // Community feed: posts, comments, reactions, follows, two moderation examples
+  await require('./demo_portfolio').seedPortfolioDemo(); // portfolio projects, a verified demo GitHub link and a plan review request
+  await require('./demo_startup').seedStartupDemo(); // shared Career Passport, sprints, a company invitation
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }
 module.exports = { seedDemo, ACCOUNTS };

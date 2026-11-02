@@ -1,3 +1,4 @@
+const { topicNote, topicLinks } = require('../data/topic_notes');
 const express = require('express');
 const { z } = require('zod');
 const { Roadmap, RoadmapProgress, Quiz, RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress, Report } = require('../models');
@@ -157,7 +158,7 @@ module.exports = function learningRoutes(auth) {
     const next = topics.find((t) => !done.has(t.key));
     res.json({
       skillKey: m.skillKey, nameEn: sk?.nameEn || m.skillKey, nameBn: sk?.nameBn || m.skillKey, summaryEn: m.summaryEn, summaryBn: m.summaryBn,
-      stages: m.stages.map((s) => ({ level: s.level, titleEn: s.titleEn, titleBn: s.titleBn, topics: s.topics.map((t) => ({ key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, hours: t.hours, done: done.has(t.key) })) })),
+      stages: m.stages.map((s, si) => ({ level: s.level, titleEn: s.titleEn, titleBn: s.titleBn, topics: s.topics.map((t, ti) => ({ key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, hours: t.hours, done: done.has(t.key), note: topicNote(m.skillKey, si, ti), links: topicLinks(m.skillKey, t.titleEn, si, ti) })) })),
       totalHours: topics.reduce((t, x) => t + x.hours, 0), doneCount: done.size, percent: topics.length ? Math.round((100 * done.size) / topics.length) : 0,
       startHere: next ? next.key : null,
       hasQuiz: !!(await Quiz.findOne({ skillKey: m.skillKey })),

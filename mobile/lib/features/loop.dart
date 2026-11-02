@@ -6,6 +6,7 @@ import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
+import 'mentors.dart';
 import 'widgets.dart';
 
 // Career outcome loop: assess -> plan -> practice -> review -> reassess.
@@ -172,7 +173,7 @@ class OutcomeTrackerScreen extends ConsumerWidget {
                     return;
                   }
                 } catch (_) {}
-                if (context.mounted) context.push('/my-projects');
+                if (context.mounted) context.push('/portfolio');
               }),
               const SizedBox(height: 8),
               Text('${d['note'] ?? ''}', textAlign: TextAlign.center, style: body(12, color: Brand.muted)),
@@ -243,7 +244,7 @@ class _GapMentorsState extends ConsumerState<GapMentorsScreen> {
                     Expanded(child: Text(tr(context, '${e['en']}', '${e['bn']}'), style: body(14))),
                   ])),
                   const SizedBox(height: 10),
-                  BigButton(tr(context, 'Request help with ${skill['nameEn']}', '${skill['nameBn']}-এ সাহায্য চান'), onPressed: () => context.push('/request/${m['mentorId']}?skill=${widget.skillKey}&focus=${focus.isEmpty ? 'skill_gap' : focus}')),
+                  MentorRequestButton(mentorId: '${m['mentorId']}', label: tr(context, 'Request help with ${skill['nameEn']}', '${skill['nameBn']}-এ সাহায্য চান'), query: '?skill=${widget.skillKey}&focus=${focus.isEmpty ? 'skill_gap' : focus}'),
                 ]),
               ),
               Text('${d['note'] ?? ''}', textAlign: TextAlign.center, style: body(12, color: Brand.muted)),

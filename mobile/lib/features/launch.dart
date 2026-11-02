@@ -216,6 +216,21 @@ class SprintsScreen extends ConsumerStatefulWidget {
 class _SprintsState extends ConsumerState<SprintsScreen> {
   String? skill, mentor;
   bool busy = false;
+  // A tick shows at once (no waiting for the server and no full reload); it is undone only if the save fails.
+  final Map<String, bool> _dayOverride = {};
+
+  bool _isDone(Map sp, Map x) => _dayOverride['${sp['id']}:${x['n']}'] ?? (x['done'] == true);
+
+  Future<void> _toggleDay(Map sp, Map x, bool v) async {
+    final k = '${sp['id']}:${x['n']}';
+    setState(() => _dayOverride[k] = v);
+    try {
+      await ref.read(dioProvider).patch('/me/sprints/${sp['id']}/days/${x['n']}', data: {'done': v});
+      ref.invalidate(sprintsProvider);
+    } catch (e) {
+      if (mounted) { setState(() => _dayOverride.remove(k)); toast(context, errorText(e)); }
+    }
+  }
 
   Future<void> _call(Future<dynamic> Function() f) async {
     setState(() => busy = true);
@@ -271,7 +286,7 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
               if (sp != null) ...[
                 () {
                   final days = ((sp['days'] ?? []) as List).cast<Map>();
-                  final done = days.where((x) => x['done'] == true).length;
+                  final done = days.where((x) => _isDone(sp, x)).length;
                   final status = '${sp['status']}';
                   final locked = status == 'submitted';
                   return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -286,13 +301,22 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                     ]),
                     if (status == 'needs_work' && sp['review'] != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text('${tr(context, 'Mentor note', 'মেন্টরের নোট')}: ${(sp['review'] as Map)['note'] ?? ''}', style: body(14, color: const Color(0xFF7A4A00)))),
                     const Divider(height: 24),
-                    for (final x in days) CheckboxListTile(
-                      contentPadding: EdgeInsets.zero, dense: true, controlAffinity: ListTileControlAffinity.leading,
-                      value: x['done'] == true,
-                      onChanged: locked || busy ? null : (v) => _call(() => ref.read(dioProvider).patch('/me/sprints/${sp['id']}/days/${x['n']}', data: {'done': v == true})),
-                      title: Text('${tr(context, 'Day', 'দিন')} ${x['n']}: ${nm(context, x, 'titleEn', 'titleBn')}', style: body(15, w: FontWeight.w700)),
-                      subtitle: Text(nm(context, x, 'taskEn', 'taskBn'), style: body(13, color: Brand.muted)),
-                    ),
+                    for (final x in days) Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero, dense: true, controlAffinity: ListTileControlAffinity.leading,
+                        value: _isDone(sp, x),
+                        onChanged: locked ? null : (v) => _toggleDay(sp, x, v == true),
+                        title: Text('${tr(context, 'Day', 'দিন')} ${x['n']}: ${nm(context, x, 'titleEn', 'titleBn')}', style: body(15, w: FontWeight.w700)),
+                        subtitle: Text(nm(context, x, 'taskEn', 'taskBn'), style: body(13, color: Brand.muted)),
+                      ),
+                      // One tap to the right place for the day, then tick.
+                      if (!locked && !_isDone(sp, x) && (x['kind'] == 'quiz' || x['kind'] == 'learn' || x['kind'] == 'review'))
+                        Padding(padding: const EdgeInsets.only(left: 52, bottom: 6), child: Wrap(spacing: 8, children: [
+                          if (x['kind'] == 'quiz' || x['kind'] == 'review') ActionChip(avatar: const Icon(Icons.quiz_outlined, size: 18), label: Text(tr(context, 'Open the quiz', 'কুইজ খুলুন')), onPressed: () => context.push('/quiz/${sp['skillKey']}')),
+                          if (x['kind'] == 'learn') ActionChip(avatar: const Icon(Icons.menu_book_outlined, size: 18), label: Text(tr(context, 'Open the lessons', 'পাঠ খুলুন')), onPressed: () => context.push('/roadmap/${sp['skillKey']}')),
+                          ActionChip(avatar: const Icon(Icons.check, size: 18), label: Text(tr(context, 'Mark done', 'শেষ করেছি')), onPressed: () => _toggleDay(sp, x, true)),
+                        ])),
+                    ]),
                     const SizedBox(height: 8),
                     if (status != 'submitted') BigButton(tr(context, 'Send to my mentor', 'মেন্টরকে পাঠান'), onPressed: busy || done < 5 ? null : () => _submit(sp, mentors)),
                     if (status != 'submitted' && done < 5) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr(context, 'Finish at least 5 days first.', 'আগে অন্তত ৫ দিন শেষ করুন।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted))),

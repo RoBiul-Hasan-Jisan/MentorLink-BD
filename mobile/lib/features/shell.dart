@@ -17,7 +17,9 @@ import 'dept.dart';
 import 'mentor.dart';
 import 'mentor_more.dart';
 import 'mentors.dart';
-import 'plan.dart';
+import 'analytics.dart';
+import 'career.dart';
+import 'launch.dart';
 import 'widgets.dart';
 
 // Which tabs you see depends on your role (the server enforces the same rule).
@@ -61,10 +63,11 @@ class _ShellState extends ConsumerState<Shell> {
     final profile = (Icons.person_outline, tr(context, 'Profile', 'প্রোফাইল'), const ProfileScreen());
     switch (role) {
       case 'student':
+        // Home, Career (decisions, gaps, plan, proof), Mentors, Jobs, Profile. The 4-week plan now lives inside Career.
         return [
           (Icons.home_outlined, tr(context, 'Home', 'হোম'), StudentHome(onTab: (v) => setState(() => i = v))),
+          (Icons.explore_outlined, tr(context, 'Career', 'ক্যারিয়ার'), const CareerHub()),
           (Icons.groups_outlined, tr(context, 'Mentors', 'মেন্টর'), const MentorMatches()),
-          (Icons.checklist, tr(context, 'Plan', 'পরিকল্পনা'), const PlanScreen()),
           (Icons.work_outline, tr(context, 'Jobs', 'চাকরি'), const OpportunitiesScreen()),
           profile,
         ];
@@ -87,11 +90,12 @@ class _ShellState extends ConsumerState<Shell> {
         return [
           (Icons.insights_outlined, tr(context, 'Overview', 'সারসংক্ষেপ'), const DeptHome()),
           (Icons.how_to_reg_outlined, tr(context, 'Approvals', 'অনুমোদন'), const DeptApprovals()),
+          (Icons.bar_chart, tr(context, 'Analytics', 'বিশ্লেষণ'), const DeptAnalytics()),
           (Icons.event_outlined, tr(context, 'Workshops', 'ওয়ার্কশপ'), const DeptWorkshops()),
           profile,
         ];
       case 'employer':
-        return [(Icons.business_center_outlined, tr(context, 'Jobs', 'চাকরি'), const EmployerHome()), profile];
+        return [(Icons.business_center_outlined, tr(context, 'Jobs', 'চাকরি'), const EmployerHome()), (Icons.person_search_outlined, tr(context, 'Talent', 'ট্যালেন্ট'), const TalentScreen()), profile];
       default:
         return [profile];
     }
@@ -121,11 +125,11 @@ class ProfileScreen extends ConsumerWidget {
             ListTile(leading: Icon(e.$1, color: Brand.delta), title: Text(e.$2, style: body(16, w: FontWeight.w600)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push(e.$3)),
         ])),
         AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
-          SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'showInDirectory': v}); ref.invalidate(meProvider); }),
+          SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'showInDirectory': v})),
           ListTile(leading: const Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
         ])),
         if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
-        AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) async { await ref.read(dioProvider).patch('/me/privacy', data: {'lowDataMode': v}); ref.invalidate(meProvider); })),
+        AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'lowDataMode': v}))),
         if (isStudent) _CompanyTile(),
         AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
@@ -135,16 +139,12 @@ class ProfileScreen extends ConsumerWidget {
 
   List<(IconData, String, String)> _entries(BuildContext context, String? role) {
     if (role == 'student') {
+      // Career tools live in the Career tab. Profile keeps account, CV, sessions, community and privacy.
       return [
-        (Icons.alt_route, tr(context, 'My paths', 'আমার পথ'), '/my-paths'),
-        (Icons.people_alt_outlined, tr(context, 'Path Twin: who was where I am', 'পাথ টুইন: আমার মতো কারা ছিলেন'), '/path-twins'),
-        (Icons.fact_check_outlined, tr(context, 'What employers ask for (gap check)', 'নিয়োগদাতারা কী চান (ঘাটতি যাচাই)'), '/job-gaps'),
-        (Icons.timeline, tr(context, 'Career outcome tracker', 'ক্যারিয়ার ফলাফল ট্র্যাকার'), '/outcome-tracker'),
-        (Icons.rate_review_outlined, tr(context, 'Mentor feedback on my work', 'আমার কাজে মেন্টরের ফিডব্যাক'), '/my-reviews'),
-        (Icons.insights_outlined, tr(context, 'My progress & badges', 'আমার অগ্রগতি ও ব্যাজ'), '/progress'),
+        (Icons.badge_outlined, tr(context, 'My Career Passport', 'আমার ক্যারিয়ার পাসপোর্ট'), '/passport'),
+        (Icons.mail_outline, tr(context, 'Company invitations', 'কোম্পানির আমন্ত্রণ'), '/invites'),
+        (Icons.description_outlined, tr(context, 'My CV', 'আমার সিভি'), '/cv'),
         (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
-        (Icons.mic_none, tr(context, 'Mock interviews', 'মক ইন্টারভিউ'), '/mock-interviews'),
-        (Icons.menu_book_outlined, tr(context, 'Free resources', 'বিনামূল্যে রিসোর্স'), '/resources'),
         (Icons.groups_outlined, tr(context, 'Community feed', 'কমিউনিটি ফিড'), '/feed'),
         (Icons.forum_outlined, tr(context, 'Pathways & Q&A', 'পথ ও প্রশ্নোত্তর'), '/pathways'),
         (Icons.tune, tr(context, 'How matching works', 'ম্যাচিং কীভাবে কাজ করে'), '/how-matching'),
@@ -155,6 +155,9 @@ class ProfileScreen extends ConsumerWidget {
     }
     return [
       if (role == 'mentor') (Icons.fact_check_outlined, tr(context, 'Review mentees’ work', 'মেন্টিদের কাজ রিভিউ'), '/mentor/reviews'),
+      if (role == 'mentor') (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
+      if (role == 'mentor') (Icons.checklist, tr(context, 'Plan reviews', 'পরিকল্পনা রিভিউ'), '/mentor/plan-reviews'),
+      if (role == 'mentor') (Icons.bolt_outlined, tr(context, 'Sprint reviews', 'স্প্রিন্ট রিভিউ'), '/mentor/sprint-reviews'),
       if (role == 'admin') (Icons.query_stats, tr(context, 'Does mentoring help? (impact)', 'মেন্টরিং কি কাজে লাগছে?'), '/admin-impact'),
       if (role == 'mentor') (Icons.edit_note, tr(context, 'Mentor setup', 'মেন্টর সেটআপ'), '/mentor/setup'),
       if (role == 'mentor') (Icons.timeline, tr(context, 'My journey (Path Twin)', 'আমার যাত্রা (পাথ টুইন)'), '/mentor/journey'),

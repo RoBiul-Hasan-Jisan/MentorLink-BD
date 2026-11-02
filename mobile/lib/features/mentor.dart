@@ -5,25 +5,25 @@ import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
+import 'mentor_sessions.dart';
 import 'widgets.dart';
 
 final mentorHomeProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => getJson(ref, '/me/mentor-profile'));
 final mentorImpactProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => getJson(ref, '/me/impact'));
 
-// Slot ids look like "sun-20" (day, 24-hour clock). Shown as "Sun 8 PM".
+// Slot ids look like "fri-evening" (older data: "sun-20"). Shown as "Fri evening".
 String mentorSlotLabel(String s) {
   const days = {'sun': 'Sun', 'mon': 'Mon', 'tue': 'Tue', 'wed': 'Wed', 'thu': 'Thu', 'fri': 'Fri', 'sat': 'Sat'};
-  final p = s.split('-');
-  if (p.length != 2) return s;
-  final h = int.tryParse(p[1]);
-  if (h == null) return s;
-  final h12 = h % 12 == 0 ? 12 : h % 12;
-  return '${days[p[0]] ?? p[0]} $h12 ${h >= 12 ? 'PM' : 'AM'}';
+  final n = SlotPicker.norm(s);
+  if (n.isEmpty) return s;
+  final p = n.split('-');
+  return '${days[p[0]] ?? p[0]} ${p[1]}';
 }
 
 String _formatLabel(BuildContext context, String f) {
   if (f == 'phone') return tr(context, 'Phone call', 'ফোন কল');
   if (f == 'in_person') return tr(context, 'In person', 'সরাসরি');
+  if (f == 'message') return tr(context, 'Message / chat', 'মেসেজ / চ্যাট');
   return tr(context, 'Video link', 'ভিডিও লিংক');
 }
 
@@ -298,8 +298,20 @@ class _MentorRequestDetailState extends ConsumerState<MentorRequestDetail> {
               const SizedBox(width: 12),
               Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, minimumSize: const Size(0, 56)), onPressed: _busy ? null : () => _decide('accept'), child: Text(tr(context, 'Accept', 'গ্রহণ')))),
             ]),
-          ] else
+          ] else ...[
             Pill('${r['status'] ?? ''}', tone: r['status'] == 'accepted' ? Tone.green : Tone.grey),
+            if (r['status'] == 'accepted') ...[
+              const SizedBox(height: 14),
+              BigButton(tr(context, 'Schedule a session', 'সেশন নির্ধারণ করুন'), onPressed: () => scheduleSessionDialog(context, ref, r)),
+              const SizedBox(height: 10),
+              BigButton(tr(context, 'Open chat', 'চ্যাট খুলুন'), outlined: true, onPressed: () => context.push('/chat/${r['_id']}')),
+            ],
+          ],
+          if ('${r['studentId'] ?? ''}'.isNotEmpty) Align(alignment: Alignment.centerLeft, child: TextButton.icon(
+            onPressed: () => context.push(Uri(path: '/report-user', queryParameters: {'id': '${r['studentId']}', 'name': name}).toString()),
+            icon: const Icon(Icons.flag_outlined, size: 18),
+            label: Text(tr(context, 'Report this student', 'এই শিক্ষার্থীকে রিপোর্ট করুন')),
+          )),
           const SizedBox(height: 24),
         ])),
       ]),

@@ -23,8 +23,10 @@ final feedPostsProvider = FutureProvider.autoDispose.family<Map<String, dynamic>
 final feedGroupsProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/groups'));
 final feedPostProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/posts/$id'));
 
-const _reactionIcons = {'like': Icons.thumb_up_alt_outlined, 'helpful': Icons.lightbulb_outline, 'idea': Icons.star_border};
-const _reactionIconsOn = {'like': Icons.thumb_up, 'helpful': Icons.lightbulb, 'idea': Icons.star};
+// Like = thumbs up, Helpful = star (this answered my question), Idea = light bulb (a good idea). They are independent: all three can be on.
+const _reactionIcons = {'like': Icons.thumb_up_alt_outlined, 'helpful': Icons.star_border, 'idea': Icons.lightbulb_outline};
+const _reactionIconsOn = {'like': Icons.thumb_up, 'helpful': Icons.star, 'idea': Icons.lightbulb};
+String _reactionName(BuildContext c, String t) => t == 'like' ? tr(c, 'Like', 'লাইক') : t == 'helpful' ? tr(c, 'Helpful', 'কাজের') : tr(c, 'Idea', 'আইডিয়া');
 
 String _groupTitle(BuildContext context, List groups, String key) {
   for (final g in groups.cast<Map>()) {
@@ -146,7 +148,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
   Widget _post(Map p, List groups) {
     final a = (p['author'] ?? {}) as Map;
     final reactions = (p['reactions'] ?? {}) as Map;
-    final mine = p['myReaction'];
+    final mine = ((p['myReactions'] ?? (p['myReaction'] != null ? [p['myReaction']] : [])) as List).map((x) => '$x').toList();
     final isMentor = a['verifiedMentor'] == true;
     return AppCard(
       padding: const EdgeInsets.all(14),
@@ -175,14 +177,17 @@ class _FeedState extends ConsumerState<FeedScreen> {
         const SizedBox(height: 4),
         Row(children: [
           for (final t in const ['like', 'helpful', 'idea'])
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => _react(p, t),
-              child: Padding(padding: const EdgeInsets.fromLTRB(4, 6, 10, 6), child: Row(children: [
-                Icon(mine == t ? _reactionIconsOn[t] : _reactionIcons[t], size: 20, color: mine == t ? Brand.delta : Brand.muted),
-                const SizedBox(width: 4),
-                Text('${reactions[t] ?? 0}', style: body(13, color: Brand.muted)),
-              ])),
+            Tooltip(
+              message: _reactionName(context, t),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => _react(p, t),
+                child: Padding(padding: const EdgeInsets.fromLTRB(2, 6, 8, 6), child: Row(children: [
+                  Icon(mine.contains(t) ? _reactionIconsOn[t] : _reactionIcons[t], size: 20, color: mine.contains(t) ? Brand.delta : Brand.muted),
+                  const SizedBox(width: 3),
+                  Text('${_reactionName(context, t)} ${reactions[t] ?? 0}', style: body(12, color: mine.contains(t) ? Brand.forest : Brand.muted, w: mine.contains(t) ? FontWeight.w800 : FontWeight.w500)),
+                ])),
+              ),
             ),
           const Spacer(),
           const Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),

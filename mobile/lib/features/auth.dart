@@ -30,6 +30,30 @@ InputDecoration _authDeco(String? hint) => InputDecoration(
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Brand.delta, width: 2)),
     );
 
+// Password box with a show/hide eye so people can check what they typed.
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({required this.controller, this.hints, this.onSubmitted});
+  final TextEditingController controller;
+  final Iterable<String>? hints;
+  final ValueChanged<String>? onSubmitted;
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+class _PasswordFieldState extends State<_PasswordField> {
+  bool hide = true;
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: widget.controller, obscureText: hide, autofillHints: widget.hints, onSubmitted: widget.onSubmitted,
+        decoration: _authDeco(null).copyWith(
+          suffixIcon: IconButton(
+            tooltip: hide ? tr(context, 'Show password', 'পাসওয়ার্ড দেখুন') : tr(context, 'Hide password', 'পাসওয়ার্ড লুকান'),
+            icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Brand.muted),
+            onPressed: () => setState(() => hide = !hide),
+          ),
+        ),
+      );
+}
+
 Widget _authNote(String msg, {bool error = true}) => Container(
       margin: const EdgeInsets.only(top: 14), padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: error ? const Color(0xFFFBE6E3) : Brand.lightGreen, borderRadius: BorderRadius.circular(12)),
@@ -149,7 +173,7 @@ class _SignIn extends ConsumerState<SignInScreen> {
           TextField(controller: email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], decoration: _authDeco('you@university.edu.bd')),
           const SizedBox(height: 16),
           _authLabel(tr(context, 'Password', 'পাসওয়ার্ড')),
-          TextField(controller: pw, obscureText: true, autofillHints: const [AutofillHints.password], onSubmitted: (_) => busy ? null : go(), decoration: _authDeco(null)),
+          _PasswordField(controller: pw, hints: const [AutofillHints.password], onSubmitted: (_) => busy ? null : go()),
           if (err.isNotEmpty) _authNote(err),
           if (info.isNotEmpty) _authNote(info, error: false),
           const SizedBox(height: 20),
@@ -225,7 +249,7 @@ class _SignUp extends ConsumerState<SignUpScreen> {
           TextField(controller: email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], decoration: _authDeco('you@university.edu.bd')),
           const SizedBox(height: 16),
           _authLabel(tr(context, 'Password', 'পাসওয়ার্ড'), hint: tr(context, 'At least 8 characters.', 'অন্তত ৮ অক্ষর।')),
-          TextField(controller: pw, obscureText: true, autofillHints: const [AutofillHints.newPassword], decoration: _authDeco(null)),
+          _PasswordField(controller: pw, hints: const [AutofillHints.newPassword]),
           const SizedBox(height: 14),
           InkWell(
             onTap: () => setState(() => consent = !consent),

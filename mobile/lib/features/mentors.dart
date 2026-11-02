@@ -10,6 +10,64 @@ import 'widgets.dart';
 // Shared with the mentor profile screen.
 Future<void> sendMentorRequest(BuildContext c, WidgetRef r, String mentorId) async { c.push('/request/$mentorId'); }
 
+/// The latest open (pending or accepted) request this student has with [mentorId], or null.
+Map? openRequestWith(WidgetRef ref, String mentorId) {
+  final list = (ref.watch(requestsProvider).valueOrNull?['requests'] as List? ?? const []);
+  for (final r in list) {
+    if (r is Map && '${r['mentorId']}' == mentorId && (r['status'] == 'pending' || r['status'] == 'accepted')) return r;
+  }
+  return null;
+}
+
+/// "Send request" button that turns into a status once a request is open, so the student is not asked to send it again.
+class MentorRequestButton extends ConsumerWidget {
+  const MentorRequestButton({super.key, required this.mentorId, this.label, this.query = ''});
+  final String mentorId;
+  final String? label;
+  final String query; // e.g. "?skill=sql&focus=skill_gap"
+  static const cooldownDays = 7;
+
+  /// When the mentor declined this student's last request less than [cooldownDays] ago, the date the student may ask again; else null.
+  static DateTime? askAgainOn(WidgetRef ref, String mentorId) {
+    final list = (ref.watch(requestsProvider).valueOrNull?['requests'] as List? ?? const []);
+    DateTime? last;
+    for (final r in list) {
+      if (r is Map && '${r['mentorId']}' == mentorId && r['status'] == 'declined') {
+        final at = DateTime.tryParse('${r['updatedAt'] ?? r['createdAt']}');
+        if (at != null && (last == null || at.isAfter(last))) last = at;
+      }
+    }
+    if (last == null) return null;
+    final until = last.add(const Duration(days: cooldownDays));
+    return until.isAfter(DateTime.now()) ? until : null;
+  }
+
+  Widget _status(IconData icon, String text, {Color bg = Brand.lightGreen, Color fg = Brand.forest}) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: fg, size: 20),
+          const SizedBox(width: 8),
+          Flexible(child: Text(text, textAlign: TextAlign.center, style: body(15, color: fg, w: FontWeight.w700))),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = openRequestWith(ref, mentorId);
+    if (open != null) {
+      final accepted = open['status'] == 'accepted';
+      return _status(accepted ? Icons.check_circle : Icons.schedule_send, accepted ? tr(context, 'Request accepted', 'অনুরোধ গ্রহণ করা হয়েছে') : tr(context, 'Request sent. Waiting for reply (one request per mentor)', 'অনুরোধ পাঠানো হয়েছে। উত্তরের অপেক্ষায় (প্রতি মেন্টরকে একটি)'));
+    }
+    final again = askAgainOn(ref, mentorId);
+    if (again != null) {
+      final d = '${again.year}-${again.month.toString().padLeft(2, '0')}-${again.day.toString().padLeft(2, '0')}';
+      return _status(Icons.hourglass_bottom, tr(context, 'Declined. You can ask again on $d, or pick another mentor.', 'মেন্টর রাজি হননি। $d তারিখে আবার চাইতে পারবেন, অথবা অন্য মেন্টর বেছে নিন।'), bg: Brand.lightSaffron, fg: const Color(0xFF7A4A00));
+    }
+    return BigButton(label ?? tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/$mentorId$query'));
+  }
+}
+
 const _w = {'career': .30, 'gap': .25, 'experience': .15, 'language': .10, 'schedule': .10, 'reliability': .10};
 
 class MentorMatches extends ConsumerWidget {
@@ -62,7 +120,7 @@ class MentorMatches extends ConsumerWidget {
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 6, children: [Pill(tr(context, 'Alumni verified', 'অ্যালামনাই যাচাইকৃত')), if (mentor['isRising'] == true) Pill(tr(context, 'Rising mentor', 'উদীয়মান মেন্টর'), tone: Tone.saffron)]),
       const SizedBox(height: 12),
-      BigButton(tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/${mentor['id']}')),
+      MentorRequestButton(mentorId: '${mentor['id']}'),
       Center(child: TextButton(onPressed: () => context.push('/mentor/${mentor['id']}'), child: Text(tr(context, 'View full profile', 'পূর্ণ প্রোফাইল দেখুন')))),
     ]));
   }

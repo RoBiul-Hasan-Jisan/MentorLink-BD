@@ -106,4 +106,4 @@ async function seedQuizzes() {
   }
   return Object.keys(QUIZZES).length + Object.keys(MORE_QUIZZES).length;
 }
-module.exports = { seedQuizzes, TOPICS };
+module.exports = { seedQuizzes, TOPICS, QUIZZES };

@@ -46,6 +46,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   FilterChip(label: Text(tr(context, 'Name', 'নাম')), selected: true, onSelected: null),
                   FilterChip(label: Text('CV'), selected: true, onSelected: null),
                   FilterChip(label: Text(tr(context, 'Skill levels', 'স্কিল লেভেল')), selected: shared.contains('skills'), onSelected: (v) => set(() { if (v) { shared.add('skills'); } else { shared.remove('skills'); } })),
+                  FilterChip(label: Text(tr(context, 'Contact (phone, email)', 'যোগাযোগ (ফোন, ইমেইল)')), selected: shared.contains('contact'), onSelected: (v) => set(() { if (v) { shared.add('contact'); } else { shared.remove('contact'); } })),
                 ]),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
@@ -66,11 +67,13 @@ class OpportunityDetailScreen extends ConsumerWidget {
       if (go != true) return;
       await dio.post('/opportunities/$id/apply', data: {'cvVersionId': cvId, 'consent': true, 'sharedFields': shared.toList()});
       ref.invalidate(applicationsProvider);
+      ref.invalidate(opportunityDetailProvider(id));
       if (context.mounted) {
         toast(context, tr(context, 'Applied. Track it in My applications.', 'আবেদন হয়েছে। "আমার আবেদন"-এ দেখুন।'));
         context.push('/applications');
       }
     } catch (e) {
+      ref.invalidate(opportunityDetailProvider(id));
       if (context.mounted) toast(context, errorText(e));
     }
   }
@@ -109,6 +112,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
           final breakdown = ((d['breakdown'] ?? []) as List).cast<Map>();
           final labels = (o['labels'] ?? {}) as Map;
           final closed = o['closed'] == true;
+          final applied = d['application'] as Map?;
           return ListView(padding: EdgeInsets.zero, children: [
             GreenHeader(radius: 36, bottomPad: 26, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               BackCircle(dark: true, onTap: () => context.pop()),
@@ -151,7 +155,19 @@ class OpportunityDetailScreen extends ConsumerWidget {
                 tr(context, 'Never pay to apply. A real listing here is always free. Report anything that asks for money.', 'আবেদনের জন্য কখনো টাকা দেবেন না। এখানে আসল তালিকা সবসময় বিনামূল্যে। টাকা চাইলে রিপোর্ট করুন।'),
                 style: body(14, color: const Color(0xFF5A3600)),
               )),
-              BigButton(closed ? tr(context, 'Closed', 'বন্ধ') : tr(context, 'Apply', 'আবেদন করুন'), onPressed: closed ? null : () => _apply(context, ref, o)),
+              if (applied != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(16)),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.check_circle, color: Brand.forest, size: 20), const SizedBox(width: 8),
+                    Flexible(child: Text(tr(context, 'You applied. Status: ${applied['stage']}', 'আপনি আবেদন করেছেন। অবস্থা: ${applied['stage']}'), textAlign: TextAlign.center, style: body(15, color: Brand.forest, w: FontWeight.w700))),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+                BigButton(tr(context, 'Track my application', 'আমার আবেদন দেখুন'), outlined: true, onPressed: () => context.push('/applications')),
+              ] else
+                BigButton(closed ? tr(context, 'Closed', 'বন্ধ') : tr(context, 'Apply', 'আবেদন করুন'), onPressed: closed ? null : () => _apply(context, ref, o)),
               TextButton.icon(onPressed: () => _report(context, ref), icon: const Icon(Icons.flag_outlined, color: Color(0xFF9B2C1F)), label: Text(tr(context, 'Report this post', 'পোস্টটি রিপোর্ট করুন'))),
             ])),
           ]);

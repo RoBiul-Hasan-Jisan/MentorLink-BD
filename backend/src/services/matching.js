@@ -4,6 +4,17 @@ const W = { career: 0.30, gap: 0.25, experience: 0.15, language: 0.10, schedule:
 
 const tokens = (t) => String(t || '').toLowerCase().split(/[^a-z0-9]+/).filter((x) => x.length > 1);
 
+// Slots are "<day>-<period>", e.g. "fri-evening". Older data used an hour ("sun-20") or capital letters ("Sat-evening"); map them to the same form.
+const PERIODS = ['morning', 'afternoon', 'evening', 'night'];
+function normSlot(raw) {
+  const [d, t] = String(raw || '').toLowerCase().split('-');
+  if (!d || !t) return '';
+  if (PERIODS.includes(t)) return `${d}-${t}`;
+  const h = Number(t);
+  if (!Number.isFinite(h)) return '';
+  return `${d}-${h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'afternoon' : h >= 17 && h < 21 ? 'evening' : 'night'}`;
+}
+
 function tfidfCosine(aText, docs, bText) {
   const A = tokens(aText), B = tokens(bText);
   const N = docs.length + 2;
@@ -39,7 +50,8 @@ function factors({ student, role, gaps, mentor, docs }) {
   const experience = Math.min((mp.yearsExperience || 0) / 10, 1) * rel;
   const sl = sp.languages || [];
   const language = sl.length ? sl.filter((l) => (mp.languages || []).includes(l)).length / sl.length : 0;
-  const overlap = (sp.requestedSlots || []).filter((s) => (mp.availableSlots || []).includes(s));
+  const mentorSlots = new Set((mp.availableSlots || []).map(normSlot));
+  const overlap = [...new Set((sp.requestedSlots || []).map(normSlot))].filter((s) => s && mentorSlots.has(s));
   const schedule = Math.min(overlap.length / 2, 1);
   const reliability = mp.acceptedRequests > 0 ? (mp.sessionsCompleted + 2) / (mp.acceptedRequests + 4) : 0.5;
   return { career, gap, experience, language, schedule, reliability, _covered: covered, _overlap: overlap, _rel: rel };
@@ -101,4 +113,4 @@ function keywordBaseline({ student, role, mentors }) {
   }).sort((a, b) => b.score - a.score);
 }
 
-module.exports = { rankMentors, keywordBaseline, factors, tfidfCosine, W };
+module.exports = { normSlot, rankMentors, keywordBaseline, factors, tfidfCosine, W };

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/api.dart';
+import '../core/links.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -11,6 +12,7 @@ import 'progress.dart';
 import 'community.dart';
 import 'resources.dart';
 import 'privacy.dart';
+import 'mentor_sessions.dart';
 
 // Routes for the student-side extra screens (sessions, progress, community, resources, privacy). The lead spreads this list into the router.
 final List<GoRoute> studentExtraRoutes = [
@@ -24,7 +26,13 @@ final List<GoRoute> studentExtraRoutes = [
   GoRoute(path: '/qa/:id', builder: (_, s) => QaDetailScreen(id: s.pathParameters['id'] ?? '')),
   GoRoute(path: '/resources', builder: (_, __) => const ResourcesScreen()),
   GoRoute(path: '/privacy', builder: (_, __) => const PrivacyScreen()),
-  GoRoute(path: '/report-user', builder: (_, s) => ReportUserScreen(target: s.extra is Map ? Map<String, dynamic>.from(s.extra as Map) : <String, dynamic>{})),
+  // Deep link: /report-user?id=<user id>&name=<display name>. Nothing depends on router state, so a refresh or a shared link still works.
+  // (An older caller that passes `extra: {id, name}` is still accepted.)
+  GoRoute(path: '/report-user', builder: (_, s) => ReportUserScreen(target: {
+        if (s.extra is Map) ...Map<String, dynamic>.from(s.extra as Map),
+        if ((s.uri.queryParameters['id'] ?? '').isNotEmpty) 'id': s.uri.queryParameters['id'],
+        if ((s.uri.queryParameters['name'] ?? '').isNotEmpty) 'name': s.uri.queryParameters['name'],
+      })),
   GoRoute(path: '/roles', builder: (_, __) => const RolesScreen()),
 ];
 
@@ -53,19 +61,10 @@ String _dateTimeText(BuildContext c, DateTime d) =>
 String _dateText(BuildContext c, DateTime d) =>
     '${tr(c, _wdEn[d.weekday - 1], _wdBn[d.weekday - 1])} ${d.day} ${tr(c, _moEn[d.month - 1], _moBn[d.month - 1])}';
 
-bool _looksLikeUrl(String s) {
-  final t = s.trim();
-  if (t.isEmpty || t.contains(' ')) return false;
-  return t.startsWith('http://') || t.startsWith('https://') || t.contains('.');
-}
+// Meeting links are opened only when they are secure https links (see core/links.dart).
+bool _looksLikeUrl(String s) => parseMeetingUri(s) != null;
 
-Future<void> _openLink(BuildContext context, String raw) async {
-  var t = raw.trim();
-  if (!t.startsWith('http://') && !t.startsWith('https://')) t = 'https://$t';
-  bool ok = false;
-  try { ok = await launchUrl(Uri.parse(t), mode: LaunchMode.externalApplication); } catch (_) { ok = false; }
-  if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
-}
+Future<void> _openLink(BuildContext context, String raw) => openMeetingLink(context, raw);
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
@@ -190,6 +189,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final started = t != null && t.isBefore(DateTime.now());
     final withName = (s['withName'] ?? '').toString();
     final title = (s['withTitle'] ?? '').toString();
+    final isMentor = ref.watch(meProvider).valueOrNull?['role'] == 'mentor';
     return AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Avatar(withName.isEmpty ? '?' : withName, size: 46),
@@ -216,8 +216,17 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
             if (_looksLikeUrl(link)) const Icon(Icons.open_in_new, size: 18, color: Brand.forest),
           ]),
         ),
-      ) else Text(tr(context, 'No meeting link yet. Your mentor will paste it in the chat.', 'এখনও মিটিং লিংক নেই। মেন্টর চ্যাটে দেবেন।'), style: body(14, color: Brand.muted)),
+      ) else Text(isMentor ? tr(context, 'No meeting link on this session.', 'এই সেশনে কোনো মিটিং লিংক নেই।') : tr(context, 'No meeting link yet. Your mentor will paste it in the chat.', 'এখনও মিটিং লিংক নেই। মেন্টর চ্যাটে দেবেন।'), style: body(14, color: Brand.muted)),
       const SizedBox(height: 12),
+      if (_looksLikeUrl(link)) ...[
+        SizedBox(width: double.infinity, height: 48, child: FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: Brand.saffron, foregroundColor: Brand.ink),
+          onPressed: () => _openLink(context, link),
+          icon: const Icon(Icons.videocam_outlined),
+          label: Text(tr(context, 'Join meeting', 'মিটিংয়ে যোগ দিন'), style: body(15, color: Brand.ink, w: FontWeight.w800)),
+        )),
+        const SizedBox(height: 10),
+      ],
       Row(children: [
         Expanded(child: SizedBox(height: 48, child: FilledButton(
           onPressed: () => context.push('/chat/${s['requestId']}'),
@@ -232,7 +241,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       const SizedBox(height: 6),
       Row(children: [
         TextButton(onPressed: () => _cancel(s), child: Text(tr(context, 'Cancel session', 'সেশন বাতিল'), style: body(14, color: const Color(0xFF9B2C1F), w: FontWeight.w700))),
-        if (started) TextButton(onPressed: () => _noShow(s), child: Text(tr(context, 'Mentor did not show up', 'মেন্টর আসেননি'), style: body(14, color: Brand.muted, w: FontWeight.w700))),
+        if (started && !isMentor) TextButton(onPressed: () => _noShow(s), child: Text(tr(context, 'Mentor did not show up', 'মেন্টর আসেননি'), style: body(14, color: Brand.muted, w: FontWeight.w700))),
+        // Mentors finish a session by adding notes and next steps; the steps land in the student's four-week plan.
+        if (started && isMentor) TextButton(onPressed: () async { if (await completeSessionDialog(context, ref, s)) _refresh(); }, child: Text(tr(context, 'Complete and add notes', 'সম্পন্ন করে নোট দিন'), style: body(14, color: Brand.delta, w: FontWeight.w800))),
       ]),
     ]));
   }
@@ -257,7 +268,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               return t != null && t.day == _picked!.day && t.month == _picked!.month && t.year == _picked!.year;
             }).toList();
           }
-          final pending = reqAsync.maybeWhen(
+          final isMentorView = ref.watch(meProvider).valueOrNull?['role'] == 'mentor';
+          final pending = isMentorView ? <Map>[] : reqAsync.maybeWhen(
             data: (rd) => ((rd['requests'] ?? []) as List).cast<Map>().where((r) => r['status'] == 'pending').toList(),
             orElse: () => <Map>[],
           );
@@ -283,9 +295,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               if (confirmed.isEmpty) AppCard(child: Text(_picked != null ? tr(context, 'No session on this day.', 'এই দিনে কোনো সেশন নেই।') : tr(context, 'No confirmed sessions yet. Send a request to a mentor to get started.', 'এখনও কোনো নিশ্চিত সেশন নেই। শুরু করতে একজন মেন্টরকে অনুরোধ পাঠান।'), style: body(15, color: Brand.muted))),
               for (final s in confirmed) _sessionCard(context, s),
               const SizedBox(height: 8),
-              Text(tr(context, 'Waiting for reply', 'উত্তরের অপেক্ষায়'), style: display(20, color: Brand.ink)),
-              const SizedBox(height: 6),
-              if (pending.isEmpty) AppCard(child: Text(tr(context, 'No pending requests.', 'কোনো অপেক্ষমাণ অনুরোধ নেই।'), style: body(15, color: Brand.muted))),
+              if (!isMentorView) Text(tr(context, 'Waiting for reply', 'উত্তরের অপেক্ষায়'), style: display(20, color: Brand.ink)),
+              if (!isMentorView) const SizedBox(height: 6),
+              if (!isMentorView && pending.isEmpty) AppCard(child: Text(tr(context, 'No pending requests.', 'কোনো অপেক্ষমাণ অনুরোধ নেই।'), style: body(15, color: Brand.muted))),
               for (final r in pending) AppCard(padding: const EdgeInsets.all(14), child: Row(children: [
                 Avatar(((r['withName'] ?? '') as String).isEmpty ? '?' : r['withName'] as String, size: 44, bg: Brand.saffron, fg: Brand.ink),
                 const SizedBox(width: 12),
@@ -318,6 +330,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     final rating = s['rating'];
     final stars = rating is Map && rating['stars'] is num ? (rating['stars'] as num).toInt() : 0;
     final name = (s['withName'] ?? '').toString();
+    final isMentor = ref.watch(meProvider).valueOrNull?['role'] == 'mentor';
     return AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(tr(context, 'Session with $name', '$name-এর সাথে সেশন'), style: display(17, color: Brand.ink))),
@@ -327,12 +340,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       if (stars > 0) Row(children: [
         for (int i = 1; i <= 5; i++) Icon(i <= stars ? Icons.star : Icons.star_border, color: Brand.saffron, size: 22),
         const SizedBox(width: 8),
-        Text(tr(context, 'You rated this', 'আপনি রেট করেছেন'), style: body(13, color: Brand.muted)),
-      ]) else Text(tr(context, 'Rate this session to help future matches', 'ভবিষ্যৎ ম্যাচে সাহায্য করতে সেশনটি রেট করুন'), style: body(14, color: Brand.muted)),
+        Text(isMentor ? tr(context, 'Student rating', 'শিক্ষার্থীর রেটিং') : tr(context, 'You rated this', 'আপনি রেট করেছেন'), style: body(13, color: Brand.muted)),
+      ]) else if (!isMentor) Text(tr(context, 'Rate this session to help future matches', 'ভবিষ্যৎ ম্যাচে সাহায্য করতে সেশনটি রেট করুন'), style: body(14, color: Brand.muted)),
       const SizedBox(height: 10),
       Row(children: [
-        if (stars == 0) Expanded(child: SizedBox(height: 48, child: FilledButton(onPressed: () => _rate(s), child: Text(tr(context, 'Rate this session', 'সেশন রেট করুন'), style: body(15, color: Colors.white, w: FontWeight.w700))))),
-        if (stars == 0) const SizedBox(width: 10),
+        if (stars == 0 && !isMentor) Expanded(child: SizedBox(height: 48, child: FilledButton(onPressed: () => _rate(s), child: Text(tr(context, 'Rate this session', 'সেশন রেট করুন'), style: body(15, color: Colors.white, w: FontWeight.w700))))),
+        if (stars == 0 && !isMentor) const SizedBox(width: 10),
         Expanded(child: SizedBox(height: 48, child: OutlinedButton(onPressed: () => context.push('/session-notes/${s['_id']}'), child: Text(tr(context, 'Session notes', 'সেশন নোট'), style: body(15, color: Brand.delta, w: FontWeight.w700))))),
       ]),
     ]));

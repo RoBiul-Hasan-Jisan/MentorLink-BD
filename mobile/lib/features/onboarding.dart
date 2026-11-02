@@ -104,8 +104,6 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
   final langs = <String>{'bn', 'en'};
   final slots = <String>{};
   bool busy = false;
-  static const _days = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  static const _times = ['morning', 'evening'];
 
   Future<void> _save() async {
     setState(() => busy = true);
@@ -159,15 +157,7 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
     return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr(context, 'When are you free for a mentor call?', 'মেন্টর কলের জন্য কখন ফ্রি?'), style: body(16, w: FontWeight.w700)),
       const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 4, children: [
-        for (final d in _days)
-          for (final t in _times)
-            FilterChip(
-              label: Text('$d $t'),
-              selected: slots.contains('$d-$t'),
-              onSelected: (v) => setState(() { if (v) { slots.add('$d-$t'); } else { slots.remove('$d-$t'); } }),
-            ),
-      ]),
+      SlotPicker(selected: slots, onChanged: (slot, on) => setState(() { if (on) { slots.add(slot); } else { slots.remove(slot); } })),
     ]));
   }
 
@@ -204,19 +194,20 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
 }
 
 class RequestSessionScreen extends ConsumerStatefulWidget {
-  const RequestSessionScreen({super.key, required this.mentorId});
+  const RequestSessionScreen({super.key, required this.mentorId, this.skill, this.focus});
   final String mentorId;
+  final String? skill, focus;
   @override
   ConsumerState<RequestSessionScreen> createState() => _RequestState();
 }
 
 class _RequestState extends ConsumerState<RequestSessionScreen> {
   final goal = TextEditingController();
+  final note = TextEditingController();
   final qs = [TextEditingController(), TextEditingController(), TextEditingController()];
   final slots = <String>{};
   String format = 'video';
   bool busy = false;
-  static const _slotOpts = ['Sat-evening', 'Sun-evening', 'Mon-evening', 'Tue-evening', 'Wed-evening', 'Thu-evening'];
 
   Future<void> _send() async {
     final questions = qs.map((c) => c.text.trim()).where((s) => s.length >= 3).toList();
@@ -232,6 +223,9 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
         'questions': questions,
         'preferredSlots': slots.toList(),
         'format': format,
+        if (widget.skill != null && widget.skill!.isNotEmpty) 'focusSkillKey': widget.skill,
+        if (widget.focus != null && const ['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap'].contains(widget.focus)) 'focusKind': widget.focus,
+        if (note.text.trim().isNotEmpty) 'message': note.text.trim(),
       });
       ref.invalidate(requestsProvider);
       if (mounted) {
@@ -258,22 +252,44 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
         ])),
         Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TextField(controller: goal, maxLength: 400, maxLines: 3, decoration: InputDecoration(labelText: tr(context, 'What do you want from this session?', 'এই সেশন থেকে কী চান?'))),
+            Text(tr(context, 'Your goal', 'আপনার লক্ষ্য'), style: body(16, w: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(tr(context, 'Tell the mentor what you want to get out of this session, so they can prepare.', 'এই সেশন থেকে কী পেতে চান লিখুন, যাতে মেন্টর আগে থেকে প্রস্তুতি নিতে পারেন।'), style: body(13, color: Brand.muted)),
+            const SizedBox(height: 8),
+            TextField(controller: goal, maxLength: 400, minLines: 3, maxLines: 5, textInputAction: TextInputAction.newline, decoration: InputDecoration(
+              hintText: tr(context, 'Example: I want to become a backend developer. Please review my roadmap and tell me what to learn first.', 'যেমন: আমি ব্যাকএন্ড ডেভেলপার হতে চাই। আমার রোডম্যাপ দেখে বলুন প্রথমে কী শিখব।'))),
+            const SizedBox(height: 10),
+            Text(tr(context, 'Your questions', 'আপনার প্রশ্ন'), style: body(16, w: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(tr(context, 'Ask what you want answered in the session. Keep them about your goal, your skills or your career. Question 1 is required.', 'সেশনে কী জানতে চান তা লিখুন। প্রশ্নগুলো আপনার লক্ষ্য, স্কিল বা ক্যারিয়ার নিয়ে হলে ভালো। প্রশ্ন ১ আবশ্যক।'), style: body(13, color: Brand.muted)),
+            const SizedBox(height: 4),
             for (int i = 0; i < 3; i++)
-              Padding(padding: const EdgeInsets.only(top: 8), child: TextField(controller: qs[i], maxLength: 200, decoration: InputDecoration(labelText: '${tr(context, 'Question', 'প্রশ্ন')} ${i + 1}${i == 0 ? ' *' : ''}'))),
+              Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: qs[i], maxLength: 200, minLines: 2, maxLines: 4, decoration: InputDecoration(
+                labelText: '${tr(context, 'Question', 'প্রশ্ন')} ${i + 1}${i == 0 ? ' *' : ''}',
+                hintText: [
+                  tr(context, 'Example: Which skill should I learn first for this role?', 'যেমন: এই পদের জন্য প্রথমে কোন স্কিল শিখব?'),
+                  tr(context, 'Example: How did you prepare for your first interview?', 'যেমন: প্রথম ইন্টারভিউয়ের প্রস্তুতি কীভাবে নিয়েছিলেন?'),
+                  tr(context, 'Example: What projects should I show in my CV?', 'যেমন: সিভিতে কোন প্রজেক্ট দেখাব?'),
+                ][i]))),
           ])),
           AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(context, 'Preferred times', 'পছন্দের সময়'), style: body(16, w: FontWeight.w700)),
-            Wrap(spacing: 8, children: [
-              for (final s in _slotOpts)
-                FilterChip(label: Text(s.replaceAll('-', ' ')), selected: slots.contains(s), onSelected: (v) => setState(() { if (v) { slots.add(s); } else { slots.remove(s); } })),
-            ]),
+            const SizedBox(height: 4),
+            Text(tr(context, 'Tick every time you can talk. Friday too. Pick a few so the mentor can choose.', 'যখন কথা বলতে পারবেন সব টিক দিন। শুক্রবারও আছে। কয়েকটি দিন, যাতে মেন্টর বেছে নিতে পারেন।'), style: body(13, color: Brand.muted)),
+            const SizedBox(height: 8),
+            SlotPicker(selected: slots, onChanged: (slot, on) => setState(() { if (on) { slots.add(slot); } else { slots.remove(slot); } })),
             const SizedBox(height: 10),
             Text(tr(context, 'Format', 'ফরম্যাট'), style: body(16, w: FontWeight.w700)),
-            Wrap(spacing: 8, children: [
-              for (final f in const [('video', 'Video'), ('phone', 'Phone'), ('in_person', 'In person')])
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final f in [('video', tr(context, 'Video', 'ভিডিও')), ('phone', tr(context, 'Phone', 'ফোন')), ('in_person', tr(context, 'In person', 'সরাসরি')), ('message', tr(context, 'Message', 'মেসেজ'))])
                 ChoiceChip(label: Text(f.$2), selected: format == f.$1, onSelected: (_) => setState(() => format = f.$1)),
             ]),
+          ])),
+          AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(context, 'Message to the mentor (optional)', 'মেন্টরকে মেসেজ (ঐচ্ছিক)'), style: body(16, w: FontWeight.w700)),
+            const SizedBox(height: 8),
+            TextField(controller: note, maxLength: 500, minLines: 2, maxLines: 5, decoration: InputDecoration(
+              hintText: tr(context, 'Say hello, share anything else the mentor should know.', 'সালাম/শুভেচ্ছা জানান, মেন্টরের আর কিছু জানা দরকার হলে লিখুন।'))),
           ])),
           AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Text(
             tr(context, 'Sessions are free. Never pay a mentor. Your CV and skill levels are shared only after the mentor accepts.', 'সেশন বিনামূল্যে। মেন্টরকে টাকা দেবেন না। মেন্টর গ্রহণের পরই আপনার সিভি ও স্কিল শেয়ার হয়।'),
@@ -289,5 +305,5 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
 final onboardingRoutes = <RouteBase>[
   GoRoute(path: '/verify', builder: (_, __) => const VerifyScreen()),
   GoRoute(path: '/goal', builder: (_, __) => const GoalWizardScreen()),
-  GoRoute(path: '/request/:mentorId', builder: (_, s) => RequestSessionScreen(mentorId: s.pathParameters['mentorId']!)),
+  GoRoute(path: '/request/:mentorId', builder: (_, s) => RequestSessionScreen(mentorId: s.pathParameters['mentorId']!, skill: s.uri.queryParameters['skill'], focus: s.uri.queryParameters['focus'])),
 ];

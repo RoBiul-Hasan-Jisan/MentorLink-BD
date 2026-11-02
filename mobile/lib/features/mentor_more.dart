@@ -358,8 +358,6 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
   bool _busy = false;
   bool _proofSent = false;
 
-  static const List<String> _days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  static const List<int> _hours = [16, 20];
 
   @override
   void initState() {
@@ -399,7 +397,7 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
               ..clear()
               ..addAll((p['languages'] as List).map((x) => '$x'));
           }
-          if (p['availableSlots'] is List) _slots.addAll((p['availableSlots'] as List).map((x) => '$x'));
+          if (p['availableSlots'] is List) _slots.addAll((p['availableSlots'] as List).map((x) => SlotPicker.norm('$x')).where((x) => x.isNotEmpty));
         }
       }
       final docs = await dio.get('/me/verification-docs');
@@ -460,10 +458,6 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
   Widget build(BuildContext context) {
     final isMentor = ref.watch(meProvider).valueOrNull?['role'] == 'mentor';
     final skills = ref.watch(mentorMoreSkillsProvider).valueOrNull ?? <Map>[];
-    final slotIds = <String>[for (final d in _days) for (final h in _hours) '$d-$h'];
-    for (final s in _slots) {
-      if (!slotIds.contains(s)) slotIds.add(s);
-    }
     return Scaffold(
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -497,19 +491,9 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
                     FilterChip(label: const Text('English'), selected: _langs.contains('en'), onSelected: (v) => setState(() => v ? _langs.add('en') : _langs.remove('en'))),
                   ]),
                   const SizedBox(height: 10),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final s in slotIds) FilterChip(
-                      label: Text(mentorSlotLabel(s)),
-                      selected: _slots.contains(s),
-                      onSelected: (v) {
-                        if (v && _slots.length >= 14) {
-                          toast(context, tr(context, 'You can pick up to 14 slots.', 'সর্বোচ্চ ১৪টি সময় বাছতে পারবেন।'));
-                          return;
-                        }
-                        setState(() => v ? _slots.add(s) : _slots.remove(s));
-                      },
-                    ),
-                  ]),
+                  Text(tr(context, 'When can you take calls? Tick all that fit, Friday too.', 'কখন কল নিতে পারবেন? যেগুলো মেলে সব টিক দিন, শুক্রবারও আছে।'), style: body(13, color: Brand.muted)),
+                  const SizedBox(height: 8),
+                  SlotPicker(selected: _slots, onChanged: (slot, on) => setState(() => on ? _slots.add(slot) : _slots.remove(slot))),
                   const SizedBox(height: 18),
                 ],
                 AppCard(child: Row(children: [
