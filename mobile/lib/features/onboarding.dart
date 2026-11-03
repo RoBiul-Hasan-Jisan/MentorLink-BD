@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../core/ui.dart';
 import '../core/upload.dart';
 import 'widgets.dart';
+import 'slot_grid.dart';
 
 // Onboarding extras from the design: verify (email + student ID), goal wizard, and the mentor request form.
 // Roles are never chosen by the client: "alumni" and "department" create an application that an admin approves.
@@ -157,7 +158,7 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
     return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr(context, 'When are you free for a mentor call?', 'মেন্টর কলের জন্য কখন ফ্রি?'), style: body(16, w: FontWeight.w700)),
       const SizedBox(height: 8),
-      SlotPicker(selected: slots, onChanged: (slot, on) => setState(() { if (on) { slots.add(slot); } else { slots.remove(slot); } })),
+      SlotGrid(selected: slots, onChanged: (v) => setState(() { slots..clear()..addAll(v); }), max: 14),
     ]));
   }
 
@@ -194,9 +195,8 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
 }
 
 class RequestSessionScreen extends ConsumerStatefulWidget {
-  const RequestSessionScreen({super.key, required this.mentorId, this.skill, this.focus});
+  const RequestSessionScreen({super.key, required this.mentorId});
   final String mentorId;
-  final String? skill, focus;
   @override
   ConsumerState<RequestSessionScreen> createState() => _RequestState();
 }
@@ -223,8 +223,6 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
         'questions': questions,
         'preferredSlots': slots.toList(),
         'format': format,
-        if (widget.skill != null && widget.skill!.isNotEmpty) 'focusSkillKey': widget.skill,
-        if (widget.focus != null && const ['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap'].contains(widget.focus)) 'focusKind': widget.focus,
         if (note.text.trim().isNotEmpty) 'message': note.text.trim(),
       });
       ref.invalidate(requestsProvider);
@@ -274,10 +272,8 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
           ])),
           AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(context, 'Preferred times', 'পছন্দের সময়'), style: body(16, w: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(tr(context, 'Tick every time you can talk. Friday too. Pick a few so the mentor can choose.', 'যখন কথা বলতে পারবেন সব টিক দিন। শুক্রবারও আছে। কয়েকটি দিন, যাতে মেন্টর বেছে নিতে পারেন।'), style: body(13, color: Brand.muted)),
             const SizedBox(height: 8),
-            SlotPicker(selected: slots, onChanged: (slot, on) => setState(() { if (on) { slots.add(slot); } else { slots.remove(slot); } })),
+            SlotGrid(selected: slots, onChanged: (v) => setState(() { slots..clear()..addAll(v); }), max: 6),
             const SizedBox(height: 10),
             Text(tr(context, 'Format', 'ফরম্যাট'), style: body(16, w: FontWeight.w700)),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -305,5 +301,5 @@ class _RequestState extends ConsumerState<RequestSessionScreen> {
 final onboardingRoutes = <RouteBase>[
   GoRoute(path: '/verify', builder: (_, __) => const VerifyScreen()),
   GoRoute(path: '/goal', builder: (_, __) => const GoalWizardScreen()),
-  GoRoute(path: '/request/:mentorId', builder: (_, s) => RequestSessionScreen(mentorId: s.pathParameters['mentorId']!, skill: s.uri.queryParameters['skill'], focus: s.uri.queryParameters['focus'])),
+  GoRoute(path: '/request/:mentorId', builder: (_, s) => RequestSessionScreen(mentorId: s.pathParameters['mentorId']!)),
 ];

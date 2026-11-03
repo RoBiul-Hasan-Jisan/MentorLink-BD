@@ -23,48 +23,24 @@ Map? openRequestWith(WidgetRef ref, String mentorId) {
 class MentorRequestButton extends ConsumerWidget {
   const MentorRequestButton({super.key, required this.mentorId, this.label, this.query = ''});
   final String mentorId;
-  final String? label;
+  final String? label; // e.g. "Request help with SQL"
   final String query; // e.g. "?skill=sql&focus=skill_gap"
-  static const cooldownDays = 7;
-
-  /// When the mentor declined this student's last request less than [cooldownDays] ago, the date the student may ask again; else null.
-  static DateTime? askAgainOn(WidgetRef ref, String mentorId) {
-    final list = (ref.watch(requestsProvider).valueOrNull?['requests'] as List? ?? const []);
-    DateTime? last;
-    for (final r in list) {
-      if (r is Map && '${r['mentorId']}' == mentorId && r['status'] == 'declined') {
-        final at = DateTime.tryParse('${r['updatedAt'] ?? r['createdAt']}');
-        if (at != null && (last == null || at.isAfter(last))) last = at;
-      }
-    }
-    if (last == null) return null;
-    final until = last.add(const Duration(days: cooldownDays));
-    return until.isAfter(DateTime.now()) ? until : null;
-  }
-
-  Widget _status(IconData icon, String text, {Color bg = Brand.lightGreen, Color fg = Brand.forest}) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: fg, size: 20),
-          const SizedBox(width: 8),
-          Flexible(child: Text(text, textAlign: TextAlign.center, style: body(15, color: fg, w: FontWeight.w700))),
-        ]),
-      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final open = openRequestWith(ref, mentorId);
-    if (open != null) {
-      final accepted = open['status'] == 'accepted';
-      return _status(accepted ? Icons.check_circle : Icons.schedule_send, accepted ? tr(context, 'Request accepted', 'অনুরোধ গ্রহণ করা হয়েছে') : tr(context, 'Request sent. Waiting for reply (one request per mentor)', 'অনুরোধ পাঠানো হয়েছে। উত্তরের অপেক্ষায় (প্রতি মেন্টরকে একটি)'));
-    }
-    final again = askAgainOn(ref, mentorId);
-    if (again != null) {
-      final d = '${again.year}-${again.month.toString().padLeft(2, '0')}-${again.day.toString().padLeft(2, '0')}';
-      return _status(Icons.hourglass_bottom, tr(context, 'Declined. You can ask again on $d, or pick another mentor.', 'মেন্টর রাজি হননি। $d তারিখে আবার চাইতে পারবেন, অথবা অন্য মেন্টর বেছে নিন।'), bg: Brand.lightSaffron, fg: const Color(0xFF7A4A00));
-    }
-    return BigButton(label ?? tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/$mentorId$query'));
+    if (open == null) return BigButton(label ?? tr(context, 'Send request', 'অনুরোধ পাঠান'), onPressed: () => context.push('/request/$mentorId$query'));
+    final accepted = open['status'] == 'accepted';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(16)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(accepted ? Icons.check_circle : Icons.schedule_send, color: Brand.forest, size: 20),
+        const SizedBox(width: 8),
+        Flexible(child: Text(accepted ? tr(context, 'Request accepted', 'অনুরোধ গ্রহণ করা হয়েছে') : tr(context, 'Request sent. Waiting for reply', 'অনুরোধ পাঠানো হয়েছে। উত্তরের অপেক্ষায়'), textAlign: TextAlign.center, style: body(15, color: Brand.forest, w: FontWeight.w800))),
+      ]),
+    );
+    // One open request per mentor: no need to send it again, the mentor already has it.
   }
 }
 

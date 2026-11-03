@@ -11,13 +11,15 @@ import 'widgets.dart';
 final mentorHomeProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => getJson(ref, '/me/mentor-profile'));
 final mentorImpactProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => getJson(ref, '/me/impact'));
 
-// Slot ids look like "fri-evening" (older data: "sun-20"). Shown as "Fri evening".
+// Slot ids look like "sun-20" (day, 24-hour clock). Shown as "Sun 8 PM".
 String mentorSlotLabel(String s) {
   const days = {'sun': 'Sun', 'mon': 'Mon', 'tue': 'Tue', 'wed': 'Wed', 'thu': 'Thu', 'fri': 'Fri', 'sat': 'Sat'};
-  final n = SlotPicker.norm(s);
-  if (n.isEmpty) return s;
-  final p = n.split('-');
-  return '${days[p[0]] ?? p[0]} ${p[1]}';
+  final p = s.split('-');
+  if (p.length != 2) return s;
+  final h = int.tryParse(p[1]);
+  if (h == null) return s;
+  final h12 = h % 12 == 0 ? 12 : h % 12;
+  return '${days[p[0].toLowerCase()] ?? p[0]} $h12 ${h >= 12 ? 'PM' : 'AM'}';
 }
 
 String _formatLabel(BuildContext context, String f) {
@@ -63,7 +65,7 @@ class MentorRequests extends ConsumerWidget {
           },
           child: ListView(padding: EdgeInsets.zero, children: [
             GreenHeader(radius: 36, bottomPad: 26, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(context, 'Mentor view · Assalamu alaikum', 'মেন্টর ভিউ · আসসালামু আলাইকুম'), style: body(14, color: Colors.white70)),
+              Text(tr(context, 'Mentor view', 'মেন্টর ভিউ'), style: body(14, color: Colors.white70)),
               const SizedBox(height: 6),
               Row(children: [
                 Expanded(child: Text(meName, style: display(30, color: Colors.white))),

@@ -9,6 +9,7 @@ import '../core/ui.dart';
 import '../core/upload.dart';
 import 'mentor.dart';
 import 'widgets.dart';
+import 'slot_grid.dart';
 
 final mentorMoreSkillsProvider = FutureProvider.autoDispose<List<Map>>((ref) async => ((await getJson(ref, '/skills'))['skills'] as List).whereType<Map>().toList());
 final mentorMoreOppsProvider = FutureProvider.autoDispose<List<Map>>((ref) async => ((await getJson(ref, '/opportunities'))['opportunities'] as List).whereType<Map>().toList());
@@ -397,7 +398,7 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
               ..clear()
               ..addAll((p['languages'] as List).map((x) => '$x'));
           }
-          if (p['availableSlots'] is List) _slots.addAll((p['availableSlots'] as List).map((x) => SlotPicker.norm('$x')).where((x) => x.isNotEmpty));
+          if (p['availableSlots'] is List) _slots.addAll((p['availableSlots'] as List).map((x) => '$x'));
         }
       }
       final docs = await dio.get('/me/verification-docs');
@@ -491,9 +492,7 @@ class _MentorSetupScreenState extends ConsumerState<MentorSetupScreen> {
                     FilterChip(label: const Text('English'), selected: _langs.contains('en'), onSelected: (v) => setState(() => v ? _langs.add('en') : _langs.remove('en'))),
                   ]),
                   const SizedBox(height: 10),
-                  Text(tr(context, 'When can you take calls? Tick all that fit, Friday too.', 'কখন কল নিতে পারবেন? যেগুলো মেলে সব টিক দিন, শুক্রবারও আছে।'), style: body(13, color: Brand.muted)),
-                  const SizedBox(height: 8),
-                  SlotPicker(selected: _slots, onChanged: (slot, on) => setState(() => on ? _slots.add(slot) : _slots.remove(slot))),
+                  SlotGrid(selected: _slots, onChanged: (v) => setState(() { _slots..clear()..addAll(v); }), max: 14),
                   const SizedBox(height: 18),
                 ],
                 AppCard(child: Row(children: [
