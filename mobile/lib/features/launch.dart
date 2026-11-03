@@ -214,6 +214,23 @@ class SprintsScreen extends ConsumerStatefulWidget {
 }
 
 class _SprintsState extends ConsumerState<SprintsScreen> {
+
+  // What to do for each kind of day. Each button opens a screen that already exists in the app.
+  Widget _dayActions(BuildContext context, String skillKey, Map x) {
+    final kind = '${x['kind']}';
+    final acts = <(String, String, IconData)>[
+      if (kind == 'quiz' || kind == 'review') (tr(context, kind == 'quiz' ? 'Take the quiz now' : 'Retake the quiz', kind == 'quiz' ? 'এখন কুইজ দিন' : 'আবার কুইজ দিন'), '/quiz/$skillKey', Icons.quiz_outlined),
+      if (kind == 'learn') (tr(context, 'Open today\'s lesson links', 'আজকের পাঠের লিংক খুলুন'), '/sprint-learn/$skillKey', Icons.menu_book_outlined),
+      if (kind == 'build' || kind == 'proof') (tr(context, 'Open my projects', 'আমার প্রজেক্ট খুলুন'), '/portfolio', Icons.folder_special_outlined),
+      if (kind == 'build') (tr(context, 'Need help? Study links', 'সাহায্য লাগবে? পড়ার লিংক'), '/sprint-learn/$skillKey', Icons.lightbulb_outline),
+    ];
+    return Padding(padding: const EdgeInsets.only(left: 40, bottom: 8), child: Wrap(spacing: 8, runSpacing: 4, children: [
+      for (final a in acts) FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+        onPressed: () => context.push(a.$2), icon: Icon(a.$3, size: 18), label: Text(a.$1)),
+    ]));
+  }
+
   String? skill, mentor;
   bool busy = false;
   // Day ticks update on screen at once (optimistic) and sync in the background, so ticking is instant and never blocks the list.
@@ -300,13 +317,22 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                     ]),
                     if (status == 'needs_work' && sp['review'] != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text('${tr(context, 'Mentor note', 'মেন্টরের নোট')}: ${(sp['review'] as Map)['note'] ?? ''}', style: body(14, color: const Color(0xFF7A4A00)))),
                     const Divider(height: 24),
-                    for (final x in days) CheckboxListTile(
+                    Container(
+                      padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(14)),
+                      child: Text(tr(context,
+                        'How it works: each day has one small task. Tap the green button under the task to do it (take the quiz, study a lesson, build, publish), then tick the box. On day 7 your mentor checks your project. If they endorse it, a proven level is added to your Career Passport and employers can trust it.',
+                        'কীভাবে কাজ করে: প্রতিদিন একটি ছোট কাজ। কাজের নিচের সবুজ বোতামে ট্যাপ করে কাজটি করুন (কুইজ, পড়া, বানানো, প্রকাশ), তারপর বক্স টিক দিন। ৭ম দিনে মেন্টর আপনার প্রজেক্ট দেখেন। এন্ডোর্স করলে ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ হয়।'), style: body(13, color: Brand.forest)),
+                    ),
+                    for (final x in days) ...[CheckboxListTile(
                       contentPadding: EdgeInsets.zero, dense: true, controlAffinity: ListTileControlAffinity.leading,
                       value: _dayDone(sp, x),
                       onChanged: locked || ((x['n'] as num) > ((sp['dayIndex'] ?? 1) as num) && !_dayDone(sp, x)) ? null : (v) => _tickDay(sp, x, v == true),
                       title: Text('${tr(context, 'Day', 'দিন')} ${x['n']}: ${nm(context, x, 'titleEn', 'titleBn')}', style: body(15, w: FontWeight.w700)),
                       subtitle: Text(((x['n'] as num) > ((sp['dayIndex'] ?? 1) as num) && !_dayDone(sp, x)) ? tr(context, 'Opens on day ${x['n']}', 'দিন ${x['n']}-এ খুলবে') : nm(context, x, 'taskEn', 'taskBn'), style: body(13, color: Brand.muted)),
                     ),
+                    if (!locked && !_dayDone(sp, x) && (x['n'] as num) <= ((sp['dayIndex'] ?? 1) as num)) _dayActions(context, '${sp['skillKey']}', x),
+                    ],
                     const SizedBox(height: 8),
                     if (status != 'submitted') BigButton(tr(context, 'Send to my mentor', 'মেন্টরকে পাঠান'), onPressed: busy || done < 5 ? null : () => _submit(sp, mentors)),
                     if (status != 'submitted' && done < 5) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr(context, 'Finish at least 5 days first.', 'আগে অন্তত ৫ দিন শেষ করুন।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted))),
@@ -533,9 +559,46 @@ class _TalentState extends ConsumerState<TalentScreen> {
   }
 }
 
+// Sprint "learn" days: the free, approved study links for this skill, one tap away. Nothing is invented: the links come from /resources.
+final _sprintLinksProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, skill) => getJson(ref, '/resources', q: {'skillKey': skill}));
+
+class SprintLearnScreen extends ConsumerWidget {
+  const SprintLearnScreen({super.key, required this.skillKey});
+  final String skillKey;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final res = ref.watch(_sprintLinksProvider(skillKey));
+    final hasRoadmap = ref.watch(roadmapProvider(skillKey)).hasValue;
+    return Scaffold(
+      appBar: AppBar(title: Text(tr(context, 'Study links', 'পড়ার লিংক'), style: display(22, color: Brand.ink))),
+      body: AsyncBody(value: res, onRetry: () => ref.invalidate(_sprintLinksProvider(skillKey)), builder: (d) {
+        final list = ((d['resources'] ?? []) as List).cast<Map>();
+        return ListView(padding: const EdgeInsets.all(16), children: [
+          AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Text(tr(context, 'Pick ONE link, study for about 45 minutes, then write 3 lines of notes in your own words. Come back here and tick the day.', 'একটি লিংক বাছুন, প্রায় ৪৫ মিনিট পড়ুন, তারপর নিজের ভাষায় ৩ লাইন নোট লিখুন। ফিরে এসে দিনটি টিক দিন।'), style: body(14, color: Brand.forest))),
+          if (list.isEmpty) AppCard(child: Text(tr(context, 'No approved links for this skill yet. Search for a free beginner course and note what you learned.', 'এই দক্ষতার জন্য এখনও অনুমোদিত লিংক নেই। একটি বিনামূল্যে বেসিক কোর্স খুঁজে কী শিখলেন লিখুন।'), style: body(15, color: Brand.muted))),
+          for (final r in list) AppCard(
+            margin: const EdgeInsets.only(bottom: 8),
+            onTap: () async {
+              final ok = await launchUrl(Uri.parse('${r['url']}'), mode: LaunchMode.externalApplication);
+              if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
+            },
+            child: Row(children: [
+              const Icon(Icons.open_in_new, color: Brand.delta), const SizedBox(width: 12),
+              Expanded(child: Text('${r['title']}', style: body(16, w: FontWeight.w700))),
+              Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
+            ]),
+          ),
+          if (hasRoadmap) BigButton(tr(context, 'Open the step-by-step roadmap', 'ধাপে ধাপে রোডম্যাপ খুলুন'), outlined: true, onPressed: () => context.push('/roadmap/$skillKey')),
+        ]);
+      }),
+    );
+  }
+}
+
 final launchRoutes = <RouteBase>[
   GoRoute(path: '/passport', builder: (_, __) => const PassportScreen()),
   GoRoute(path: '/sprints', builder: (_, __) => const SprintsScreen()),
+  GoRoute(path: '/sprint-learn/:skillKey', builder: (_, s) => SprintLearnScreen(skillKey: s.pathParameters['skillKey']!)),
   GoRoute(path: '/invites', builder: (_, __) => const InvitesScreen()),
   GoRoute(path: '/mentor/sprint-reviews', builder: (_, __) => const SprintReviewsScreen()),
 ];
