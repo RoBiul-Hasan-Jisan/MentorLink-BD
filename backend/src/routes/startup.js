@@ -116,6 +116,14 @@ module.exports = function startupRoutes(auth) {
   // ================= 2. MENTOR SPRINT =================
   const sprintOut = (s) => ({ id: s._id, skillKey: s.skillKey, titleEn: s.titleEn, titleBn: s.titleBn, status: s.status, startedAt: s.startedAt, dayIndex: S.sprintDayIndex(s), days: s.days, proofUrl: s.proofUrl || null, proofNote: s.proofNote || '', mentorId: s.mentorId || null, review: s.review && s.review.decision ? s.review : null, badge: !!s.badge });
 
+  // Builds a fresh sprint. The student's weakest quiz topics (if any) shape days 2 and 3.
+  async function newSprintFor(studentId, skill, mentorId) {
+    const weak = [];
+    const dash = await M.Quiz.findOne({ skillKey: skill.key }).select('questions.topic').lean();
+    if (dash) for (const q of dash.questions || []) if (q.topic && !weak.includes(q.topic)) weak.push(q.topic);
+    return M.Sprint.create({ studentId, mentorId, skillKey: skill.key, titleEn: `${skill.nameEn} sprint`, titleBn: `${skill.nameBn} স্প্রিন্ট`, days: S.sprintDays(skill, weak.slice(0, 2)) });
+  }
+
   r.get('/me/sprints', ...student, async (req, res) => {
     const list = await M.Sprint.find({ studentId: req.user._id }).sort({ createdAt: -1 }).limit(20).lean();
     const accepted = await M.MentorRequest.find({ studentId: req.user._id, status: 'accepted' }).select('mentorId').lean();
@@ -135,11 +143,30 @@ module.exports = function startupRoutes(auth) {
       if (!(await M.MentorRequest.findOne({ studentId: req.user._id, mentorId: req.body.mentorId, status: 'accepted' }))) throw bad('NO_MENTOR', 'Choose a mentor who accepted your request.');
       mentorId = req.body.mentorId;
     }
-    // Use the student's weakest quiz topics (if any) to shape days 2 and 3.
-    const weak = [];
-    const dash = await M.Quiz.findOne({ skillKey: skill.key }).select('questions.topic').lean();
-    if (dash) for (const q of dash.questions || []) if (q.topic && !weak.includes(q.topic)) weak.push(q.topic);
-    const sprint = await M.Sprint.create({ studentId: req.user._id, mentorId, skillKey: skill.key, titleEn: `${skill.nameEn} sprint`, titleBn: `${skill.nameBn} স্প্রিন্ট`, days: S.sprintDays(skill, weak.slice(0, 2)) });
+    const sprint = await newSprintFor(req.user._id, skill, mentorId);
+    res.status(201).json(sprintOut(sprint));
+  });
+
+  // Start again on the same skill with a fresh 7 days. If the current sprint is still open (even if it is
+  // already with the mentor) it is withdrawn first, so a student is never stuck.
+  r.post('/me/sprints/:id/restart', ...student, validate(z.object({ skillKey: z.string().min(1).max(40).optional(), mentorId: z.string().optional() }).strict()), async (req, res) => {
+    oid(req.params.id);
+    const old = await M.Sprint.findOne({ _id: req.params.id, studentId: req.user._id });
+    if (!old) throw notFound('Sprint not found.');
+    const OPEN = ['active', 'submitted', 'needs_work'];
+    if (OPEN.includes(old.status)) { old.status = 'abandoned'; await old.save(); }
+    else if (await M.Sprint.findOne({ studentId: req.user._id, status: { $in: OPEN } })) throw conflict('SPRINT_OPEN', 'Finish or stop your current sprint first.');
+    // The student may pick a different skill and/or mentor; anything not sent stays as it was.
+    const skill = await M.Skill.findOne({ key: req.body.skillKey || old.skillKey }).lean();
+    if (!skill) throw notFound('Unknown skill.');
+    let mentorId = null;
+    const wantMentor = req.body.mentorId || old.mentorId;
+    if (req.body.mentorId) {
+      oid(req.body.mentorId);
+      if (!(await M.MentorRequest.findOne({ studentId: req.user._id, mentorId: req.body.mentorId, status: 'accepted' }))) throw bad('NO_MENTOR', 'Choose a mentor who accepted your request.');
+      mentorId = req.body.mentorId;
+    } else if (wantMentor && await M.MentorRequest.findOne({ studentId: req.user._id, mentorId: wantMentor, status: 'accepted' })) mentorId = wantMentor;
+    const sprint = await newSprintFor(req.user._id, skill, mentorId);
     res.status(201).json(sprintOut(sprint));
   });
 
@@ -175,7 +202,7 @@ module.exports = function startupRoutes(auth) {
 
   r.post('/me/sprints/:id/stop', ...student, async (req, res) => {
     oid(req.params.id);
-    const sp = await M.Sprint.findOne({ _id: req.params.id, studentId: req.user._id, status: { $in: ['active', 'needs_work'] } });
+    const sp = await M.Sprint.findOne({ _id: req.params.id, studentId: req.user._id, status: { $in: ['active', 'needs_work', 'submitted'] } });
     if (!sp) throw notFound('No open sprint.');
     sp.status = 'abandoned'; await sp.save();
     res.json(sprintOut(sp));
