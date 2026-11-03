@@ -143,19 +143,12 @@ class _Cv extends ConsumerState<CvScreen> {
   Future<Uint8List> _pdfBytes() => buildCvPdf(_json());
   String get _fileBase => '${name.text.trim().isEmpty ? 'CV' : name.text.trim().replaceAll(RegExp(r'\s+'), '_')}_CV';
 
-  // Download = save the file on the phone (Downloads folder). It does NOT open the share sheet.
+  // Download = save the file on the phone (Downloads folder).
   Future<void> _download() async {
     try {
       final bytes = await _pdfBytes();
       await FileSaver.instance.saveFile(name: _fileBase, bytes: bytes, ext: 'pdf', mimeType: MimeType.pdf);
       if (mounted) toast(context, tr(context, 'Saved to your phone: $_fileBase.pdf', 'ফোনে সংরক্ষিত: $_fileBase.pdf'));
-    } catch (e) { if (mounted) toast(context, errorText(e)); }
-  }
-
-  // Share = send it through WhatsApp, Gmail, Drive and so on.
-  Future<void> _share() async {
-    try {
-      await Printing.sharePdf(bytes: await _pdfBytes(), filename: '$_fileBase.pdf');
     } catch (e) { if (mounted) toast(context, errorText(e)); }
   }
 
@@ -355,7 +348,6 @@ class _Cv extends ConsumerState<CvScreen> {
       body: Column(children: [
         GreenHeader(radius: 36, bottomPad: 20, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const Spacer(), if (preview) ...[
-            TextButton.icon(onPressed: _share, icon: const Icon(Icons.share, color: Colors.white, size: 20), label: Text(tr(context, 'Share', 'শেয়ার'), style: const TextStyle(color: Colors.white))),
             TextButton.icon(onPressed: _download, icon: const Icon(Icons.download, color: Colors.white, size: 20), label: Text(tr(context, 'Download', 'ডাউনলোড'), style: const TextStyle(color: Colors.white))),
           ]]),
           const SizedBox(height: 8),

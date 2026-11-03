@@ -139,13 +139,12 @@ class ProfileScreen extends ConsumerWidget {
 
   List<(IconData, String, String)> _entries(BuildContext context, String? role) {
     if (role == 'student') {
-      // Career tools live in the Career tab. Profile keeps account, CV, sessions, community and privacy.
+      // Career tools live in the Career tab. Profile keeps account, CV, sessions and privacy. The community feed now lives on Home.
       return [
         (Icons.badge_outlined, tr(context, 'My Career Passport', 'আমার ক্যারিয়ার পাসপোর্ট'), '/passport'),
         (Icons.mail_outline, tr(context, 'Company invitations', 'কোম্পানির আমন্ত্রণ'), '/invites'),
         (Icons.description_outlined, tr(context, 'My CV', 'আমার সিভি'), '/cv'),
         (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
-        (Icons.groups_outlined, tr(context, 'Community feed', 'কমিউনিটি ফিড'), '/feed'),
         (Icons.forum_outlined, tr(context, 'Pathways & Q&A', 'পথ ও প্রশ্নোত্তর'), '/pathways'),
         (Icons.tune, tr(context, 'How matching works', 'ম্যাচিং কীভাবে কাজ করে'), '/how-matching'),
         (Icons.flag_outlined, tr(context, 'Change career goal', 'ক্যারিয়ার লক্ষ্য বদলান'), '/goal'),
