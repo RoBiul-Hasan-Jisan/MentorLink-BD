@@ -40,6 +40,7 @@ final mentorDetailProvider = FutureProvider.autoDispose.family<Map<String, dynam
 final cvProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/me/cv'));
 final menteeCvProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/mentees/$id/cv'));
 final roadmapsProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/roadmaps'));
+final topicProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, k) => getJson(ref, '/roadmaps/${k.split('|')[0]}/topics/${k.split('|')[1]}'));
 final roadmapProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, k) => getJson(ref, '/roadmaps/$k'));
 final targetsProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/targets'));
 final targetProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, k) => getJson(ref, '/targets/$k'));
