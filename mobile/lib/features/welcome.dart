@@ -60,7 +60,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
   Widget build(BuildContext context) {
     final bn = ref.watch(localeProvider) == 'bn';
     final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
-    final rowH = 88.0 * scale;
+    final rowH = 76.0 * scale;
 
     final milestones = <_Milestone>[
       _Milestone(
@@ -128,28 +128,39 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                       ref.read(localeProvider.notifier).state = code,
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Hero(bn: bn, anim: _c),
-                        const SizedBox(height: 26),
-                        _JourneyHeader(bn: bn, anim: _c, onSkip: _skip),
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: _skip,
-                          child: _Journey(
-                            anim: _c,
-                            items: milestones,
-                            rowH: rowH,
-                            bn: bn,
-                            pathCurve: _pathCurve,
+                  // Everything fits on one screen: if the phone is short (or the
+                  // text is large) the content scales down instead of scrolling.
+                  child: LayoutBuilder(
+                    builder: (context, box) => FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: box.maxWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _Hero(bn: bn, anim: _c),
+                              const SizedBox(height: 18),
+                              _JourneyHeader(bn: bn, anim: _c, onSkip: _skip),
+                              const SizedBox(height: 6),
+                              GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onTap: _skip,
+                                child: _Journey(
+                                  anim: _c,
+                                  items: milestones,
+                                  rowH: rowH,
+                                  bn: bn,
+                                  pathCurve: _pathCurve,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

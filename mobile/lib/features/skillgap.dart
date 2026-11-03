@@ -45,7 +45,7 @@ class SkillGapScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 if (gaps.isEmpty) Text(tr(context, 'No gaps. You meet every requirement.', 'কোনো ঘাটতি নেই।'), style: body(16)),
                 for (int i = 0; i < gaps.length; i++) InkWell(onTap: () => context.push('/roadmap/${gaps[i]['skillKey']}'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [
-                  SizedBox(width: 96, child: Text(nm(context, gaps[i], 'nameEn', 'nameBn'), style: display(17, color: Brand.ink, w: FontWeight.w700))),
+                  SizedBox(width: 112, child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(nm(context, gaps[i], 'nameEn', 'nameBn'), maxLines: 1, style: display(17, color: Brand.ink, w: FontWeight.w700)))),
                   Expanded(child: ProgressBar(((gaps[i]['current'] as num) / (gaps[i]['required'] as num)).toDouble(), color: i < 2 ? const Color(0xFFB3382B) : Brand.saffron)),
                   const SizedBox(width: 10),
                   Pill(tr(context, 'Gap ${i + 1}', 'ঘাটতি ${i + 1}'), tone: i < 2 ? Tone.red : Tone.saffron),

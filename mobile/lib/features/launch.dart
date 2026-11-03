@@ -297,6 +297,11 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
     if (mounted) toast(context, tr(context, 'Sent. Your mentor will review it.', 'পাঠানো হয়েছে। মেন্টর রিভিউ করবেন।'));
   }
 
+  // Removes abandoned sprints from the list: one skill (all its repeats) or everything. Endorsed sprints stay.
+  Future<void> _clearEarlier(String? skillKey) async {
+    await _call(() => ref.read(dioProvider).delete('/me/sprints', queryParameters: {if (skillKey != null) 'skillKey': skillKey}));
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(sprintsProvider);
@@ -309,7 +314,15 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
           final mentors = (d['mentors'] ?? []) as List;
           final skills = ((d['skills'] ?? []) as List).cast<Map>();
           final open = all.where((s) => ['active', 'needs_work', 'submitted'].contains(s['status'])).toList();
-          final past = all.where((s) => !['active', 'needs_work', 'submitted'].contains(s['status'])).toList();
+          // Earlier sprints: show each skill only once (an endorsed one wins, else the newest). List is newest-first.
+          final byKey = <String, Map>{};
+          for (final s in all.where((s) => !['active', 'needs_work', 'submitted'].contains(s['status']))) {
+            final k = '${s['skillKey']}';
+            final cur = byKey[k];
+            if (cur == null || (cur['badge'] != true && s['badge'] == true)) byKey[k] = s;
+          }
+          final past = byKey.values.toList();
+          final removable = all.any((s) => s['status'] == 'abandoned' && s['badge'] != true);
           final sp = open.isEmpty ? null : open.first;
           return ListView(padding: EdgeInsets.zero, children: [
             _header(context, tr(context, 'Mentor Sprint', 'মেন্টর স্প্রিন্ট'), tr(context, '7 days. One skill. A mentor checks your work.', '৭ দিন। একটি দক্ষতা। মেন্টর কাজ দেখেন।')),
@@ -366,13 +379,21 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                   ]));
                 }(),
               ],
-              if (past.isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(2, 8, 2, 8), child: Text(tr(context, 'Earlier sprints', 'আগের স্প্রিন্ট'), style: display(18, color: Brand.ink))),
+              if (past.isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(2, 8, 2, 8), child: Row(children: [
+                Expanded(child: Text(tr(context, 'Earlier sprints', 'আগের স্প্রিন্ট'), style: display(18, color: Brand.ink))),
+                if (removable) TextButton.icon(
+                  onPressed: busy ? null : () => _clearEarlier(null),
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: Text(tr(context, 'Clear all', 'সব মুছুন')),
+                ),
+              ])),
               for (final s in past) AppCard(margin: const EdgeInsets.only(bottom: 8), child: Row(children: [
                 Icon(s['badge'] == true ? Icons.workspace_premium : Icons.history, color: s['badge'] == true ? Brand.saffron : Brand.muted),
                 const SizedBox(width: 12),
                 Expanded(child: Text(nm(context, s, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w700))),
                 Pill(s['badge'] == true ? tr(context, 'Endorsed', 'এন্ডোর্সড') : '${s['status']}', tone: s['badge'] == true ? Tone.saffron : Tone.grey),
                 if (sp == null) IconButton(tooltip: tr(context, 'Do it again', 'আবার করুন'), onPressed: busy ? null : () => _restart(s, skills, mentors), icon: const Icon(Icons.replay, color: Brand.forest)),
+                if (s['badge'] != true) IconButton(tooltip: tr(context, 'Remove', 'সরান'), onPressed: busy ? null : () => _clearEarlier('${s['skillKey']}'), icon: const Icon(Icons.close, color: Brand.muted)),
               ])),
               Text(tr(context, 'An endorsement adds a proven level to your Career Passport. Finishing the days alone does not change your score.', 'এন্ডোর্সমেন্ট আপনার ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ করে। শুধু দিনগুলো শেষ করলে স্কোর বদলায় না।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted)),
               const SizedBox(height: 16),

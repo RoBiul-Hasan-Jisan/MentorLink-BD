@@ -124,7 +124,7 @@ void main() {
   });
 
   testWidgets(
-    'Small screen and large text: scrolls without overflow (EN + BN)',
+    'Small screen and large text: fits without overflow (EN + BN)',
     (t) async {
       for (final lang in ['en', 'bn']) {
         phone(t, w: 320, h: 568);
