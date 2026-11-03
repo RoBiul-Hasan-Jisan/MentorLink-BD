@@ -440,6 +440,23 @@ module.exports = function extrasRoutes(auth) {
     const users = await M.User.find({ ...f, deletedAt: null }).select('displayName email role verificationStatus department universityId').sort({ createdAt: -1 }).skip((page - 1) * 30).limit(30).lean();
     res.json({ users, page });
   });
+  // Admin: change a user's sign-in email and/or set a new password. The password is write-only (Firebase keeps only a hash),
+  // so it can never be shown. Every use is audit-logged WITHOUT the password. Other admins' accounts cannot be changed here.
+  r.post('/admin/users/:id/account', ...admin, validate(z.object({ email: z.string().trim().toLowerCase().email().max(120).optional(), newPassword: z.string().min(8).max(100).optional() }).strict()), async (req, res) => {
+    oid(req.params.id);
+    if (!req.body.email && !req.body.newPassword) throw bad('NOTHING_TO_CHANGE', 'Enter a new email or a new password.');
+    const u = await M.User.findById(req.params.id);
+    if (!u || u.deletedAt) throw notFound();
+    if (u.role === 'admin' && String(u._id) !== String(req.user._id)) throw forbidden('Another admin account cannot be changed here.');
+    const emailChanged = !!req.body.email && req.body.email !== String(u.email || '').toLowerCase();
+    if (emailChanged && (await M.User.findOne({ email: req.body.email, _id: { $ne: u._id } }))) throw conflict('EMAIL_TAKEN', 'Another account already uses this email.');
+    try { await require('../config/firebase').adminUpdateFirebaseUser(u.firebaseUid, { email: emailChanged ? req.body.email : undefined, password: req.body.newPassword }); }
+    catch (e) { throw bad('FIREBASE_UPDATE_FAILED', (e && e.message) || 'Could not update the sign-in account.'); }
+    if (emailChanged) { u.email = req.body.email; await u.save(); }
+    await audit(req.user._id, 'admin_account_change', 'user', u._id, { emailChanged, passwordChanged: !!req.body.newPassword });
+    await notify(u._id, 'Your sign-in details were changed by an admin', 'If you did not expect this, contact support.', 'security');
+    res.json({ ok: true, email: u.email, emailChanged, passwordChanged: !!req.body.newPassword });
+  });
   // Employer only comes from company verification; admin only by the seed. This endpoint cannot create either.
   r.patch('/admin/users/:id/role', ...admin, validate(z.object({ role: z.enum(['student', 'mentor', 'department']) }).strict()), async (req, res) => {
     oid(req.params.id);
