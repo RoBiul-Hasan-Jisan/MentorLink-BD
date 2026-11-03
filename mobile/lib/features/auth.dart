@@ -117,6 +117,27 @@ class AuthShell extends StatelessWidget {
 
 // ---------- sign in ----------
 // Heading, one-role note, labelled fields, Forgot password, Sign up link, and tap-to-sign-in demo cards (on by default, off with --dart-define=DEMO=false).
+// Plain-language sign-in errors. Firebase's own text ("invalid-credential: The supplied auth credential is incorrect, malformed or has expired") means nothing to a student.
+String authMessage(BuildContext context, FirebaseAuthException x) {
+  switch (x.code) {
+    case 'invalid-credential':
+    case 'wrong-password':
+    case 'user-not-found':
+    case 'invalid-login-credentials':
+      return tr(context, 'Email or password is not right. Check for typos, or tap "Forgot password?". New here? Tap "Sign up".', 'ইমেইল বা পাসওয়ার্ড ঠিক নেই। বানান দেখুন, অথবা "পাসওয়ার্ড ভুলে গেছেন?" চাপুন। নতুন হলে "সাইন আপ" চাপুন।');
+    case 'invalid-email':
+      return tr(context, 'This email address does not look right.', 'ইমেইল ঠিকানাটি সঠিক মনে হচ্ছে না।');
+    case 'user-disabled':
+      return tr(context, 'This account has been disabled. Please contact support.', 'এই অ্যাকাউন্ট বন্ধ করা হয়েছে। সাপোর্টে যোগাযোগ করুন।');
+    case 'too-many-requests':
+      return tr(context, 'Too many tries. Wait a few minutes, or reset your password.', 'অনেকবার চেষ্টা হয়েছে। কয়েক মিনিট অপেক্ষা করুন বা পাসওয়ার্ড রিসেট করুন।');
+    case 'network-request-failed':
+      return tr(context, 'No internet connection. Check your network and try again.', 'ইন্টারনেট সংযোগ নেই। নেটওয়ার্ক দেখে আবার চেষ্টা করুন।');
+    default:
+      return tr(context, 'Could not sign in. Please try again.', 'সাইন ইন করা যায়নি। আবার চেষ্টা করুন।');
+  }
+}
+
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
   @override
@@ -131,7 +152,7 @@ class _SignIn extends ConsumerState<SignInScreen> {
     final em = (e ?? email.text).trim(), pa = p ?? pw.text;
     setState(() { busy = true; err = ''; info = ''; });
     try { await FirebaseAuth.instance.signInWithEmailAndPassword(email: em, password: pa); }
-    on FirebaseAuthException catch (x) { if (mounted) setState(() => err = '${x.code}: ${x.message ?? 'Sign-in failed'}'); }
+    on FirebaseAuthException catch (x) { if (mounted) setState(() => err = authMessage(context, x)); }
     catch (x) { if (mounted) setState(() => err = x.toString()); }
     finally { if (mounted) setState(() => busy = false); }
   }
@@ -143,7 +164,7 @@ class _SignIn extends ConsumerState<SignInScreen> {
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: em);
       if (mounted) setState(() => info = tr(context, 'If an account exists for this email, a reset link is on its way.', 'এই ইমেইলে অ্যাকাউন্ট থাকলে রিসেট লিংক পাঠানো হচ্ছে।'));
-    } on FirebaseAuthException catch (x) { if (mounted) setState(() => err = '${x.code}: ${x.message ?? 'Could not send the email'}'); }
+    } on FirebaseAuthException catch (x) { if (mounted) setState(() => err = x.code == 'invalid-email' ? authMessage(context, x) : tr(context, 'Could not send the email. Try again later.', 'ইমেইল পাঠানো যায়নি। পরে আবার চেষ্টা করুন।')); }
   }
 
   Widget _demoCard(String name, String desc, String mail, String pass) => Padding(
