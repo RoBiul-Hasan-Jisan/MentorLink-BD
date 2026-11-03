@@ -14,17 +14,19 @@ const ROLES = [
   R('banking-trainee', 'Banking Trainee Officer', 'ব্যাংকিং ট্রেইনি অফিসার', [['banking', 3, 2], ['accounting', 3, 2], ['excel', 2, 2], ['communication', 2, 3]]),
   R('management-trainee', 'Management Trainee', 'ম্যানেজমেন্ট ট্রেইনি', [['communication', 3, 3], ['leadership', 3, 2], ['excel', 2, 2]]),
   R('higher-study', 'Higher-Study Applicant', 'উচ্চশিক্ষা আবেদনকারী', [['ielts', 3, 3], ['research', 3, 2], ['statistics', 1, 2], ['communication', 2, 2]]),
-  // More goals. They only use skills that already have a roadmap, resources and a quiz.
-  R('backend-developer', 'Backend Developer', 'ব্যাকএন্ড ডেভেলপার', [['backend', 3, 3], ['sql', 2, 2], ['git', 2, 2], ['dsa', 2, 2], ['testing', 1, 2]]),
-  R('data-scientist', 'Data Scientist (Trainee)', 'ডেটা সায়েন্টিস্ট (ট্রেইনি)', [['python', 3, 3], ['statistics', 3, 3], ['sql', 2, 2], ['dashboard', 1, 2], ['git', 1, 2]]),
-  R('business-analyst', 'Business Analyst', 'বিজনেস অ্যানালিস্ট', [['excel', 3, 3], ['sql', 2, 2], ['communication', 3, 3], ['dashboard', 2, 2], ['statistics', 1, 2]]),
-  R('data-engineer', 'Junior Data Engineer', 'জুনিয়র ডেটা ইঞ্জিনিয়ার', [['python', 3, 3], ['sql', 3, 3], ['git', 2, 2], ['backend', 1, 2]]),
-  R('accounts-executive', 'Accounts / Finance Executive', 'অ্যাকাউন্টস / ফাইন্যান্স এক্সিকিউটিভ', [['accounting', 3, 3], ['excel', 3, 3], ['communication', 2, 2], ['banking', 1, 2]]),
-  R('operations-executive', 'Operations / Project Coordinator', 'অপারেশনস / প্রজেক্ট কোঅর্ডিনেটর', [['leadership', 3, 2], ['communication', 3, 3], ['excel', 2, 2]]),
-  R('hr-executive', 'HR Executive', 'এইচআর এক্সিকিউটিভ', [['communication', 3, 3], ['leadership', 2, 2], ['excel', 2, 2]]),
-  R('sales-marketing', 'Sales and Marketing Executive', 'সেলস ও মার্কেটিং এক্সিকিউটিভ', [['communication', 3, 3], ['excel', 2, 2], ['leadership', 1, 2], ['statistics', 1, 1]]),
-  R('research-assistant', 'Research Assistant', 'রিসার্চ অ্যাসিস্ট্যান্ট', [['research', 3, 3], ['statistics', 2, 2], ['python', 1, 2], ['communication', 2, 2], ['ielts', 1, 2]]),
-  R('bank-it-officer', 'Bank IT / Digital Banking Officer', 'ব্যাংক আইটি / ডিজিটাল ব্যাংকিং অফিসার', [['banking', 2, 2], ['sql', 2, 2], ['excel', 2, 2], ['communication', 2, 2], ['testing', 1, 2]]),
+  // More goals so students are not limited to six. Every skill below already exists (S or MORE_SKILLS).
+  R('business-analyst', 'Business Analyst', 'বিজনেস অ্যানালিস্ট', [['sql', 2, 3], ['excel', 3, 3], ['dashboard', 2, 2], ['communication', 2, 3], ['statistics', 1, 2]]),
+  R('data-scientist', 'Junior Data Scientist', 'জুনিয়র ডেটা সায়েন্টিস্ট', [['python', 3, 3], ['statistics', 3, 3], ['machinelearning', 3, 2], ['sql', 1, 2], ['mathematics', 1, 2]]),
+  R('backend-developer', 'Backend Developer', 'ব্যাকএন্ড ডেভেলপার', [['backend', 3, 3], ['sql', 2, 3], ['git', 1, 2], ['dsa', 2, 2], ['testing', 1, 2]]),
+  R('frontend-developer', 'Frontend / Web Developer', 'ফ্রন্টএন্ড / ওয়েব ডেভেলপার', [['htmlcss', 3, 3], ['javascript', 3, 3], ['git', 1, 2], ['uiux', 1, 2]]),
+  R('mobile-app-developer', 'Mobile App Developer', 'মোবাইল অ্যাপ ডেভেলপার', [['appdev', 3, 3], ['programming', 2, 2], ['git', 1, 2], ['backend', 1, 2]]),
+  R('ui-ux-designer', 'UI/UX Designer', 'ইউআই/ইউএক্স ডিজাইনার', [['uiux', 3, 3], ['graphicdesign', 2, 2], ['htmlcss', 1, 2], ['communication', 2, 2]]),
+  R('digital-marketing-executive', 'Digital Marketing Executive', 'ডিজিটাল মার্কেটিং এক্সিকিউটিভ', [['digitalmarketing', 3, 3], ['communication', 2, 2], ['excel', 1, 2], ['graphicdesign', 1, 2]]),
+  R('accounts-finance-officer', 'Accounts & Finance Officer', 'অ্যাকাউন্টস ও ফিন্যান্স অফিসার', [['accounting', 3, 3], ['excel', 3, 3], ['banking', 1, 2], ['communication', 1, 2]]),
+  R('cybersecurity-analyst', 'Cybersecurity Analyst', 'সাইবার নিরাপত্তা অ্যানালিস্ট', [['cybersecurity', 3, 3], ['networking', 2, 2], ['programming', 1, 2]]),
+  R('devops-engineer', 'DevOps / Cloud Engineer', 'ডেভঅপস / ক্লাউড ইঞ্জিনিয়ার', [['clouddevops', 3, 3], ['networking', 1, 2], ['git', 1, 2], ['backend', 1, 2]]),
+  R('research-assistant', 'Research Assistant', 'গবেষণা সহকারী', [['research', 3, 3], ['statistics', 2, 2], ['communication', 2, 2]]),
+  R('hr-operations-executive', 'HR & Operations Executive', 'এইচআর ও অপারেশনস এক্সিকিউটিভ', [['communication', 3, 3], ['leadership', 2, 2], ['excel', 1, 2]]),
 ];
 // Real, free, public learning pages. Every URL is UNCHECKED: a teammate must open each one before demo day (see README).
 // Bangla entries are provider home pages only (no deep links invented); admins can add exact course links from the admin panel.

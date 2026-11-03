@@ -46,7 +46,7 @@ test('comments, one-level replies, notifications', async () => {
   expect(await models.Notification.countDocuments({ userId: S1._id })).toBeGreaterThan(0);
 });
 
-test('each kind of reaction is independent; the same kind again removes it', async () => {
+test('each reaction type can be given once; several types can be combined; same type again removes it', async () => {
   expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'helpful' })).body.myReactions).toEqual(['helpful']);
   expect((await j('put', `/api/posts/${postId}/reaction`, 's2', { type: 'like' })).body.myReactions.sort()).toEqual(['helpful', 'like']);
   let p = (await j('get', `/api/posts/${postId}`, 's1')).body.post;

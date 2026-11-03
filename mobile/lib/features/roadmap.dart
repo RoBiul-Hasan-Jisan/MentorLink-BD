@@ -83,25 +83,25 @@ class RoadmapScreen extends ConsumerWidget {
               ]),
               const SizedBox(height: 6),
               for (final t in (stages[i]['topics'] as List).cast<Map>()) InkWell(
-                onTap: () => context.push('/roadmap/$skillKey/topic/${t['key']}'),
-                child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
+                // Tap the row to STUDY the topic inside the app. Tap the circle to tick it quickly.
+                onTap: () => context.push('/roadmap/$skillKey/topic/${t['key']}').then((_) { ref.invalidate(roadmapProvider(skillKey)); ref.invalidate(roadmapsProvider); }),
+                child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [
+                  InkResponse(
+                    radius: 24,
                     onTap: isStudent ? () => _tick(context, ref, t['key'], t['done'] != true) : null,
-                    child: Padding(padding: const EdgeInsets.all(4), child: Icon(t['done'] == true ? Icons.check_circle : Icons.radio_button_unchecked, color: t['done'] == true ? Brand.delta : Brand.muted, size: 24)),
+                    child: Padding(padding: const EdgeInsets.all(6), child: Icon(t['done'] == true ? Icons.check_circle : Icons.radio_button_unchecked, color: t['done'] == true ? Brand.delta : Brand.muted, size: 24)),
                   ),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(nm(context, t, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w600, color: t['done'] == true ? Brand.muted : Brand.ink).copyWith(decoration: t['done'] == true ? TextDecoration.lineThrough : null))),
+                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(nm(context, t, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w600, color: t['done'] == true ? Brand.muted : Brand.ink).copyWith(decoration: t['done'] == true ? TextDecoration.lineThrough : null)))),
                   if (t['key'] == start) Padding(padding: const EdgeInsets.only(right: 6), child: Pill(tr(context, 'Start here', 'এখান থেকে শুরু'), tone: Tone.saffron)),
                   Text('${t['hours']} h', style: body(13, color: Brand.muted)),
-                  const Icon(Icons.chevron_right, size: 20, color: Brand.muted),
+                  const Icon(Icons.chevron_right, color: Brand.muted, size: 20),
                 ])),
               ),
             ])),
             if (res.isNotEmpty) AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(context, 'Where to learn', 'কোথায় শিখবেন'), style: display(19, color: Brand.ink)),
-              const SizedBox(height: 4),
-              Text(tr(context, 'Tap a topic above: it opens the notes, a checklist and links for that exact topic. These are general courses for the whole skill.', 'উপরের একটি টপিকে ট্যাপ করুন: সেই টপিকের নোট, চেকলিস্ট ও লিংক খুলবে। নিচেরগুলো পুরো স্কিলের সাধারণ কোর্স।'), style: body(13, color: Brand.muted)),
+              Text(tr(context, 'More places to learn', 'আরও শেখার জায়গা'), style: display(19, color: Brand.ink)),
+              Text(tr(context, 'Tap a topic above to read notes and get links for that topic.', 'নির্দিষ্ট টপিকের নোট ও লিংক পেতে উপরের টপিকে চাপুন।'), style: body(13, color: Brand.muted)),
               const SizedBox(height: 6),
               for (final r in res) InkWell(
                 onTap: () async { final ok = await launchUrl(Uri.parse(r['url']), mode: LaunchMode.externalApplication); if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি')); },
@@ -114,8 +114,6 @@ class RoadmapScreen extends ConsumerWidget {
             ])),
             if (d['hasQuiz'] == true && isStudent) BigButton(tr(context, 'Take the quiz to prove it', 'কুইজ দিয়ে প্রমাণ করুন'), onPressed: () => context.push('/quiz/$skillKey')),
             const SizedBox(height: 10),
-            if (isStudent) Text(tr(context, 'Tip: tap the circle to tick quickly, or open a topic, read it and finish its checklist: it ticks itself.', 'টিপ: দ্রুত টিক দিতে বৃত্তে ট্যাপ করুন, অথবা টপিক খুলে পড়ে চেকলিস্ট শেষ করুন: নিজে থেকেই টিক পড়বে।'), textAlign: TextAlign.center, style: body(13, color: Brand.muted)),
-            const SizedBox(height: 4),
             Text('${d['note']}', textAlign: TextAlign.center, style: body(13, color: Brand.muted)),
             const SizedBox(height: 20),
           ])),
@@ -125,7 +123,8 @@ class RoadmapScreen extends ConsumerWidget {
   }
 }
 
-// One topic: read the notes here, tick the "I can ..." checklist, open links for this exact topic. When every line is ticked the topic is marked done.
+
+// One topic: read the notes here, open a link for the topic, and when you come back the app asks if you finished.
 class TopicScreen extends ConsumerStatefulWidget {
   const TopicScreen({super.key, required this.skillKey, required this.topicKey});
   final String skillKey, topicKey;
@@ -133,26 +132,56 @@ class TopicScreen extends ConsumerStatefulWidget {
   ConsumerState<TopicScreen> createState() => _TopicState();
 }
 
-class _TopicState extends ConsumerState<TopicScreen> {
-  final checked = <int>{};
-  bool seeded = false, busy = false;
+class _TopicState extends ConsumerState<TopicScreen> with WidgetsBindingObserver {
+  bool _openedLink = false, _asked = false, _busy = false;
+  bool? _doneLocal;
+  String get _k => '${widget.skillKey}|${widget.topicKey}';
 
-  Future<void> _set(bool done) async {
-    setState(() => busy = true);
-    try {
-      await ref.read(dioProvider).put('/roadmaps/${widget.skillKey}/topics/${widget.topicKey}', data: {'done': done});
-      ref.invalidate(roadmapProvider(widget.skillKey));
-      ref.invalidate(roadmapsProvider);
-      if (mounted && done) toast(context, tr(context, 'Topic done. Nice work!', 'টপিক শেষ। দারুণ!'));
-    } catch (e) {
-      if (mounted) toast(context, errorText(e));
+  @override
+  void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); }
+  @override
+  void dispose() { WidgetsBinding.instance.removeObserver(this); super.dispose(); }
+
+  // Coming back from the browser: ask once, so the student does not have to remember to tick.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _openedLink && !_asked && mounted && _doneLocal != true) {
+      _asked = true;
+      _askFinished();
     }
-    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _askFinished() async {
+    final yes = await showModalBottomSheet<bool>(context: context, showDragHandle: true, builder: (c) => SafeArea(child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(tr(context, 'Did you finish studying this topic?', 'এই টপিকটা কি পড়া শেষ?'), style: display(20, color: Brand.ink)),
+        const SizedBox(height: 6),
+        Text(tr(context, 'Be honest. Tick it only if you could explain it to a friend.', 'সৎভাবে বলুন। বন্ধুকে বোঝাতে পারলে তবেই টিক দিন।'), style: body(14, color: Brand.muted)),
+        const SizedBox(height: 14),
+        BigButton(tr(context, 'Yes, mark as studied', 'হ্যাঁ, পড়া হয়েছে'), onPressed: () => Navigator.pop(c, true)),
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr(context, 'Not yet, I will continue', 'এখনও না, আরও পড়ব'))),
+      ]),
+    )));
+    if (yes == true) await _setDone(true);
+  }
+
+  Future<void> _setDone(bool v) async {
+    setState(() { _busy = true; _doneLocal = v; });
+    try {
+      await ref.read(dioProvider).put('/roadmaps/${widget.skillKey}/topics/${widget.topicKey}', data: {'done': v});
+      ref.invalidate(topicProvider(_k)); ref.invalidate(roadmapProvider(widget.skillKey)); ref.invalidate(roadmapsProvider);
+    } catch (e) {
+      if (mounted) { setState(() => _doneLocal = !v); toast(context, errorText(e)); }
+    }
+    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _open(String url) async {
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
+    bool ok = false;
+    try { ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (_) {}
+    if (!mounted) return;
+    if (ok) { _openedLink = true; _asked = false; } else { toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি')); }
   }
 
   @override
@@ -160,88 +189,69 @@ class _TopicState extends ConsumerState<TopicScreen> {
     final role = ref.watch(meProvider).valueOrNull?['role'];
     final isStudent = role == 'student';
     return Scaffold(
-      body: AsyncBody(
-        value: ref.watch(roadmapProvider(widget.skillKey)),
-        onRetry: () => ref.invalidate(roadmapProvider(widget.skillKey)),
-        builder: (d) {
-          final flat = <(Map, Map)>[];
-          for (final st in (d['stages'] as List).cast<Map>()) {
-            for (final t in (st['topics'] as List).cast<Map>()) { flat.add((st, t)); }
-          }
-          final idx = flat.indexWhere((e) => e.$2['key'] == widget.topicKey);
-          if (idx < 0) return Center(child: Text(tr(context, 'Topic not found', 'টপিক পাওয়া যায়নি')));
-          final stage = flat[idx].$1, t = flat[idx].$2;
-          final next = idx + 1 < flat.length ? flat[idx + 1].$2 : null;
-          final done = t['done'] == true;
-          final note = t['note'] as Map?;
-          final list = ((note?['checklist'] ?? []) as List).map((x) => '$x').toList();
-          final links = ((t['links'] ?? []) as List).cast<Map>();
-          if (!seeded) { seeded = true; if (done) checked.addAll([for (int i = 0; i < list.length; i++) i]); }
-          return ListView(padding: EdgeInsets.zero, children: [
-            GreenHeader(radius: 36, bottomPad: 28, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              BackCircle(dark: true, onTap: () => context.pop()),
-              const SizedBox(height: 12),
-              Text(nm(context, stage, 'titleEn', 'titleBn'), style: body(14, color: Colors.white70)),
-              const SizedBox(height: 4),
-              Text(nm(context, t, 'titleEn', 'titleBn'), style: display(26, color: Colors.white)),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, children: [
-                Pill('${t['hours']} h', tone: Tone.saffron),
-                Pill('${idx + 1} / ${flat.length}', tone: Tone.blue),
-                if (done) Pill(tr(context, 'Done', 'শেষ'), tone: Tone.green),
-              ]),
-            ])),
-            Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (note != null) AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(context, 'Read this first', 'আগে এটি পড়ুন'), style: display(18, color: Brand.ink)),
-                const SizedBox(height: 8),
-                Text('${note['summary']}', style: body(16)),
-                if (note['example'] != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity, padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFFF1F4F2), borderRadius: BorderRadius.circular(14)),
-                    child: SelectableText('${note['example']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.4)),
-                  ),
-                ],
+      body: AsyncBody(value: ref.watch(topicProvider(_k)), onRetry: () => ref.invalidate(topicProvider(_k)), builder: (d) {
+        final t = (d['topic'] ?? {}) as Map;
+        final g = (d['guide'] ?? {}) as Map;
+        final notes = ((g['notes'] ?? []) as List).map((x) => '$x').toList();
+        final links = ((g['links'] ?? []) as List).cast<Map>();
+        final example = g['example'] as String?;
+        final done = _doneLocal ?? (t['done'] == true);
+        final next = d['next'] as Map?;
+        return ListView(padding: EdgeInsets.zero, children: [
+          GreenHeader(radius: 36, bottomPad: 26, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            BackCircle(dark: true, onTap: () => context.pop()),
+            const SizedBox(height: 12),
+            Text('${nm(context, d, 'skillNameEn', 'skillNameBn')} · ${d['number']}/${d['total']}', style: body(14, color: Colors.white70)),
+            const SizedBox(height: 4),
+            Text(nm(context, t, 'titleEn', 'titleBn'), style: display(26, color: Colors.white)),
+            const SizedBox(height: 6),
+            Text('${nm(context, d, 'stageTitleEn', 'stageTitleBn')}  ·  ${t['hours']} h', style: body(14, color: Colors.white70)),
+          ])),
+          Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(context, 'Read this first', 'আগে এটি পড়ুন'), style: display(19, color: Brand.ink)),
+              const SizedBox(height: 8),
+              for (final n in notes) Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Padding(padding: EdgeInsets.only(top: 7, right: 10), child: Icon(Icons.circle, size: 6, color: Brand.forest)),
+                Expanded(child: Text(n, style: body(16))),
               ])),
-              if (links.isNotEmpty) AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(context, 'Learn this topic', 'এই টপিক শিখুন'), style: display(18, color: Brand.ink)),
-                const SizedBox(height: 4),
-                for (final l in links) InkWell(
-                  onTap: () => _open('${l['url']}'),
-                  child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [
-                    Icon(l['kind'] == 'lesson' ? Icons.menu_book_outlined : Icons.search, size: 20, color: Brand.muted), const SizedBox(width: 10),
-                    Expanded(child: Text(nm(context, l, 'label', 'labelBn'), style: body(16, w: FontWeight.w600))),
-                    Pill(l['language'] == 'bn' ? 'বাংলা' : 'English', tone: l['language'] == 'bn' ? Tone.green : Tone.blue),
-                  ])),
-                ),
-              ])),
-              if (list.isNotEmpty) AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(context, 'I can ... (tick when true)', 'আমি পারি ... (সত্য হলে টিক দিন)'), style: display(18, color: Brand.ink)),
-                const SizedBox(height: 4),
-                for (int i = 0; i < list.length; i++) CheckboxListTile(
-                  contentPadding: EdgeInsets.zero, dense: true, controlAffinity: ListTileControlAffinity.leading,
-                  value: checked.contains(i),
-                  title: Text(list[i], style: body(15, w: FontWeight.w600)),
-                  onChanged: !isStudent || busy ? null : (v) {
-                    setState(() { if (v == true) { checked.add(i); } else { checked.remove(i); } });
-                    if (checked.length == list.length && !done) _set(true);
-                  },
-                ),
-                Text(tr(context, 'When every line is ticked, this topic is marked done for you.', 'সব লাইনে টিক দিলে টপিকটি নিজে থেকেই শেষ হয়ে যাবে।'), style: body(13, color: Brand.muted)),
-              ])),
-              if (isStudent) ...[
-                if (!done) BigButton(busy ? '...' : tr(context, 'Mark this topic done', 'টপিকটি শেষ করুন'), onPressed: busy ? null : () => _set(true))
-                else BigButton(tr(context, 'Done. Undo', 'শেষ। বাতিল করুন'), outlined: true, onPressed: busy ? null : () { setState(() => checked.clear()); _set(false); }),
+              if (example != null) ...[
                 const SizedBox(height: 10),
+                Text(tr(context, 'Example', 'উদাহরণ'), style: body(13, color: Brand.muted, w: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity, padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: const Color(0xFF10261C), borderRadius: BorderRadius.circular(12)),
+                  child: SelectableText(example, style: const TextStyle(fontFamily: 'monospace', fontSize: 13.5, color: Colors.white, height: 1.45)),
+                ),
               ],
-              if (next != null) BigButton(tr(context, 'Next: ${next['titleEn']}', 'পরবর্তী: ${next['titleBn'] ?? next['titleEn']}'), outlined: true, onPressed: () => context.pushReplacement('/roadmap/${widget.skillKey}/topic/${next['key']}')),
-              const SizedBox(height: 20),
             ])),
-          ]);
-        },
-      ),
+            AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(context, 'Learn more: links for this topic', 'আরও শিখুন: এই টপিকের লিংক'), style: display(19, color: Brand.ink)),
+              const SizedBox(height: 4),
+              Text(tr(context, 'When you come back, the app will ask if you finished.', 'ফিরে এলে অ্যাপ জিজ্ঞেস করবে পড়া শেষ কি না।'), style: body(13, color: Brand.muted)),
+              for (final l in links) InkWell(
+                onTap: () => _open('${l['url']}'),
+                child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
+                  const Icon(Icons.open_in_new, size: 18, color: Brand.muted), const SizedBox(width: 10),
+                  Expanded(child: Text('${l['title']}', style: body(15, w: FontWeight.w600))),
+                  Pill(l['language'] == 'bn' ? 'বাংলা' : 'English', tone: l['language'] == 'bn' ? Tone.green : Tone.blue),
+                ])),
+              ),
+            ])),
+            if (isStudent) ...[
+              BigButton(done ? tr(context, 'Studied. Tap to undo', 'পড়া হয়েছে। বাতিল করতে চাপুন') : tr(context, 'Mark as studied', 'পড়া শেষ, টিক দিন'), outlined: done, onPressed: _busy ? null : () => _setDone(!done)),
+              if (done && next != null) ...[
+                const SizedBox(height: 8),
+                BigButton(tr(context, 'Next topic: ${next['titleEn']}', 'পরের টপিক: ${next['titleBn'] ?? next['titleEn']}'), onPressed: () => context.pushReplacement('/roadmap/${widget.skillKey}/topic/${next['key']}')),
+              ],
+            ],
+            const SizedBox(height: 10),
+            Text('${d['note']}', textAlign: TextAlign.center, style: body(13, color: Brand.muted)),
+            const SizedBox(height: 20),
+          ])),
+        ]);
+      }),
     );
   }
 }

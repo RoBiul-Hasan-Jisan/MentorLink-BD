@@ -150,6 +150,8 @@ module.exports = function startupRoutes(auth) {
     if (!['active', 'needs_work'].includes(sp.status)) throw bad('SPRINT_CLOSED', 'This sprint is closed.');
     const day = sp.days.find((d) => d.n === Number(req.params.n));
     if (!day) throw notFound('No such day.');
+    // A day can be ticked only when it has arrived (catching up on earlier days is fine). Stops ticking Day 7 on Day 5.
+    if (req.body.done && day.n > S.sprintDayIndex(sp)) throw bad('DAY_NOT_YET', `Day ${day.n} opens on day ${day.n} of your sprint. Finish today's task first.`);
     day.done = req.body.done; day.doneAt = req.body.done ? new Date() : undefined;
     await sp.save();
     res.json(sprintOut(sp));

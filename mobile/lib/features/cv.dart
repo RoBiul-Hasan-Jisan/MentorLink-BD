@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:file_saver/file_saver.dart';
 import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
@@ -139,21 +140,22 @@ class _Cv extends ConsumerState<CvScreen> {
     finally { if (mounted) setState(() => busy = false); }
   }
 
-  // Download = the system "Save as PDF" screen (choose Downloads or Drive). Share = the share sheet (WhatsApp, Gmail ...). They are two different buttons.
   Future<Uint8List> _pdfBytes() => buildCvPdf(_json());
-  String _pdfName() => '${name.text.trim().isEmpty ? 'CV' : name.text.trim().replaceAll(RegExp(r'\s+'), '_')}_CV';
+  String get _fileBase => '${name.text.trim().isEmpty ? 'CV' : name.text.trim().replaceAll(RegExp(r'\s+'), '_')}_CV';
 
+  // Download = save the file on the phone (Downloads folder). It does NOT open the share sheet.
   Future<void> _download() async {
     try {
-      final Uint8List bytes = await _pdfBytes();
-      await Printing.layoutPdf(onLayout: (_) async => bytes, name: _pdfName());
+      final bytes = await _pdfBytes();
+      await FileSaver.instance.saveFile(name: _fileBase, bytes: bytes, ext: 'pdf', mimeType: MimeType.pdf);
+      if (mounted) toast(context, tr(context, 'Saved to your phone: $_fileBase.pdf', 'ফোনে সংরক্ষিত: $_fileBase.pdf'));
     } catch (e) { if (mounted) toast(context, errorText(e)); }
   }
 
+  // Share = send it through WhatsApp, Gmail, Drive and so on.
   Future<void> _share() async {
     try {
-      final Uint8List bytes = await _pdfBytes();
-      await Printing.sharePdf(bytes: bytes, filename: '${_pdfName()}.pdf');
+      await Printing.sharePdf(bytes: await _pdfBytes(), filename: '$_fileBase.pdf');
     } catch (e) { if (mounted) toast(context, errorText(e)); }
   }
 
@@ -352,7 +354,10 @@ class _Cv extends ConsumerState<CvScreen> {
     return Scaffold(
       body: Column(children: [
         GreenHeader(radius: 36, bottomPad: 20, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const Spacer(), if (preview) ...[TextButton.icon(onPressed: _download, icon: const Icon(Icons.download, color: Colors.white), label: Text(tr(context, 'Download PDF', 'পিডিএফ ডাউনলোড'), style: const TextStyle(color: Colors.white))), IconButton(tooltip: tr(context, 'Share', 'শেয়ার'), onPressed: _share, icon: const Icon(Icons.share, color: Colors.white))]]),
+          Row(children: [BackCircle(dark: true, onTap: () => context.pop()), const Spacer(), if (preview) ...[
+            TextButton.icon(onPressed: _share, icon: const Icon(Icons.share, color: Colors.white, size: 20), label: Text(tr(context, 'Share', 'শেয়ার'), style: const TextStyle(color: Colors.white))),
+            TextButton.icon(onPressed: _download, icon: const Icon(Icons.download, color: Colors.white, size: 20), label: Text(tr(context, 'Download', 'ডাউনলোড'), style: const TextStyle(color: Colors.white))),
+          ]]),
           const SizedBox(height: 8),
           Text(tr(context, 'CV builder', 'সিভি বিল্ডার'), style: display(28, color: Colors.white)),
           const SizedBox(height: 10),

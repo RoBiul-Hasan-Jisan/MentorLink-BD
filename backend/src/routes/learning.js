@@ -1,4 +1,3 @@
-const { topicNote, topicLinks } = require('../data/topic_notes');
 const express = require('express');
 const { z } = require('zod');
 const { Roadmap, RoadmapProgress, Quiz, RoleTemplate, Skill, SkillEvidence, StudentProfile, MentorProfile, User, Match, Resource, ResourceProgress, Report } = require('../models');
@@ -158,12 +157,33 @@ module.exports = function learningRoutes(auth) {
     const next = topics.find((t) => !done.has(t.key));
     res.json({
       skillKey: m.skillKey, nameEn: sk?.nameEn || m.skillKey, nameBn: sk?.nameBn || m.skillKey, summaryEn: m.summaryEn, summaryBn: m.summaryBn,
-      stages: m.stages.map((s, si) => ({ level: s.level, titleEn: s.titleEn, titleBn: s.titleBn, topics: s.topics.map((t, ti) => ({ key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, hours: t.hours, done: done.has(t.key), note: topicNote(m.skillKey, si, ti), links: topicLinks(m.skillKey, t.titleEn, si, ti) })) })),
+      stages: m.stages.map((s) => ({ level: s.level, titleEn: s.titleEn, titleBn: s.titleBn, topics: s.topics.map((t) => ({ key: t.key, titleEn: t.titleEn, titleBn: t.titleBn, hours: t.hours, done: done.has(t.key) })) })),
       totalHours: topics.reduce((t, x) => t + x.hours, 0), doneCount: done.size, percent: topics.length ? Math.round((100 * done.size) / topics.length) : 0,
       startHere: next ? next.key : null,
       hasQuiz: !!(await Quiz.findOne({ skillKey: m.skillKey })),
       resources: resources.map((x) => ({ id: x._id, title: x.title, url: x.url, language: x.language, kind: x.kind, free: x.free })),
       note: 'Ticking topics tracks your study. Your skill level only changes with evidence: a quiz, a project or a mentor endorsement.',
+    });
+  });
+  // One topic: reading notes you can study inside the app, links chosen for this topic, and your own done state.
+  r.get('/roadmaps/:skillKey/topics/:topicKey', auth.authenticate, async (req, res) => {
+    const m = await Roadmap.findOne({ skillKey: String(req.params.skillKey) }).lean();
+    if (!m) throw notFound('No roadmap for this skill yet.');
+    let stage = null, topic = null, idx = 0;
+    const flat = m.stages.flatMap((s) => s.topics.map((t) => ({ s, t })));
+    flat.forEach((x, i) => { if (x.t.key === req.params.topicKey) { stage = x.s; topic = x.t; idx = i; } });
+    if (!topic) throw notFound('No such topic.');
+    const g = require('../seed/topic_guides').guideFor(m.skillKey, topic.titleEn);
+    let done = false, doneKeys = new Set();
+    if (req.user.role === 'student') { doneKeys = new Set((await RoadmapProgress.find({ studentId: req.user._id, skillKey: m.skillKey })).map((p) => p.topicKey)); done = doneKeys.has(topic.key); }
+    const skill = await Skill.findOne({ key: m.skillKey }).lean();
+    const next = flat[idx + 1] ? { key: flat[idx + 1].t.key, titleEn: flat[idx + 1].t.titleEn, titleBn: flat[idx + 1].t.titleBn } : null;
+    res.json({
+      skillKey: m.skillKey, skillNameEn: skill?.nameEn || m.skillKey, skillNameBn: skill?.nameBn || m.skillKey,
+      stageTitleEn: stage.titleEn, stageTitleBn: stage.titleBn,
+      topic: { key: topic.key, titleEn: topic.titleEn, titleBn: topic.titleBn, hours: topic.hours, done },
+      guide: g, next, number: idx + 1, total: flat.length,
+      note: 'Ticking a topic tracks your study. Your skill level only changes with evidence: a quiz, a project or a mentor endorsement.',
     });
   });
   r.put('/roadmaps/:skillKey/topics/:topicKey', ...student, validate(z.object({ done: z.boolean() }).strict()), async (req, res) => {
