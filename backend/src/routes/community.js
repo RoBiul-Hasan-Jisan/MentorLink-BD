@@ -28,11 +28,12 @@ module.exports = function communityRoutes(auth) {
     return posts.filter((p) => { const u = users.get(String(p.authorId)); return u && !blockedBetween(me, u); }).map((p) => {
       const u = users.get(String(p.authorId));
       const counts = {}; for (const x of p.reactions || []) counts[x.type] = (counts[x.type] || 0) + 1;
-      const mine = (p.reactions || []).find((x) => String(x.userId) === String(me._id));
+      const mineAll = (p.reactions || []).filter((x) => String(x.userId) === String(me._id)).map((x) => x.type);
+      const mine = mineAll.length ? { type: mineAll[0] } : null;
       return {
         id: p._id, topic: p.topic, text: p.text, link: p.link || null, createdAt: p.createdAt,
         author: { id: u._id, name: firstNameInitial(u.displayName), role: u.role, verifiedMentor: u.role === 'mentor' && u.verificationStatus === 'verified', following: follows.has(String(u._id)), isMe: String(u._id) === String(me._id) },
-        reactions: counts, myReaction: mine ? mine.type : null, myReactions: (p.reactions || []).filter((x) => String(x.userId) === String(me._id)).map((x) => x.type), commentCount: p.commentCount || 0,
+        reactions: counts, myReaction: mine ? mine.type : null, myReactions: mineAll, commentCount: p.commentCount || 0,
       };
     });
   }
@@ -113,18 +114,17 @@ module.exports = function communityRoutes(auth) {
     res.status(201).json({ ok: true });
   });
 
-  // A person can give each kind of reaction once (like, helpful and idea can all be on). Sending the same kind again removes it.
+  // A person can give each reaction type once (like, helpful and great together). Sending the same type again removes only that one.
   r.put('/posts/:id/reaction', ...member, validate(z.object({ type: z.enum(M.REACTIONS) }).strict()), async (req, res) => {
     oid(req.params.id);
     const p = await M.Post.findOne({ _id: req.params.id, status: 'visible' });
     if (!p) throw notFound();
-    const mine = (x) => String(x.userId) === String(req.user._id);
-    const had = p.reactions.some((x) => mine(x) && x.type === req.body.type);
-    p.reactions = p.reactions.filter((x) => !(mine(x) && x.type === req.body.type));
+    const had = p.reactions.some((x) => String(x.userId) === String(req.user._id) && x.type === req.body.type);
+    p.reactions = p.reactions.filter((x) => !(String(x.userId) === String(req.user._id) && x.type === req.body.type));
     if (!had) p.reactions.push({ userId: req.user._id, type: req.body.type });
     await p.save();
-    const myReactions = p.reactions.filter(mine).map((x) => x.type);
-    res.json({ myReactions, myReaction: myReactions[0] || null });
+    const mine = p.reactions.filter((x) => String(x.userId) === String(req.user._id)).map((x) => x.type);
+    res.json({ myReaction: mine[0] || null, myReactions: mine });
   });
 
   r.post('/posts/:id/report', ...member, async (req, res) => {

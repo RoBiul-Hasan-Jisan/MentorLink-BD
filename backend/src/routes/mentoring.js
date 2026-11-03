@@ -32,7 +32,7 @@ module.exports = function mentoringRoutes(auth) {
   // ---- requests ----
   const reqSchema = z.object({
     mentorId: z.string(), goalText: z.string().trim().min(5).max(400),
-    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(14).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person', 'message']).optional(), message: z.string().trim().max(500).optional(),
+    questions: z.array(z.string().trim().min(3).max(200)).min(1).max(3), preferredSlots: z.array(z.string().max(20)).max(6).optional(), focusSkillKey: z.string().max(40).optional(), focusKind: z.enum(['technical_interview', 'portfolio_review', 'cv_review', 'roadmap_review', 'career_switch', 'skill_gap']).optional(), format: z.enum(['video', 'phone', 'in_person', 'message']).optional(), message: z.string().trim().max(500).optional(),
   }).strict();
   r.post('/requests', ...student, validate(reqSchema), async (req, res) => {
     toObjectId(req.body.mentorId, 'mentor id');
@@ -42,14 +42,6 @@ module.exports = function mentoringRoutes(auth) {
     if ((m.blockedBy || []).some((b) => String(b) === String(req.user._id)) || (req.user.blockedBy || []).some((b) => String(b) === String(m._id))) throw forbidden();
     if (mp.paused) throw conflict('MENTOR_PAUSED', 'This mentor is not taking new requests right now.');
     if (await MentorRequest.findOne({ studentId: req.user._id, mentorId: m._id, status: { $in: ['pending', 'accepted'] } })) throw conflict('REQUEST_EXISTS', 'You already have an open request with this mentor.');
-    // Fair use: a declined mentor is not asked again straight away, and one student cannot flood many mentors at once.
-    const COOLDOWN_DAYS = 7, MAX_OPEN = 5;
-    const lastNo = await MentorRequest.findOne({ studentId: req.user._id, mentorId: m._id, status: 'declined' }).sort({ updatedAt: -1 });
-    if (lastNo) {
-      const until = new Date(new Date(lastNo.updatedAt).getTime() + COOLDOWN_DAYS * 86400000);
-      if (until > new Date()) throw conflict('REQUEST_COOLDOWN', `This mentor declined your last request. You can ask again on ${until.toISOString().slice(0, 10)}, or choose another mentor.`);
-    }
-    if ((await MentorRequest.countDocuments({ studentId: req.user._id, status: 'pending' })) >= MAX_OPEN) throw conflict('TOO_MANY_OPEN', `You already have ${MAX_OPEN} requests waiting for a reply. Wait for an answer or cancel one first.`);
     const open = await MentorRequest.countDocuments({ mentorId: m._id, status: 'pending' });
     if (mp.acceptedRequests + open >= mp.weeklyCapacity) throw conflict('MENTOR_AT_CAPACITY', 'This mentor has no open spots.');
     const doc = await MentorRequest.create({ ...req.body, studentId: req.user._id, mentorId: m._id });

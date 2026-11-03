@@ -9,6 +9,7 @@
     "test": "jest --runInBand --forceExit",
     "seed:universities": "node src/seed/universities.js",
     "seed:demo": "node src/seed/demo.js",
+    "seed:learning": "node src/seed/run_learning.js",
     "study:dryrun": "node study/dry-run.js"
   },
   "jest": {

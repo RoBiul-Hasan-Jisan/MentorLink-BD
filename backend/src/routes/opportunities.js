@@ -115,12 +115,12 @@ module.exports = function opportunityRoutes(auth) {
       const gapsOnly = breakdown.filter((b) => b.status === 'gap');
       if (gapsOnly.length) projectedFit = 100; // fit if every listed gap were closed; shown with the gap list, not as a promise
     }
-    let application = null;
+    let myApplication = null;
     if (req.user.role === 'student') {
-      const a = await Application.findOne({ studentId: req.user._id, opportunityId: o._id, stage: { $ne: 'Withdrawn' } }).lean();
-      if (a) application = { id: a._id, stage: uiStage(a.stage), appliedAt: a.createdAt };
+      const a = await Application.findOne({ studentId: req.user._id, opportunityId: o._id }).lean();
+      if (a) myApplication = { id: a._id, stage: uiStage(a.stage), withdrawn: a.stage === 'Withdrawn', appliedAt: a.createdAt };
     }
-    res.json({ opportunity: { ...publicOpp(o, fit), postedByName: (poster || {}).displayName || '', closed: !!o.closed }, fit, breakdown, projectedFit, application });
+    res.json({ opportunity: { ...publicOpp(o, fit), postedByName: (poster || {}).displayName || '', closed: !!o.closed }, fit, breakdown, projectedFit, myApplication });
   });
 
   // ---- applications ----
@@ -130,10 +130,20 @@ module.exports = function opportunityRoutes(auth) {
     const opp = await Opportunity.findOne({ _id: req.params.id, status: 'approved', closed: { $ne: true } });
     if (!opp) throw notFound('This opportunity is not available.');
     if (opp.applicationDeadline && opp.applicationDeadline < new Date()) throw conflict('DEADLINE_PASSED', 'The deadline has passed.');
-    if (await Application.findOne({ studentId: req.user._id, opportunityId: opp._id, stage: { $ne: 'Withdrawn' } })) throw conflict('ALREADY_APPLIED', 'You already applied to this job. Track it in My applications.');
     toObjectId(req.body.cvVersionId, 'cv id');
     const cv = await CvVersion.findOne({ _id: req.body.cvVersionId, studentId: req.user._id });
     if (!cv) throw bad('CV_REQUIRED', 'Choose one of your CV versions.');
+    // One application per job. A withdrawn one can be re-sent; otherwise a clear message instead of a database error.
+    const prior = await Application.findOne({ studentId: req.user._id, opportunityId: opp._id });
+    if (prior && prior.stage !== 'Withdrawn') throw conflict('ALREADY_APPLIED', 'You already applied to this job. Track it in My applications.');
+    if (prior) {
+      prior.stage = 'Applied'; prior.cvVersionId = cv._id; prior.applicantNote = req.body.note;
+      prior.consentSnapshot = { sharedFields: req.body.sharedFields, consentedAt: new Date() };
+      prior.stageHistory.push({ stage: 'Applied', by: req.user._id });
+      await prior.save();
+      await notify(opp.postedBy, 'New application', opp.title, 'application');
+      return res.status(201).json({ application: { id: prior._id, stage: uiStage(prior.stage) } });
+    }
     const app = await Application.create({
       studentId: req.user._id, opportunityId: opp._id, cvVersionId: cv._id, applicantNote: req.body.note,
       consentSnapshot: { sharedFields: req.body.sharedFields, consentedAt: new Date() },
