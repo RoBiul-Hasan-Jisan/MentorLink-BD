@@ -10,6 +10,20 @@ import 'feed.dart';
 import 'launch.dart';
 import 'widgets.dart';
 
+
+// Where the student really is: each step is done only when there is proof of it, not just because data loaded.
+//   0 Skills: readiness below 60%      1 Mentor: no session booked yet
+//   2 Apply:  no application yet       3 Offer:  applied, waiting for an offer
+int _journeyStage(Map<String, dynamic> readiness, Map<String, dynamic>? sessions, Map<String, dynamic>? apps) {
+  final ready = ((readiness['readiness'] ?? 0) as num) >= 60;
+  final hasSession = (sessions?['sessions'] as List? ?? const []).whereType<Map>().any((s) => s['status'] == 'scheduled' || s['status'] == 'completed');
+  final list = (apps?['applications'] as List? ?? const []).whereType<Map>().where((a) => a['withdrawn'] != true).toList();
+  if (!ready) return 0;
+  if (!hasSession) return 1;
+  if (list.isEmpty) return 2;
+  return 3;
+}
+
 class StudentHome extends ConsumerWidget {
   const StudentHome({super.key, required this.onTab});
   final ValueChanged<int> onTab;
@@ -45,8 +59,8 @@ class StudentHome extends ConsumerWidget {
           rd.when(
             loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Colors.white))),
             error: (e, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(errorText(e), style: body(15, color: Colors.white70)), const SizedBox(height: 12),
-              FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.saffron, foregroundColor: Brand.ink), onPressed: () => showGoalSheet(context, ref), child: Text(tr(context, 'Set your career goal', 'আপনার ক্যারিয়ার লক্ষ্য ঠিক করুন'))),
+              Text(tr(context, 'Pick a career goal and we will show your readiness, your gaps and the best mentor for you. It takes about a minute.', 'একটি ক্যারিয়ার লক্ষ্য বেছে নিন। আমরা আপনার প্রস্তুতি, ঘাটতি ও সেরা মেন্টর দেখাব। প্রায় এক মিনিট লাগবে।'), style: body(15, color: Colors.white70)), const SizedBox(height: 12),
+              FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.saffron, foregroundColor: Brand.ink), onPressed: () => context.push('/goal'), child: Text(tr(context, 'Set your career goal', 'আপনার ক্যারিয়ার লক্ষ্য ঠিক করুন'))),
             ]),
             data: (d) {
               final gaps = (d['gaps'] as List);
@@ -64,7 +78,7 @@ class StudentHome extends ConsumerWidget {
                   ])),
                 ])),
                 const SizedBox(height: 20),
-                JourneyStepper(labels: [tr(context, 'Skills', 'দক্ষতা'), tr(context, 'Mentor', 'মেন্টর'), tr(context, 'Interview', 'ইন্টারভিউ'), tr(context, 'Job', 'চাকরি')], current: (sessions?['sessions'] as List? ?? []).isNotEmpty ? 2 : (matches != null ? 1 : 0)),
+                JourneyStepper(labels: [tr(context, 'Skills', 'দক্ষতা'), tr(context, 'Mentor', 'মেন্টর'), tr(context, 'Apply', 'আবেদন'), tr(context, 'Offer', 'অফার')], current: _journeyStage(d, sessions, ref.watch(applicationsProvider).valueOrNull)),
               ]);
             },
           ),
