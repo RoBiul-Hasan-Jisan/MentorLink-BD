@@ -9,6 +9,7 @@ import '../core/ui.dart';
 import '../core/upload.dart';
 import 'widgets.dart';
 import 'slot_grid.dart';
+import 'launch.dart' show briefProvider;
 
 // Onboarding extras from the design: verify (email + student ID), goal wizard, and the mentor request form.
 // Roles are never chosen by the client: "alumni" and "department" create an application that an admin approves.
@@ -85,7 +86,8 @@ class _VerifyState extends ConsumerState<VerifyScreen> {
           )),
           const SizedBox(height: 4),
           BigButton(tr(context, 'Continue', 'চালিয়ে যান'), onPressed: () => context.go('/goal')),
-          Center(child: TextButton(onPressed: () => context.go('/'), child: Text(tr(context, 'Skip for now', 'এখন নয়')))),
+          Center(child: TextButton(onPressed: () => context.go('/goal'), child: Text(tr(context, 'Do this later', 'পরে করব')))),
+          Center(child: Text(tr(context, 'You can verify any time from Profile. Next: choose your career goal.', 'প্রোফাইল থেকে যেকোনো সময় যাচাই করতে পারবেন। এরপর: ক্যারিয়ার লক্ষ্য বাছুন।'), textAlign: TextAlign.center, style: body(13, color: Brand.muted))),
         ])),
       ]),
     );
@@ -118,7 +120,11 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
       ref.invalidate(readinessProvider);
       ref.invalidate(matchesProvider);
       ref.invalidate(planProvider);
-      if (mounted) context.go('/');
+      ref.invalidate(briefProvider);
+      if (mounted) {
+        toast(context, tr(context, 'Goal saved. Your readiness score and first step are ready on Home.', 'লক্ষ্য সেভ হয়েছে। হোমে আপনার প্রস্তুতি স্কোর ও প্রথম ধাপ তৈরি।'));
+        context.go('/');
+      }
     } catch (e) {
       if (mounted) toast(context, errorText(e));
     }
@@ -128,6 +134,18 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
   Widget _stepBody(List roles) {
     if (step == 0) {
       return Column(children: [
+        AppCard(
+          color: const Color(0xFFFFF7E3), border: Colors.transparent,
+          onTap: () => context.push('/decision-lab'),
+          child: Row(children: [
+            const Icon(Icons.science_outlined, color: Brand.forest), const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(context, 'Not sure yet?', 'এখনও নিশ্চিত নন?'), style: body(16, w: FontWeight.w800)),
+              Text(tr(context, 'Compare careers in the Decision Lab, then come back. You can change your goal later.', 'ডিসিশন ল্যাবে ক্যারিয়ার তুলনা করে ফিরে আসুন। লক্ষ্য পরে বদলানো যায়।'), style: body(13, color: Brand.muted)),
+            ])),
+            const Icon(Icons.chevron_right, color: Brand.muted),
+          ]),
+        ),
         for (final r in roles.cast<Map>())
           AppCard(
             color: roleKey == r['key'] ? Brand.lightGreen : Colors.white,
@@ -157,6 +175,8 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
     }
     return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr(context, 'When are you free for a mentor call?', 'মেন্টর কলের জন্য কখন ফ্রি?'), style: body(16, w: FontWeight.w700)),
+      const SizedBox(height: 4),
+      Text(tr(context, 'Optional. Pick a few times now, or add them when you request a session.', 'ঐচ্ছিক। এখন কয়েকটি সময় বাছুন, অথবা সেশন চাওয়ার সময় যোগ করুন।'), style: body(13, color: Brand.muted)),
       const SizedBox(height: 8),
       SlotGrid(selected: slots, onChanged: (v) => setState(() { slots..clear()..addAll(v); }), max: 14),
     ]));
@@ -181,8 +201,10 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
             Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               _stepBody(roles),
               const SizedBox(height: 8),
+              Center(child: Text(tr(context, 'Step ${step + 1} of 3', 'ধাপ ${step + 1}/৩'), style: body(13, color: Brand.muted))),
+              const SizedBox(height: 8),
               BigButton(
-                step < 2 ? tr(context, 'Next', 'পরবর্তী') : (busy ? '...' : tr(context, 'Finish', 'শেষ করুন')),
+                step < 2 ? tr(context, 'Next', 'পরবর্তী') : (busy ? '...' : (slots.isEmpty ? tr(context, 'Finish without times', 'সময় ছাড়াই শেষ করুন') : tr(context, 'Finish', 'শেষ করুন'))),
                 onPressed: !canNext || busy ? null : () => step < 2 ? setState(() => step++) : _save(),
               ),
               if (step > 0) Center(child: TextButton(onPressed: () => setState(() => step--), child: Text(tr(context, 'Back', 'পেছনে')))),
