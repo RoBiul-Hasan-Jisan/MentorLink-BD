@@ -56,7 +56,21 @@ class SkillGapScreen extends ConsumerWidget {
                 Text(tr(context, 'Confidence ${d['confidence']}% (more proof raises it)', 'আস্থা ${d['confidence']}% (প্রমাণ দিলে বাড়ে)'), style: body(14, color: Brand.muted)),
               ])),
               _resources(context, ref, gaps),
-              if (topNames.isNotEmpty) BigButton(tr(context, 'Find mentors for $topNames', '$topNames এর মেন্টর খুঁজুন'), onPressed: () => context.push('/gap/${gaps.first['skillKey']}/mentors')),
+              AppCard(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(context, 'Find a mentor for a skill', 'একটি দক্ষতার জন্য মেন্টর খুঁজুন'), style: display(19, color: Brand.ink)),
+                const SizedBox(height: 4),
+                Text(tr(context, 'Choose the skill you want help with. Your biggest gaps come first.', 'যে দক্ষতায় সাহায্য চান তা বাছুন। বড় ঘাটতি আগে দেখানো হয়েছে।'), style: body(13, color: Brand.muted)),
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  // Gaps first (biggest first), then the skills you already meet, so any skill of the goal can be chosen.
+                  for (final k in [...gaps.map((g) => g['skillKey']), ...skills.map((x) => x['skillKey']).where((k) => !gaps.any((g) => g['skillKey'] == k))])
+                    ActionChip(
+                      avatar: Icon(gaps.any((g) => g['skillKey'] == k) ? Icons.flag_outlined : Icons.check, size: 16),
+                      label: Text(nm(context, skills.firstWhere((x) => x['skillKey'] == k, orElse: () => {'nameEn': '$k', 'nameBn': '$k'}), 'nameEn', 'nameBn')),
+                      onPressed: () => context.push('/gap/$k/mentors'),
+                    ),
+                ]),
+              ])),
             ]))),
           ]);
         }),
