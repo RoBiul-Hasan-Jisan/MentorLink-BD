@@ -68,6 +68,7 @@ async function seedDemo({ auth }) {
   }
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
   await require('./demo_study').seedStudyMentors({ auth }); // 13 more mentors so the matching study has enough variety
+  await require('./demo_coverage').seedCoverageMentors({ auth }); // mentors for every skill of every career goal (machine learning, maths, web, design, security, cloud...)
   await require('./demo_extras').seedExtras(); // workshop, Q&A, progress history, pending approvals
   await require('./journeys').seedJourneys(); // Path Twin demo journeys
   await require('./demo_community').seedCommunity(); // Community feed: posts, comments, reactions, follows, two moderation examples
