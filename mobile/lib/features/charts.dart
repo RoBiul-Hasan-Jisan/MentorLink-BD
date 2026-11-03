@@ -23,7 +23,7 @@ class BarChartBox extends StatelessWidget {
     for (final d in data) { if ((d.value ?? 0) > top) top = d.value!; }
     final mx = math.max(1.0, maxValue ?? top);
     return SizedBox(
-      height: height + 52,
+      height: height + 68, // room for a two-line label such as "Machine Learning"
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         for (final d in data)
           Expanded(
