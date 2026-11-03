@@ -906,128 +906,194 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
   }
 }
 
-// ================= Home preview =================
-// A small slice of the community feed for the Home tab: a "write something" row, the 3 newest posts, and "See all".
-// Tapping a post opens it; "See all" opens the full feed. Reactions stay on the full feed to keep Home light.
+// ================= Home section =================
+// The community on the Home tab: header, "write something" bar, group chips, the 3 newest posts with working
+// reactions, and a button to the full feed. Chips filter in place so nobody has to open another screen.
 
-final homeFeedProvider = FutureProvider.autoDispose((ref) => getJson(ref, '/feed'));
+final homeFeedProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, g) => getJson(ref, '/feed', q: {
+      if (g == 'following') 'following': '1' else if (g.isNotEmpty) 'topic': g,
+    }));
 
-class CommunityPreview extends ConsumerWidget {
+class CommunityPreview extends ConsumerStatefulWidget {
   const CommunityPreview({super.key});
+  @override
+  ConsumerState<CommunityPreview> createState() => _CommunityPreviewState();
+}
 
-  Future<void> _compose(BuildContext context, WidgetRef ref, List groups) async {
+class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
+  String group = '';
+
+  Future<void> _openFeed() async {
+    await context.push('/feed');
+    if (mounted) ref.invalidate(homeFeedProvider);
+  }
+
+  Future<void> _openPost(Map p) async {
+    await context.push('/post/${p['id']}');
+    if (mounted) ref.invalidate(homeFeedProvider);
+  }
+
+  Future<void> _compose(List groups) async {
     final posted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (_) => _ComposeSheet(groups: groups, initialTopic: 'general'),
+      builder: (_) => _ComposeSheet(groups: groups, initialTopic: group.isNotEmpty && group != 'following' ? group : 'general'),
     );
-    if (posted != true || !context.mounted) return;
+    if (posted != true || !mounted) return;
     toast(context, tr(context, 'Posted.', 'পোস্ট হয়েছে।'));
     ref.invalidate(feedGroupsProvider);
     ref.invalidate(homeFeedProvider);
   }
 
-  Widget _row(BuildContext context, WidgetRef ref, Map p, List groups) {
-    final a = (p['author'] ?? {}) as Map;
-    final name = '${a['name'] ?? '?'}';
-    final isMentor = a['verifiedMentor'] == true;
-    final sub = [_roleLabel(context, a['role']), _ago(context, p['createdAt'])].where((s) => s.isNotEmpty).join(' · ');
-    final likes = _count(p, 'like') + _count(p, 'helpful') + _count(p, 'idea');
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () async {
-        await context.push('/post/${p['id']}');
-        ref.invalidate(homeFeedProvider);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Avatar(name, size: 38, bg: isMentor ? Brand.saffron : Brand.lightGreen, fg: Brand.forest),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, w: FontWeight.w800))),
-              if (isMentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 15, color: Brand.saffron)),
-              if (sub.isNotEmpty) Flexible(child: Text('  $sub', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: Brand.muted))),
-            ]),
-            const SizedBox(height: 3),
-            Text('${p['text'] ?? ''}', maxLines: 3, overflow: TextOverflow.ellipsis, style: body(15).copyWith(height: 1.35)),
-            const SizedBox(height: 6),
-            Row(children: [
-              _groupTag(_groupTitle(context, groups, '${p['topic']}')),
-              const Spacer(),
-              Icon(Icons.thumb_up_alt_outlined, size: 15, color: Brand.muted), const SizedBox(width: 4),
-              Text('$likes', style: body(12, color: Brand.muted, w: FontWeight.w700)),
-              const SizedBox(width: 12),
-              Icon(Icons.chat_bubble_outline, size: 15, color: Brand.muted), const SizedBox(width: 4),
-              Text('${p['commentCount'] ?? 0}', style: body(12, color: Brand.muted, w: FontWeight.w700)),
-            ]),
-          ])),
-        ]),
+  Future<void> _react(Map p, String type) async {
+    setState(() => _toggleLocal(p, type));
+    try {
+      await ref.read(dioProvider).put('/posts/${p['id']}/reaction', data: {'type': type});
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _toggleLocal(p, type));
+      toast(context, errorText(e));
+    }
+  }
+
+  Widget _chip(String key, String label, {IconData? icon}) {
+    final on = group == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        avatar: icon == null ? null : Icon(icon, size: 16, color: on ? Brand.forest : Brand.muted),
+        label: Text(label, style: body(14, color: on ? Brand.forest : Brand.ink, w: on ? FontWeight.w800 : FontWeight.w600)),
+        selected: on,
+        showCheckmark: false,
+        selectedColor: Brand.lightGreen,
+        backgroundColor: Colors.white,
+        side: BorderSide(color: on ? Brand.delta : const Color(0xFFC9D3CC)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        onSelected: (_) => setState(() => group = key),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(meProvider).valueOrNull;
-    final canPost = _canPost(me);
-    final myName = '${me?['displayName'] ?? ''}';
-    final async = ref.watch(homeFeedProvider);
-    final loaded = ((ref.watch(feedGroupsProvider).valueOrNull?['groups'] ?? []) as List).whereType<Map>().toList();
-    final List groups = loaded.isEmpty ? _fallbackGroups : loaded;
-    final posts = async.valueOrNull == null ? <Map>[] : ((async.valueOrNull!['posts'] ?? []) as List).whereType<Map>().take(3).toList();
-
+  Widget _post(Map p, List groups) {
+    final a = (p['author'] ?? {}) as Map;
+    final name = '${a['name'] ?? '?'}';
+    final isMentor = a['verifiedMentor'] == true;
+    final mine = _myReactions(p);
+    final text = '${p['text'] ?? ''}';
+    final link = p['link'] == null ? null : '${p['link']}';
+    final sub = [_roleLabel(context, a['role']), _ago(context, p['createdAt'])].where((s) => s.isNotEmpty).join(' · ');
     return AppCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+      onTap: () => _openPost(p),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(tr(context, 'Community', 'কমিউনিটি'), style: display(20, color: Brand.ink)),
-          GestureDetector(
-            onTap: () async { await context.push('/feed'); ref.invalidate(homeFeedProvider); },
-            child: Text(tr(context, 'See all', 'সব দেখুন'), style: display(15, color: Brand.delta, w: FontWeight.w700)),
+        Row(children: [
+          Avatar(name, size: 40, bg: isMentor ? Brand.saffron : Brand.lightGreen, fg: Brand.forest),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(child: Text(name, style: body(16, w: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              if (isMentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 16, color: Brand.saffron)),
+            ]),
+            if (sub.isNotEmpty) Text(sub, style: body(12, color: Brand.muted)),
+          ])),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, right: 8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(text, maxLines: 4, overflow: TextOverflow.ellipsis, style: body(16).copyWith(height: 1.4)),
+            if (link != null) _linkChip(context, link),
+            Padding(padding: const EdgeInsets.only(top: 10), child: _groupTag(_groupTitle(context, groups, '${p['topic']}'))),
+          ]),
+        ),
+        Divider(height: 14, color: _line.withValues(alpha: 0.9)),
+        Row(children: [
+          for (final t in _reactionTypes) _reactButton(context, type: t, count: _count(p, t), on: mine.contains(t), onTap: () => _react(p, t)),
+          const Spacer(),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _openPost(p),
+            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),
+              const SizedBox(width: 5),
+              Text('${p['commentCount'] ?? 0}', style: body(13, color: Brand.muted, w: FontWeight.w700)),
+            ])),
           ),
         ]),
-        const SizedBox(height: 10),
-        if (canPost) InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _compose(context, ref, groups),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-            decoration: BoxDecoration(color: Brand.paper, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),
-            child: Row(children: [
-              Avatar(myName.isEmpty ? '?' : myName, size: 32, bg: Brand.lightGreen, fg: Brand.forest),
-              const SizedBox(width: 10),
-              Expanded(child: Text(tr(context, 'Ask a question or share a project…', 'প্রশ্ন করুন বা প্রজেক্ট শেয়ার করুন…'), style: body(14, color: Brand.muted))),
-              const Icon(Icons.edit_outlined, color: Brand.delta, size: 20),
-            ]),
-          ),
-        ),
-        if (async.isLoading && posts.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 3))))
-        else if (async.hasError && posts.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [
-          const Icon(Icons.cloud_off, color: Brand.muted, size: 20), const SizedBox(width: 8),
-          Expanded(child: Text(tr(context, 'Could not load the feed.', 'ফিড লোড করা যায়নি।'), style: body(14, color: Brand.muted))),
-          TextButton(onPressed: () => ref.invalidate(homeFeedProvider), child: Text(tr(context, 'Retry', 'আবার'))),
-        ]))
-        else if (posts.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 14), child: Text(tr(context, 'No posts yet. Be the first to ask or share something.', 'এখনও কোনো পোস্ট নেই। প্রথম প্রশ্ন বা পোস্টটি আপনার হোক।'), style: body(14, color: Brand.muted)))
-        else ...[
-          for (var i = 0; i < posts.length; i++) ...[
-            if (i > 0) Divider(height: 1, color: _line.withValues(alpha: 0.9)),
-            _row(context, ref, posts[i], groups),
-          ],
-          Divider(height: 1, color: _line.withValues(alpha: 0.9)),
-          InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () async { await context.push('/feed'); ref.invalidate(homeFeedProvider); },
-            child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Center(child: Text(tr(context, 'Open full community feed', 'পুরো কমিউনিটি ফিড দেখুন'), style: body(14, color: Brand.delta, w: FontWeight.w800)))),
-          ),
-        ],
       ]),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = ref.watch(meProvider).valueOrNull;
+    final canPost = _canPost(me);
+    final myName = '${me?['displayName'] ?? ''}';
+    final async = ref.watch(homeFeedProvider(group));
+    final loaded = ((ref.watch(feedGroupsProvider).valueOrNull?['groups'] ?? []) as List).whereType<Map>().toList();
+    final List groups = loaded.isEmpty ? _fallbackGroups : loaded;
+    final posts = async.valueOrNull == null ? <Map>[] : ((async.valueOrNull!['posts'] ?? []) as List).whereType<Map>().take(3).toList();
+    final following = group == 'following';
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(padding: const EdgeInsets.fromLTRB(4, 8, 4, 10), child: Row(children: [
+        Container(width: 36, height: 36, decoration: const BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: const Icon(Icons.forum_outlined, color: Brand.delta, size: 20)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr(context, 'Community', 'কমিউনিটি'), style: display(22, color: Brand.ink)),
+          Text(tr(context, 'Ask, share and learn together.', 'একসাথে প্রশ্ন, শেয়ার ও শেখা।'), style: body(13, color: Brand.muted)),
+        ])),
+        GestureDetector(onTap: _openFeed, child: Text(tr(context, 'See all', 'সব দেখুন'), style: display(15, color: Brand.delta, w: FontWeight.w700))),
+      ])),
+      if (canPost) AppCard(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+        onTap: () => _compose(groups),
+        child: Row(children: [
+          Avatar(myName.isEmpty ? '?' : myName, size: 38, bg: Brand.lightGreen, fg: Brand.forest),
+          const SizedBox(width: 12),
+          Expanded(child: Text(tr(context, 'Ask a question or share a project…', 'প্রশ্ন করুন বা প্রজেক্ট শেয়ার করুন…'), style: body(15, color: Brand.muted))),
+          const Icon(Icons.edit_outlined, color: Brand.delta, size: 22),
+        ]),
+      ),
+      Padding(padding: const EdgeInsets.only(bottom: 10), child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+        _chip('', tr(context, 'All', 'সব'), icon: Icons.dynamic_feed),
+        _chip('following', tr(context, 'Following', 'অনুসরণ'), icon: Icons.person_outline),
+        for (final g in loaded) _chip('${g['key']}', nm(context, g, 'titleEn', 'titleBn')),
+      ]))),
+      if (async.isLoading && posts.isEmpty) AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const CircleAvatar(radius: 20, backgroundColor: Color(0xFFE9EEEA)),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_skel(120, 14), const SizedBox(height: 6), _skel(70, 10)]),
+        ]),
+        const SizedBox(height: 14),
+        _skel(double.infinity, 12), const SizedBox(height: 8), _skel(double.infinity, 12), const SizedBox(height: 8), _skel(180, 12),
+      ]))
+      else if (async.hasError && posts.isEmpty) AppCard(child: Row(children: [
+        const Icon(Icons.cloud_off, color: Brand.muted, size: 22), const SizedBox(width: 10),
+        Expanded(child: Text(tr(context, 'Could not load the feed.', 'ফিড লোড করা যায়নি।'), style: body(15))),
+        TextButton(onPressed: () => ref.invalidate(homeFeedProvider), child: Text(tr(context, 'Retry', 'আবার চেষ্টা করুন'))),
+      ]))
+      else if (posts.isEmpty) AppCard(padding: const EdgeInsets.fromLTRB(20, 22, 20, 20), child: Column(children: [
+        Container(width: 56, height: 56, decoration: const BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(following ? Icons.group_add_outlined : Icons.forum_outlined, size: 28, color: Brand.delta)),
+        const SizedBox(height: 12),
+        Text(following ? tr(context, 'Your following feed is empty', 'আপনার ফলো ফিড খালি') : tr(context, 'No posts here yet', 'এখানে এখনও পোস্ট নেই'), textAlign: TextAlign.center, style: display(18, color: Brand.ink)),
+        const SizedBox(height: 4),
+        Text(following ? tr(context, 'Follow people or join a group to see their posts here.', 'কাউকে ফলো করুন বা গ্রুপে যোগ দিন, তাদের পোস্ট এখানে দেখা যাবে।') : tr(context, 'Be the first to ask or share something.', 'প্রথম প্রশ্ন বা পোস্টটি আপনার হোক।'), textAlign: TextAlign.center, style: body(14, color: Brand.muted)),
+        if (canPost && !following) ...[const SizedBox(height: 14), BigButton(tr(context, 'Write a post', 'পোস্ট লিখুন'), onPressed: () => _compose(groups))],
+      ]))
+      else ...[
+        for (final p in posts) _post(p, groups),
+        BigButton(tr(context, 'Open full community feed', 'পুরো কমিউনিটি ফিড দেখুন'), outlined: true, onPressed: _openFeed),
+        const SizedBox(height: 12),
+      ],
+    ]);
+  }
+
+  Widget _skel(double w, double h) => Container(width: w, height: h, decoration: BoxDecoration(color: const Color(0xFFE9EEEA), borderRadius: BorderRadius.circular(8)));
 }
 
 final feedRoutes = <RouteBase>[
