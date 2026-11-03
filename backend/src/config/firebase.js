@@ -33,4 +33,14 @@ async function deleteFirebaseUser(uid) {
   if (process.env.NODE_ENV === 'test') return;
   try { await sdk().auth().deleteUser(uid); } catch (e) { console.warn('firebase delete failed:', e.message); }
 }
-module.exports = { verifyCredential, sendPush, deleteFirebaseUser };
+// Admin sets a new sign-in email and/or password for a user, and signs them out everywhere. Throws on failure so the admin sees it.
+// Passwords are never read back: Firebase stores only a hash, so nobody (not even an admin) can look one up.
+async function adminUpdateFirebaseUser(uid, { email, password }) {
+  if (process.env.NODE_ENV === 'test') return;
+  const patch = {};
+  if (email) { patch.email = email; patch.emailVerified = false; }
+  if (password) patch.password = password;
+  await sdk().auth().updateUser(uid, patch);
+  await sdk().auth().revokeRefreshTokens(uid);
+}
+module.exports = { verifyCredential, sendPush, deleteFirebaseUser, adminUpdateFirebaseUser };
