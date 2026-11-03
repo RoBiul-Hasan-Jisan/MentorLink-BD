@@ -318,6 +318,34 @@ class _RolesScreenState extends ConsumerState<RolesScreen> {
     }
   }
 
+  // Admin: set a new email and/or password for a user. Passwords are write-only: they can be set but never shown.
+  Future<void> _changeAccount(Map u) async {
+    final email = TextEditingController(text: '${u['email'] ?? ''}');
+    final pass = TextEditingController();
+    final go = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+      title: Text('${u['displayName'] ?? ''}', style: display(19)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: tr(context, 'Sign-in email', 'সাইন-ইন ইমেইল'))),
+        const SizedBox(height: 10),
+        TextField(controller: pass, decoration: InputDecoration(labelText: tr(context, 'New password (min 8, leave empty to keep)', 'নতুন পাসওয়ার্ড (কমপক্ষে ৮, না বদলাতে খালি রাখুন)'))),
+        const SizedBox(height: 8),
+        Text(tr(context, 'Existing passwords cannot be shown: they are stored as a one-way hash. The user is signed out everywhere and told about the change. This is logged.', 'বর্তমান পাসওয়ার্ড দেখা যায় না: এটি এক-মুখী হ্যাশ হিসেবে সংরক্ষিত। ব্যবহারকারী সব জায়গা থেকে সাইন আউট হবেন ও জানতে পারবেন। এটি লগ হয়।'), style: body(12, color: Brand.muted)),
+      ]),
+      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr(context, 'Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(tr(context, 'Save', 'সেভ')))],
+    ));
+    if (go != true) return;
+    final data = <String, dynamic>{
+      if (email.text.trim().isNotEmpty && email.text.trim().toLowerCase() != '${u['email'] ?? ''}'.toLowerCase()) 'email': email.text.trim(),
+      if (pass.text.isNotEmpty) 'newPassword': pass.text,
+    };
+    if (data.isEmpty) { if (mounted) toast(context, tr(context, 'Nothing to change.', 'বদলানোর কিছু নেই।')); return; }
+    try {
+      await ref.read(dioProvider).post('/admin/users/${u['_id']}/account', data: data);
+      ref.invalidate(privacyUsersProvider);
+      if (mounted) toast(context, tr(context, 'Account updated (logged)', 'অ্যাকাউন্ট আপডেট হয়েছে (লগ হয়েছে)'));
+    } catch (e) { if (mounted) toast(context, errorText(e)); }
+  }
+
   Future<void> _setRole(String id, String role) async {
     try {
       await ref.read(dioProvider).patch('/admin/users/$id/role', data: {'role': role});
@@ -396,8 +424,13 @@ class _RolesScreenState extends ConsumerState<RolesScreen> {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text('${u['displayName'] ?? ''}', style: body(15, w: FontWeight.w700)),
-                          Text('${u['role'] ?? ''}', style: body(12, color: Brand.muted)),
+                          Text('${u['role'] ?? ''} · ${u['email'] ?? ''}', style: body(12, color: Brand.muted)),
                         ]),
+                      ),
+                      if (u['role'] != 'admin') IconButton(
+                        tooltip: tr(context, 'Change email or password', 'ইমেইল বা পাসওয়ার্ড বদলান'),
+                        icon: const Icon(Icons.key_outlined, color: Brand.delta),
+                        onPressed: () => _changeAccount(u),
                       ),
                       if (u['role'] == 'student' || u['role'] == 'mentor' || u['role'] == 'department')
                         DropdownButton<String>(
