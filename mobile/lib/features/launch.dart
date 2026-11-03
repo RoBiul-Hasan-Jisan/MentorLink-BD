@@ -254,6 +254,30 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
     if (mounted) setState(() => busy = false);
   }
 
+  // Start again: the student can keep the same skill/mentor or choose different ones, as many times as they like.
+  // Works even if the current sprint is already with the mentor (it is withdrawn first).
+  Future<void> _restart(Map sp, List<Map> skills, List mentors) async {
+    String pickSkill = '${sp['skillKey']}';
+    if (!skills.any((x) => '${x['skillKey']}' == pickSkill) && skills.isNotEmpty) pickSkill = '${skills.first['skillKey']}';
+    String? pickMentor = sp['mentorId'] != null && mentors.cast<Map>().any((m) => '${m['id']}' == '${sp['mentorId']}') ? '${sp['mentorId']}' : null;
+    final open = ['active', 'needs_work', 'submitted'].contains('${sp['status']}');
+    final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(builder: (c, set) => AlertDialog(
+      title: Text(tr(context, 'Choose again', 'আবার বেছে নিন'), style: display(19)),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (open) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(tr(context, 'Your current sprint will be closed and a fresh 7 days will start.', 'বর্তমান স্প্রিন্ট বন্ধ হবে এবং নতুন ৭ দিন শুরু হবে।'), style: body(13, color: Brand.muted))),
+        DropdownButton<String>(isExpanded: true, hint: Text(tr(context, 'Skill', 'দক্ষতা')), value: skills.any((x) => '${x['skillKey']}' == pickSkill) ? pickSkill : null,
+          items: [for (final s in skills) DropdownMenuItem(value: '${s['skillKey']}', child: Text(nm(context, s, 'nameEn', 'nameBn')))], onChanged: (v) => set(() => pickSkill = v ?? pickSkill)),
+        DropdownButton<String>(isExpanded: true, hint: Text(tr(context, 'Mentor (optional now)', 'মেন্টর (এখন ঐচ্ছিক)')), value: pickMentor,
+          items: [for (final m in mentors.cast<Map>()) DropdownMenuItem(value: '${m['id']}', child: Text('${m['name']}'))], onChanged: (v) => set(() => pickMentor = v)),
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr(context, 'Cancel', 'বাতিল'))), FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(tr(context, 'Start the 7 days', '৭ দিন শুরু করুন')))],
+    )));
+    if (ok != true) return;
+    _opt.clear();
+    await _call(() => ref.read(dioProvider).post('/me/sprints/${sp['id']}/restart', data: {'skillKey': pickSkill, if (pickMentor != null) 'mentorId': pickMentor}));
+    if (mounted) toast(context, tr(context, 'New 7-day sprint started.', 'নতুন ৭ দিনের স্প্রিন্ট শুরু হয়েছে।'));
+  }
+
   Future<void> _submit(Map sp, List mentors) async {
     final url = TextEditingController(text: '${sp['proofUrl'] ?? ''}');
     final note = TextEditingController(text: '${sp['proofNote'] ?? ''}');
@@ -337,7 +361,8 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                     if (status != 'submitted') BigButton(tr(context, 'Send to my mentor', 'মেন্টরকে পাঠান'), onPressed: busy || done < 5 ? null : () => _submit(sp, mentors)),
                     if (status != 'submitted' && done < 5) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr(context, 'Finish at least 5 days first.', 'আগে অন্তত ৫ দিন শেষ করুন।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted))),
                     if (status == 'submitted') Text(tr(context, 'Waiting for your mentor to review.', 'মেন্টরের রিভিউয়ের অপেক্ষা।'), textAlign: TextAlign.center, style: body(14, color: Brand.muted)),
-                    if (status != 'submitted') TextButton(onPressed: busy ? null : () => _call(() => ref.read(dioProvider).post('/me/sprints/${sp['id']}/stop')), child: Text(tr(context, 'Stop this sprint', 'এই স্প্রিন্ট বন্ধ করুন'))),
+                    OutlinedButton.icon(onPressed: busy ? null : () => _restart(sp, skills, mentors), icon: const Icon(Icons.swap_horiz), label: Text(tr(context, 'Change skill / start again', 'দক্ষতা বদলান / আবার শুরু করুন'))),
+                    TextButton(onPressed: busy ? null : () => _call(() => ref.read(dioProvider).post('/me/sprints/${sp['id']}/stop')), child: Text(status == 'submitted' ? tr(context, 'Withdraw this sprint', 'এই স্প্রিন্ট প্রত্যাহার করুন') : tr(context, 'Stop this sprint', 'এই স্প্রিন্ট বন্ধ করুন'))),
                   ]));
                 }(),
               ],
@@ -347,6 +372,7 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                 const SizedBox(width: 12),
                 Expanded(child: Text(nm(context, s, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w700))),
                 Pill(s['badge'] == true ? tr(context, 'Endorsed', 'এন্ডোর্সড') : '${s['status']}', tone: s['badge'] == true ? Tone.saffron : Tone.grey),
+                if (sp == null) IconButton(tooltip: tr(context, 'Do it again', 'আবার করুন'), onPressed: busy ? null : () => _restart(s, skills, mentors), icon: const Icon(Icons.replay, color: Brand.forest)),
               ])),
               Text(tr(context, 'An endorsement adds a proven level to your Career Passport. Finishing the days alone does not change your score.', 'এন্ডোর্সমেন্ট আপনার ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ করে। শুধু দিনগুলো শেষ করলে স্কোর বদলায় না।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted)),
               const SizedBox(height: 16),
