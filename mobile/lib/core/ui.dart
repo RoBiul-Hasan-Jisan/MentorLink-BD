@@ -190,8 +190,12 @@ class FactorBar extends StatelessWidget {
 class Radar extends StatelessWidget {
   const Radar({super.key, required this.labels, required this.need, required this.have, this.size = 300});
   final List<String> labels; final List<double> need, have; final double size; // values 0..1
+  // Uses the full width it is given (up to ~360) so long labels such as "Communication" are never cut off.
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _RadarPainter(labels, need, have)));
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth.isFinite ? box.maxWidth.clamp(200.0, 360.0).toDouble() : size;
+        return SizedBox(width: w, height: size, child: CustomPaint(painter: _RadarPainter(labels, need, have)));
+      });
 }
 class _RadarPainter extends CustomPainter {
   _RadarPainter(this.labels, this.need, this.have);
@@ -200,7 +204,24 @@ class _RadarPainter extends CustomPainter {
   void paint(Canvas c, Size s) {
     final n = labels.length; if (n < 3) return;
     final center = Offset(s.width / 2, s.height / 2);
-    final R = s.width / 2 - 52;
+    final tps = [
+      for (int i = 0; i < n; i++)
+        TextPainter(text: TextSpan(text: labels[i], style: display(13, color: have[i] >= need[i] ? Colors.white : Brand.saffron, w: FontWeight.w700)), textDirection: TextDirection.ltr, maxLines: 1, ellipsis: '…')..layout(maxWidth: s.width * 0.42),
+    ];
+    const gap = 12.0;
+    Offset labelPos(int i, double r) {
+      final a = -math.pi / 2 + 2 * math.pi * i / n; final cs = math.cos(a), sn = math.sin(a);
+      final p = center + Offset(cs, sn) * r; final tp = tps[i];
+      return Offset(p.dx + cs * gap - tp.width * (1 - cs) / 2, p.dy + sn * gap - tp.height / 2 + sn * tp.height / 2);
+    }
+    // Largest radius at which every label still fits inside the canvas.
+    double R = math.min(s.width, s.height) / 2 - 24;
+    while (R > 40) {
+      bool fits = true;
+      for (int i = 0; i < n; i++) { final o = labelPos(i, R); if (o.dx < 0 || o.dx + tps[i].width > s.width || o.dy < 0 || o.dy + tps[i].height > s.height) { fits = false; break; } }
+      if (fits) break;
+      R -= 2;
+    }
     Offset pt(int i, double f) { final a = -math.pi / 2 + 2 * math.pi * i / n; return center + Offset(math.cos(a), math.sin(a)) * (R * f); }
     final grid = Paint()..style = PaintingStyle.stroke..color = Colors.white24..strokeWidth = 1;
     for (final f in [0.33, 0.66, 1.0]) { final p = Path()..moveTo(pt(0, f).dx, pt(0, f).dy); for (int i = 1; i < n; i++) { p.lineTo(pt(i, f).dx, pt(i, f).dy); } p.close(); c.drawPath(p, grid); }
@@ -217,9 +238,7 @@ class _RadarPainter extends CustomPainter {
     c.drawPath(me, Paint()..style = PaintingStyle.stroke..color = Brand.saffron..strokeWidth = 4..strokeJoin = StrokeJoin.round);
     for (int i = 0; i < n; i++) {
       c.drawCircle(pt(i, have[i]), 6, Paint()..color = have[i] >= need[i] ? Colors.white : Brand.saffron);
-      final tp = TextPainter(text: TextSpan(text: labels[i], style: display(15, color: have[i] >= need[i] ? Colors.white : Brand.saffron, w: FontWeight.w700)), textDirection: TextDirection.ltr)..layout();
-      final lp = pt(i, 1.0); final a = -math.pi / 2 + 2 * math.pi * i / n;
-      c.save(); tp.paint(c, lp + Offset(math.cos(a) * 14 - tp.width / 2 + math.cos(a) * tp.width / 2, math.sin(a) * 14 - tp.height / 2)); c.restore();
+      tps[i].paint(c, labelPos(i, R));
     }
   }
   @override

@@ -208,6 +208,16 @@ module.exports = function startupRoutes(auth) {
     res.json(sprintOut(sp));
   });
 
+  // Remove old (abandoned) sprints from the "Earlier sprints" list. Endorsed and open sprints are never deleted.
+  // DELETE /me/sprints            -> all abandoned sprints
+  // DELETE /me/sprints?skillKey=x -> abandoned sprints of that one skill
+  r.delete('/me/sprints', ...student, async (req, res) => {
+    const filter = { studentId: req.user._id, status: 'abandoned', badge: { $ne: true } };
+    if (typeof req.query.skillKey === 'string' && req.query.skillKey) filter.skillKey = req.query.skillKey.slice(0, 40);
+    const out = await M.Sprint.deleteMany(filter);
+    res.json({ removed: out.deletedCount || 0 });
+  });
+
   r.get('/mentor/sprint-reviews', ...mentor, async (req, res) => {
     const list = await M.Sprint.find({ mentorId: req.user._id, status: 'submitted' }).sort({ updatedAt: 1 }).lean();
     const users = new Map((await M.User.find({ _id: { $in: list.map((x) => x.studentId) } }).select('displayName').lean()).map((u) => [String(u._id), u]));
