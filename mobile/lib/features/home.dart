@@ -101,11 +101,12 @@ class StudentHome extends ConsumerWidget {
             for (final t in tasks.where((t) => t['status'] == 'done').take(1).toList() + tasks.where((t) => t['status'] != 'done').take(3).toList())
               _TaskRow(task: t, onChanged: () => ref.invalidate(planProvider)),
           ])),
-          const CommunityPreview(),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(child: AppCard(color: const Color(0xFFFFF7E3), border: Colors.transparent, margin: const EdgeInsets.only(right: 6), onTap: () => onTab(2), child: _mini(context, tr(context, 'Top mentor match', 'সেরা মেন্টর'), (matches?['matches'] as List?)?.isNotEmpty == true ? (matches!['matches'][0]['mentor']['name'] as String) : '—', (matches?['matches'] as List?)?.isNotEmpty == true ? tr(context, '${matches!['matches'][0]['score']}% match', '${matches['matches'][0]['score']}% মিল') : null, Tone.saffron))),
             Expanded(child: AppCard(margin: const EdgeInsets.only(left: 6), onTap: () => onTab(3), child: _mini(context, tr(context, 'New vetted listing', 'নতুন যাচাইকৃত সুযোগ'), (opps?['opportunities'] as List?)?.isNotEmpty == true ? (opps!['opportunities'][0]['title'] as String) : '—', (opps?['opportunities'] as List?)?.isNotEmpty == true && opps!['opportunities'][0]['fit'] != null ? tr(context, '${opps['opportunities'][0]['fit']}% fit', '${opps['opportunities'][0]['fit']}% মিল') : null, Tone.green))),
           ]),
+          const SizedBox(height: 6),
+          const CommunityPreview(),
         ]))),
       ]),
     );
