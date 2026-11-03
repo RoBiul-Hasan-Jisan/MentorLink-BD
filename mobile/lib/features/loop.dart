@@ -219,6 +219,11 @@ class _GapMentorsState extends ConsumerState<GapMentorsScreen> {
           final mentors = ((d['mentors'] ?? []) as List).cast<Map>();
           return ListView(padding: EdgeInsets.zero, children: [
             _loopHeader(context, tr(context, 'Help with ${skill['nameEn']}', '${skill['nameBn']}-এ সাহায্য'), tr(context, 'Mentors ranked for this one gap, with the proof.', 'এই একটি ঘাটতির জন্য মেন্টর, প্রমাণসহ।')),
+            // Switch to another skill of your goal without going back (for example Machine Learning instead of Python).
+            if (((ref.watch(readinessProvider).valueOrNull?['skills'] ?? []) as List).length > 1) Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+              for (final x in ((ref.watch(readinessProvider).valueOrNull?['skills'] ?? []) as List).cast<Map>())
+                Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(nm(context, x, 'nameEn', 'nameBn')), selected: x['skillKey'] == widget.skillKey, onSelected: (_) { if (x['skillKey'] != widget.skillKey) context.pushReplacement('/gap/${x['skillKey']}/mentors'); })),
+            ]))),
             Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
               for (final f in _focus) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(tr(context, f[1], f[2])), selected: focus == f[0], onSelected: (_) => setState(() => focus = f[0]))),
             ]))),
