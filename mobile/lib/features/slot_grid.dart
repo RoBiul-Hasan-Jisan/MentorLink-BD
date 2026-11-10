@@ -69,7 +69,7 @@ class SlotGrid extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: selected.contains('$d-$h') ? Brand.delta : const Color(0xFFD6D6D6)),
                       ),
-                      child: selected.contains('$d-$h') ? const Icon(Icons.check, size: 20, color: Brand.delta) : null,
+                      child: selected.contains('$d-$h') ? Icon(Icons.check, size: 20, color: Brand.delta) : null,
                     ),
                   ),
                 ),

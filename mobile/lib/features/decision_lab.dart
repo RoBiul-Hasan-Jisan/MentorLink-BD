@@ -13,9 +13,7 @@ import 'widgets.dart';
 // Every number comes from GET /me/decision-lab or POST /me/decision-lab/simulate. Nothing is invented here:
 // no fit score, no hiring chance, no salaries. A simulation is hypothetical and never becomes evidence.
 
-const _accents = [Brand.delta, Color(0xFF9A6200), Color(0xFF1F4A8F)]; // one stable colour per compared role (all pass 4.5:1 with white text)
-const _line = Color(0xFFE2E8E3);
-const _track = Color(0xFFE3E9E5);
+List<Color> get _accents => [Brand.delta, const Color(0xFF9A6200), const Color(0xFF1F4A8F)]; // one stable colour per compared role (all pass 4.5:1 with white text)
 const _saffronText = Color(0xFF7A4A00);
 
 /// Comma separated role keys the user asked to compare. Empty = the server default (my goal + the closest roles).
@@ -161,7 +159,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
       Padding(
         padding: const EdgeInsets.all(24),
         child: Column(children: [
-          const Icon(Icons.cloud_off_outlined, size: 40, color: Brand.muted),
+          Icon(Icons.cloud_off_outlined, size: 40, color: Brand.muted),
           const SizedBox(height: 10),
           Text(errorText(error), textAlign: TextAlign.center, style: body(15, color: Brand.ink)),
           const SizedBox(height: 14),
@@ -180,7 +178,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
         Padding(
           padding: const EdgeInsets.all(24),
           child: Column(children: [
-            const Icon(Icons.explore_outlined, size: 40, color: Brand.muted),
+            Icon(Icons.explore_outlined, size: 40, color: Brand.muted),
             const SizedBox(height: 10),
             Text(tr(context, 'Choose a career goal first.', 'আগে ক্যারিয়ার লক্ষ্য বেছে নিন।'), textAlign: TextAlign.center, style: body(16, color: Brand.ink, w: FontWeight.w700)),
             const SizedBox(height: 4),
@@ -215,7 +213,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
 
     return ListView(padding: const EdgeInsets.only(bottom: 40), children: [
       _header(context),
-      if (reloading) const LinearProgressIndicator(minHeight: 3, color: Brand.saffron, backgroundColor: Brand.lightSaffron),
+      if (reloading) LinearProgressIndicator(minHeight: 3, color: Brand.saffron, backgroundColor: Brand.lightSaffron),
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
@@ -264,7 +262,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
               showCheckmark: false,
               selectedColor: Brand.forest,
               backgroundColor: Colors.white,
-              side: const BorderSide(color: _line),
+              side: BorderSide(color: Brand.line),
               materialTapTargetSize: MaterialTapTargetSize.padded,
               onSelected: (_) => setState(() => _lens = l),
             ),
@@ -297,7 +295,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Padding(padding: EdgeInsets.only(top: 6, right: 10), child: Icon(Icons.circle, size: 7, color: Brand.delta)),
+              Padding(padding: EdgeInsets.only(top: 6, right: 10), child: Icon(Icons.circle, size: 7, color: Brand.delta)),
               Expanded(child: Text(line, style: body(14.5, color: Brand.ink))),
             ]),
           ),
@@ -578,7 +576,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
               showCheckmark: false,
               selectedColor: Brand.forest,
               backgroundColor: Colors.white,
-              side: const BorderSide(color: _line),
+              side: BorderSide(color: Brand.line),
               onSelected: (on) {
                 setState(() => _hoursChoice = (on && h != saved) ? h : null);
                 if (_sim != null && learn.isNotEmpty) _simulate(role); // refresh the estimate for the new pace
@@ -624,7 +622,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
       child: Container(
         margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Brand.paper, borderRadius: BorderRadius.circular(18), border: Border.all(color: _line)),
+        decoration: BoxDecoration(color: Brand.paper, borderRadius: BorderRadius.circular(18), border: Border.all(color: Brand.line)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text(tr(context, 'Hypothetical result', 'অনুমানভিত্তিক ফলাফল'), style: display(16))),
@@ -659,7 +657,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
             ),
           const Divider(height: 20),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.verified_outlined, size: 18, color: Brand.delta),
+            Icon(Icons.verified_outlined, size: 18, color: Brand.delta),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -689,7 +687,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
           ]),
         );
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _line)),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Brand.line)),
       clipBehavior: Clip.antiAlias,
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -697,7 +695,7 @@ class _DecisionLabState extends ConsumerState<DecisionLabScreen> {
           tilePadding: const EdgeInsets.symmetric(horizontal: 18),
           childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          leading: const Icon(Icons.help_outline, color: Brand.delta),
+          leading: Icon(Icons.help_outline, color: Brand.delta),
           title: Text(tr(context, 'How this decision works', 'এই সিদ্ধান্ত কীভাবে কাজ করে'), style: body(15, w: FontWeight.w800)),
           children: [
             item(tr(context, 'Readiness', 'প্রস্তুতি'),
@@ -739,7 +737,7 @@ class _SectionTitle extends StatelessWidget {
         child: Semantics(
           header: true,
           child: Row(children: [
-            Container(width: 26, height: 26, alignment: Alignment.center, decoration: const BoxDecoration(color: Brand.forest, shape: BoxShape.circle), child: Text(n, style: display(13, color: Colors.white))),
+            Container(width: 26, height: 26, alignment: Alignment.center, decoration: BoxDecoration(color: Brand.forest, shape: BoxShape.circle), child: Text(n, style: display(13, color: Colors.white))),
             const SizedBox(width: 10),
             Expanded(child: Text(text, style: display(19))),
           ]),
@@ -759,7 +757,7 @@ class _Bar extends StatelessWidget {
         curve: Curves.easeOutCubic,
         builder: (_, v, __) => ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: LinearProgressIndicator(value: v, minHeight: height, color: color, backgroundColor: _track),
+          child: LinearProgressIndicator(value: v, minHeight: height, color: color, backgroundColor: Brand.track),
         ),
       );
 }
@@ -810,7 +808,7 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         constraints: const BoxConstraints(minWidth: 104),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: _line)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Brand.line)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value, style: display(18)),
           Text(label, style: body(12, color: Brand.muted)),
@@ -854,7 +852,7 @@ class _LevelBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: i <= current ? Brand.delta : Colors.transparent,
                   borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: i <= current ? Brand.delta : (i <= target ? Brand.saffron : _track), width: 2),
+                  border: Border.all(color: i <= current ? Brand.delta : (i <= target ? Brand.saffron : Brand.track), width: 2),
                 ),
               ),
             ),
@@ -916,7 +914,7 @@ class _RoleCard extends StatelessWidget {
               width: 30,
               height: 30,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: rank == 1 ? Brand.saffron : Brand.paper, shape: BoxShape.circle, border: Border.all(color: rank == 1 ? Brand.saffron : _line)),
+              decoration: BoxDecoration(color: rank == 1 ? Brand.saffron : Brand.paper, shape: BoxShape.circle, border: Border.all(color: rank == 1 ? Brand.saffron : Brand.line)),
               child: Text('$rank', style: display(14, color: Brand.ink)),
             ),
             const SizedBox(width: 10),
@@ -1000,7 +998,7 @@ class _Graph extends StatelessWidget {
       label: tr(context, 'Career exploration graph', 'ক্যারিয়ার অন্বেষণ গ্রাফ'),
       child: Container(
         height: h,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: _line)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Brand.line)),
         clipBehavior: Clip.antiAlias,
         child: LayoutBuilder(builder: (context, box) {
           final w = box.maxWidth;
@@ -1054,7 +1052,7 @@ class _Graph extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(color: Brand.saffron, borderRadius: BorderRadius.circular(20)),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.flag_rounded, size: 11, color: Brand.ink),
+                          Icon(Icons.flag_rounded, size: 11, color: Brand.ink),
                           const SizedBox(width: 3),
                           Text(tr(context, 'GOAL', 'লক্ষ্য'), style: body(10, color: Brand.ink, w: FontWeight.w800)),
                         ]),
@@ -1140,7 +1138,7 @@ class _GraphPainter extends CustomPainter {
       final cur = nv(sk[j]['current']).toDouble(), req = nv(sk[j]['required']).toDouble();
       final c = skillXY[i][j];
       canvas.drawCircle(c, 8, Paint()..color = Colors.white);
-      canvas.drawCircle(c, 8, Paint()..color = _track..style = PaintingStyle.stroke..strokeWidth = 3);
+      canvas.drawCircle(c, 8, Paint()..color = Brand.track..style = PaintingStyle.stroke..strokeWidth = 3);
       final frac = req <= 0 ? 0.0 : (cur / req).clamp(0.0, 1.0).toDouble();
       if (frac > 0) {
         canvas.drawArc(Rect.fromCircle(center: c, radius: 8), -math.pi / 2, 2 * math.pi * frac, false, Paint()..color = col..style = PaintingStyle.stroke..strokeWidth = 3..strokeCap = StrokeCap.round);

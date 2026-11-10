@@ -29,7 +29,7 @@ class CareerHub extends ConsumerWidget {
           Container(width: 44, height: 44, decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: Brand.delta)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: body(16, w: FontWeight.w700)), Text(sub, style: body(13, color: Brand.muted))])),
-          const Icon(Icons.chevron_right, color: Brand.muted),
+          Icon(Icons.chevron_right, color: Brand.muted),
         ]),
       );
 
@@ -55,7 +55,7 @@ class CareerHub extends ConsumerWidget {
           BarChartBox(height: 90, data: [for (final g in gaps) BarDatum(nm(context, g, 'nameEn', 'nameBn'), ((g['hours'] ?? 0) as num).toDouble(), color: Brand.saffron)]),
         ])),
         AppCard(onTap: () => context.push('/plan'), child: Row(children: [
-          const Icon(Icons.checklist, color: Brand.delta), const SizedBox(width: 12),
+          Icon(Icons.checklist, color: Brand.delta), const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(context, '4-week learning plan', '৪ সপ্তাহের শেখার পরিকল্পনা'), style: body(17, w: FontWeight.w700)),
             const SizedBox(height: 6),
@@ -136,7 +136,7 @@ class _PlanReviewCard extends ConsumerWidget {
     };
     return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Icon(Icons.verified_outlined, color: Brand.delta), const SizedBox(width: 12),
+        Icon(Icons.verified_outlined, color: Brand.delta), const SizedBox(width: 12),
         Expanded(child: Text(tr(context, 'Mentor plan review', 'মেন্টরের পরিকল্পনা রিভিউ'), style: body(17, w: FontWeight.w700))),
         Pill(text, tone: tone),
       ]),
@@ -167,7 +167,7 @@ class HelpFinderScreen extends ConsumerWidget {
           for (final s in skills) AppCard(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), onTap: () => context.push('/gap/${s['skillKey']}/mentors'), child: Row(children: [
             Expanded(child: Text(nm(context, s, 'nameEn', 'nameBn'), style: body(16, w: FontWeight.w700))),
             Pill(tr(context, 'level ${s['current']} of ${s['required']}', 'লেভেল ${s['current']}/${s['required']}'), tone: Tone.saffron),
-            const Icon(Icons.chevron_right, color: Brand.muted),
+            Icon(Icons.chevron_right, color: Brand.muted),
           ])),
           const SizedBox(height: 10),
           Text(tr(context, 'A kind of help', 'যে ধরনের সাহায্য'), style: display(17, color: Brand.ink)),
@@ -188,7 +188,7 @@ class HelpFinderScreen extends ConsumerWidget {
                   Text('${mm['roleTitle'] ?? ''} · ${mm['industry'] ?? ''}', style: body(13, color: Brand.muted)),
                   Text(tr(context, '${mm['openSpots']} open spot(s)${mm['rating'] == null ? '' : ' · rated ${(mm['rating'] as num).toStringAsFixed(1)}'}', '${mm['openSpots']}টি ফাঁকা জায়গা${mm['rating'] == null ? '' : ' · রেটিং ${(mm['rating'] as num).toStringAsFixed(1)}'}'), style: body(13, color: Brand.muted)),
                 ])),
-                const Icon(Icons.chevron_right, color: Brand.muted),
+                Icon(Icons.chevron_right, color: Brand.muted),
               ])),
               Text('${(x)['note']}', style: body(12, color: Brand.muted)),
             ]);

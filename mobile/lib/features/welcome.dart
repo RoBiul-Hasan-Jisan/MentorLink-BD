@@ -327,7 +327,7 @@ class _Logo extends StatelessWidget {
           child: Container(
             width: 7,
             height: 7,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Brand.saffron,
               shape: BoxShape.circle,
             ),
@@ -743,7 +743,7 @@ class _PathPainter extends CustomPainter {
     canvas.drawPath(
       drawn,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [Brand.saffron, Color(0xFFFFD98A)],
@@ -972,11 +972,11 @@ class _PressButtonState extends State<_PressButton> {
                     Container(
                       width: 26,
                       height: 26,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: Brand.forest,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_forward_rounded,
                         color: Brand.saffron,
                         size: 17,

@@ -44,12 +44,12 @@ class _UniversityMapScreenState extends ConsumerState<UniversityMapScreen> {
             const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
             MarkerLayer(markers: [for (final u in unis) Marker(
               point: LatLng((u['campus']['lat'] as num).toDouble(), (u['campus']['lng'] as num).toDouble()), width: 48, height: 48,
-              child: GestureDetector(onTap: () => context.push('/university/${u['id']}'), child: const Icon(Icons.location_on, color: Brand.delta, size: 40)))]),
+              child: GestureDetector(onTap: () => context.push('/university/${u['id']}'), child: Icon(Icons.location_on, color: Brand.delta, size: 40)))]),
           ],
         )),
         Expanded(flex: low ? 1 : 2, child: ListView(padding: const EdgeInsets.all(12), children: [
           if (unis.isEmpty) AppCard(child: Text(tr(context, 'No university matches your search.', 'আপনার খোঁজের সাথে কোনো বিশ্ববিদ্যালয় মেলেনি।'), style: body(15, color: Brand.muted))),
-          AppCard(color: Brand.lightGreen, border: Colors.transparent, padding: const EdgeInsets.all(12), child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest, size: 20), const SizedBox(width: 10), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(14, color: Brand.forest)))])),
+          AppCard(color: Brand.lightGreen, border: Colors.transparent, padding: const EdgeInsets.all(12), child: Row(children: [Icon(Icons.lock_outline, color: Brand.forest, size: 20), const SizedBox(width: 10), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(14, color: Brand.forest)))])),
           for (final u in unis) AppCard(padding: const EdgeInsets.all(14), onTap: () => context.push('/university/${u['id']}'), child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(u['name'], style: display(17, color: Brand.ink)), Text('${u['city']} · ${u['students']} ${tr(context, 'students', 'শিক্ষার্থী')} · ${u['mentors']} ${tr(context, 'mentors', 'মেন্টর')}', style: body(14, color: Brand.muted))])),
             const Icon(Icons.chevron_right),

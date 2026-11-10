@@ -67,7 +67,7 @@ class JobGapsScreen extends ConsumerWidget {
               _section(context, tr(context, 'Evidence still needed', 'প্রমাণ এখনও দরকার'), tr(context, 'You rated yourself, but nothing proves it yet', 'আপনি নিজে দিয়েছেন, এখনও প্রমাণ নেই'), needs, Brand.saffron, (x) => x['hasQuiz'] == true
                   ? TextButton(onPressed: () => context.push('/quiz/${x['skillKey']}'), child: Text(tr(context, 'Prove it', 'প্রমাণ করুন')))
                   : const SizedBox()),
-              _section(context, tr(context, 'Proven strengths', 'প্রমাণিত শক্তি'), tr(context, 'Backed by a quiz, project or mentor', 'কুইজ, প্রজেক্ট বা মেন্টর দ্বারা প্রমাণিত'), strengths, Brand.delta, (x) => const Icon(Icons.check_circle, color: Brand.delta)),
+              _section(context, tr(context, 'Proven strengths', 'প্রমাণিত শক্তি'), tr(context, 'Backed by a quiz, project or mentor', 'কুইজ, প্রজেক্ট বা মেন্টর দ্বারা প্রমাণিত'), strengths, Brand.delta, (x) => Icon(Icons.check_circle, color: Brand.delta)),
               if (samples.isNotEmpty) AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr(context, 'POSTINGS USED', 'ব্যবহৃত পোস্ট'), style: body(12, color: Brand.muted, w: FontWeight.w800)),
                 for (final s in samples) Text('${s['title']} · ${s['organization']}', style: body(14)),

@@ -76,7 +76,7 @@ class PortfolioScreen extends ConsumerWidget {
     final verified = g['verified'] == true;
     final started = g['username'] != null && !verified;
     return AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const Icon(Icons.code, color: Brand.delta), const SizedBox(width: 10), Expanded(child: Text('GitHub', style: display(19, color: Brand.ink))), if (verified) Pill(tr(context, 'Verified', 'যাচাইকৃত'))]),
+      Row(children: [Icon(Icons.code, color: Brand.delta), const SizedBox(width: 10), Expanded(child: Text('GitHub', style: display(19, color: Brand.ink))), if (verified) Pill(tr(context, 'Verified', 'যাচাইকৃত'))]),
       const SizedBox(height: 8),
       if (verified) ...[
         Text(tr(context, '@${g['username']} · ${g['repos']} public repos found. Ownership was proven with a code in your bio.', '@${g['username']} · ${g['repos']}টি পাবলিক রিপো পাওয়া গেছে। বায়োতে কোড দিয়ে মালিকানা প্রমাণ হয়েছে।'), style: body(14, color: Brand.muted)),
@@ -139,7 +139,7 @@ class PortfolioScreen extends ConsumerWidget {
               TextButton.icon(onPressed: () => launchUrl(Uri.parse('${p['url']}'), mode: LaunchMode.externalApplication), icon: const Icon(Icons.open_in_new, size: 18), label: Text(tr(context, 'Open', 'খুলুন'))),
               if (p['review'] == 'none' || p['review'] == 'needs_work') TextButton.icon(onPressed: () => _askReview(context, ref, p, mentors), icon: const Icon(Icons.rate_review_outlined, size: 18), label: Text(tr(context, 'Ask a mentor', 'মেন্টরকে বলুন'))),
               const Spacer(),
-              if (p['review'] != 'endorsed') IconButton(tooltip: tr(context, 'Delete', 'মুছুন'), onPressed: () => _call(context, ref, () => ref.read(dioProvider).delete('/me/projects/${p['id']}')), icon: const Icon(Icons.delete_outline, color: Brand.muted)),
+              if (p['review'] != 'endorsed') IconButton(tooltip: tr(context, 'Delete', 'মুছুন'), onPressed: () => _call(context, ref, () => ref.read(dioProvider).delete('/me/projects/${p['id']}')), icon: Icon(Icons.delete_outline, color: Brand.muted)),
             ]),
           ])),
         ]);

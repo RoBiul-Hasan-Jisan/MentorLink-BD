@@ -102,7 +102,7 @@ class _ResourcesScreenState extends ConsumerState<ResourcesScreen> {
           ),
         ),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Brand.muted),
+          icon: Icon(Icons.more_vert, color: Brand.muted),
           onSelected: (v) {
             if (v == 'save') _setStatus(r, status == 'saved' ? null : 'saved');
             if (v == 'progress') _setStatus(r, 'in_progress');

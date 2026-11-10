@@ -155,7 +155,7 @@ class ProgressScreen extends ConsumerWidget {
                     color: Brand.lightSaffron,
                     border: Colors.transparent,
                     child: Row(children: [
-                      const Icon(Icons.flag, color: Brand.forest),
+                      Icon(Icons.flag, color: Brand.forest),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -200,7 +200,7 @@ class ProgressScreen extends ConsumerWidget {
                 ),
                 AppCard(
                   child: Row(children: [
-                    const Icon(Icons.schedule, color: Brand.delta),
+                    Icon(Icons.schedule, color: Brand.delta),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -239,7 +239,7 @@ class _TrendPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final grid = Paint()
-      ..color = const Color(0xFFE2E8E3)
+      ..color = Brand.line
       ..strokeWidth = 1;
     for (int i = 0; i <= 4; i++) {
       final y = size.height * i / 4;
@@ -580,7 +580,7 @@ class HowMatchingScreen extends ConsumerWidget {
                     AppCard(
                       padding: const EdgeInsets.all(14),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Container(width: 32, height: 32, alignment: Alignment.center, decoration: const BoxDecoration(color: Brand.saffron, shape: BoxShape.circle), child: Text('${i + 1}', style: display(15, color: Brand.ink))),
+                        Container(width: 32, height: 32, alignment: Alignment.center, decoration: BoxDecoration(color: Brand.saffron, shape: BoxShape.circle), child: Text('${i + 1}', style: display(15, color: Brand.ink))),
                         const SizedBox(width: 12),
                         Expanded(child: Text(nm(context, steps[i], 'en', 'bn'), style: body(16))),
                       ]),

@@ -240,7 +240,7 @@ class _DeptApprovalsState extends ConsumerState<DeptApprovals> {
                           if (u['emailDomainMatch'] == true) Padding(padding: const EdgeInsets.only(top: 4), child: Pill(tr(context, 'University email matches', 'বিশ্ববিদ্যালয়ের ইমেইল মিলেছে'))),
                         ]),
                       ),
-                      IconButton(tooltip: tr(context, 'Approve', 'অনুমোদন'), icon: const Icon(Icons.check_circle, color: Brand.delta, size: 30), onPressed: () => _decide('${u['id']}', 'approved')),
+                      IconButton(tooltip: tr(context, 'Approve', 'অনুমোদন'), icon: Icon(Icons.check_circle, color: Brand.delta, size: 30), onPressed: () => _decide('${u['id']}', 'approved')),
                       IconButton(tooltip: tr(context, 'Reject', 'বাতিল'), icon: const Icon(Icons.cancel_outlined, color: Color(0xFF9B2C1F), size: 30), onPressed: () => _decide('${u['id']}', 'rejected')),
                     ]),
                   ),

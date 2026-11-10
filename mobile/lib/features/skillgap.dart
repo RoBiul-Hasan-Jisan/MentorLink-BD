@@ -107,7 +107,7 @@ class SkillGapScreen extends ConsumerWidget {
           Expanded(child: Text(r['title'], style: body(16, w: FontWeight.w600))),
           Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 20, color: Brand.muted),
+            icon: Icon(Icons.more_vert, size: 20, color: Brand.muted),
             onSelected: (v) async {
               if (v == 'report') { await _report(context, ref, r['id']); } else if (v == 'clear') { try { await ref.read(dioProvider).delete('/resources/${r['id']}/progress'); ref.invalidate(resourcesProvider); } catch (e) { if (context.mounted) toast(context, errorText(e)); } } else { await _setStatus(context, ref, r['id'], v); }
             },

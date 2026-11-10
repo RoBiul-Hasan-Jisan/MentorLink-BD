@@ -157,7 +157,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
               )),
               if (applied)
                 AppCard(color: Brand.lightGreen, border: Colors.transparent, onTap: () => context.push('/applications'), child: Row(children: [
-                  const Icon(Icons.check_circle, color: Brand.delta),
+                  Icon(Icons.check_circle, color: Brand.delta),
                   const SizedBox(width: 10),
                   Expanded(child: Text(tr(context, 'You applied (${myApp!['stage']}). One application per job. Tap to track it.', 'আপনি আবেদন করেছেন (${myApp['stage']})। প্রতি চাকরিতে একবারই আবেদন। ট্র্যাক করতে চাপুন।'), style: body(15, color: Brand.forest, w: FontWeight.w700))),
                 ]))

@@ -146,7 +146,7 @@ class PassportScreen extends ConsumerWidget {
                 SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(tr(context, 'Share my passport link', 'আমার পাসপোর্ট লিংক শেয়ার'), style: body(16, w: FontWeight.w700)), subtitle: Text(tr(context, 'Anyone with the link sees only what you allow below. No email, phone or address is ever included.', 'লিংক যাঁর কাছে আছে তিনি শুধু নিচে অনুমতি দেওয়া অংশ দেখবেন। ইমেইল, ফোন বা ঠিকানা কখনও থাকে না।'), style: body(13, color: Brand.muted)), value: enabled, onChanged: (v) => _save(context, ref, {'enabled': v})),
                 if (enabled && link != null) ...[
                   const SizedBox(height: 8),
-                  Center(child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8E3))), child: QrImageView(data: link, size: 160))),
+                  Center(child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Brand.line)), child: QrImageView(data: link, size: 160))),
                   const SizedBox(height: 8),
                   SelectableText(link, textAlign: TextAlign.center, style: body(13, color: Brand.delta)),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -176,7 +176,7 @@ class PassportScreen extends ConsumerWidget {
                   if (s['endorsed'] == true) Padding(padding: const EdgeInsets.only(right: 6), child: Pill(tr(context, 'Endorsed', 'এন্ডোর্সড'), tone: Tone.saffron)),
                   Pill(nm(context, s, 'levelEn', 'levelBn')),
                 ])),
-                if (projects.isNotEmpty) ...[const Divider(), for (final p in projects) InkWell(onTap: () => _open('${p['url']}'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [const Icon(Icons.folder_outlined, size: 18, color: Brand.delta), const SizedBox(width: 8), Expanded(child: Text('${p['title']}', style: body(15))), if (p['review'] == 'endorsed') Pill(tr(context, 'Reviewed', 'রিভিউড'), tone: Tone.saffron)])))],
+                if (projects.isNotEmpty) ...[const Divider(), for (final p in projects) InkWell(onTap: () => _open('${p['url']}'), child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(Icons.folder_outlined, size: 18, color: Brand.delta), const SizedBox(width: 8), Expanded(child: Text('${p['title']}', style: body(15))), if (p['review'] == 'endorsed') Pill(tr(context, 'Reviewed', 'রিভিউড'), tone: Tone.saffron)])))],
                 if (badges.isNotEmpty) ...[const Divider(), Wrap(spacing: 6, runSpacing: 6, children: [for (final b in badges) Pill(nm(context, b, 'titleEn', 'titleBn'), tone: Tone.grey)])],
               ])),
               AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -226,7 +226,7 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
     ];
     return Padding(padding: const EdgeInsets.only(left: 40, bottom: 8), child: Wrap(spacing: 8, runSpacing: 4, children: [
       for (final a in acts) FilledButton.tonalIcon(
-        style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+        style: FilledButton.styleFrom(visualDensity: VisualDensity.compact, backgroundColor: Brand.lightGreen, foregroundColor: Brand.forest),
         onPressed: () => context.push(a.$2), icon: Icon(a.$3, size: 18), label: Text(a.$1)),
     ]));
   }
@@ -358,8 +358,8 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                       padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(color: Brand.lightGreen, borderRadius: BorderRadius.circular(14)),
                       child: Text(tr(context,
-                        'How it works: each day has one small task. Tap the green button under the task to do it (take the quiz, study a lesson, build, publish), then tick the box. On day 7 your mentor checks your project. If they endorse it, a proven level is added to your Career Passport and employers can trust it.',
-                        'কীভাবে কাজ করে: প্রতিদিন একটি ছোট কাজ। কাজের নিচের সবুজ বোতামে ট্যাপ করে কাজটি করুন (কুইজ, পড়া, বানানো, প্রকাশ), তারপর বক্স টিক দিন। ৭ম দিনে মেন্টর আপনার প্রজেক্ট দেখেন। এন্ডোর্স করলে ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ হয়।'), style: body(13, color: Brand.forest)),
+                        'How it works: each day has one small task. Tap the button under the task to do it (take the quiz, study a lesson, build, publish), then tick the box. On day 7 your mentor checks your project. If they endorse it, a proven level is added to your Career Passport and employers can trust it.',
+                        'কীভাবে কাজ করে: প্রতিদিন একটি ছোট কাজ। কাজের নিচের বোতামে ট্যাপ করে কাজটি করুন (কুইজ, পড়া, বানানো, প্রকাশ), তারপর বক্স টিক দিন। ৭ম দিনে মেন্টর আপনার প্রজেক্ট দেখেন। এন্ডোর্স করলে ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ হয়।'), style: body(13, color: Brand.forest)),
                     ),
                     for (final x in days) ...[CheckboxListTile(
                       contentPadding: EdgeInsets.zero, dense: true, controlAffinity: ListTileControlAffinity.leading,
@@ -392,8 +392,8 @@ class _SprintsState extends ConsumerState<SprintsScreen> {
                 const SizedBox(width: 12),
                 Expanded(child: Text(nm(context, s, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w700))),
                 Pill(s['badge'] == true ? tr(context, 'Endorsed', 'এন্ডোর্সড') : '${s['status']}', tone: s['badge'] == true ? Tone.saffron : Tone.grey),
-                if (sp == null) IconButton(tooltip: tr(context, 'Do it again', 'আবার করুন'), onPressed: busy ? null : () => _restart(s, skills, mentors), icon: const Icon(Icons.replay, color: Brand.forest)),
-                if (s['badge'] != true) IconButton(tooltip: tr(context, 'Remove', 'সরান'), onPressed: busy ? null : () => _clearEarlier('${s['skillKey']}'), icon: const Icon(Icons.close, color: Brand.muted)),
+                if (sp == null) IconButton(tooltip: tr(context, 'Do it again', 'আবার করুন'), onPressed: busy ? null : () => _restart(s, skills, mentors), icon: Icon(Icons.replay, color: Brand.forest)),
+                if (s['badge'] != true) IconButton(tooltip: tr(context, 'Remove', 'সরান'), onPressed: busy ? null : () => _clearEarlier('${s['skillKey']}'), icon: Icon(Icons.close, color: Brand.muted)),
               ])),
               Text(tr(context, 'An endorsement adds a proven level to your Career Passport. Finishing the days alone does not change your score.', 'এন্ডোর্সমেন্ট আপনার ক্যারিয়ার পাসপোর্টে প্রমাণিত লেভেল যোগ করে। শুধু দিনগুলো শেষ করলে স্কোর বদলায় না।'), textAlign: TextAlign.center, style: body(12, color: Brand.muted)),
               const SizedBox(height: 16),
@@ -630,7 +630,7 @@ class SprintLearnScreen extends ConsumerWidget {
               if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি'));
             },
             child: Row(children: [
-              const Icon(Icons.open_in_new, color: Brand.delta), const SizedBox(width: 12),
+              Icon(Icons.open_in_new, color: Brand.delta), const SizedBox(width: 12),
               Expanded(child: Text('${r['title']}', style: body(16, w: FontWeight.w700))),
               Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
             ]),

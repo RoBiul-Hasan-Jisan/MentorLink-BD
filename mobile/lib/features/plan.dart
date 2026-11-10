@@ -41,7 +41,7 @@ class _PlanState extends ConsumerState<PlanScreen> {
           const SizedBox(height: 10),
           Text(rd?['timeToReadyWeeks'] == null ? tr(context, 'Set weekly hours to see time to ready', 'সময় দেখতে সাপ্তাহিক ঘণ্টা দিন') : tr(context, 'About ${rd!['timeToReadyWeeks']} weeks to ready', 'প্রস্তুত হতে প্রায় ${rd!['timeToReadyWeeks']} সপ্তাহ'), style: body(15, color: Brand.muted)),
         ])),
-        Row(children: [for (int w = 1; w <= 4; w++) Expanded(child: Padding(padding: EdgeInsets.only(right: w == 4 ? 0 : 8), child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () => setState(() => week = w), child: Container(height: 78, decoration: BoxDecoration(color: sel == w ? Brand.delta : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8E3))), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('W$w', style: display(17, color: sel == w ? Colors.white : Brand.ink, w: FontWeight.w700)), Text(label(w), style: body(15, color: sel == w ? Colors.white : Brand.ink))]))))) ]),
+        Row(children: [for (int w = 1; w <= 4; w++) Expanded(child: Padding(padding: EdgeInsets.only(right: w == 4 ? 0 : 8), child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () => setState(() => week = w), child: Container(height: 78, decoration: BoxDecoration(color: sel == w ? Brand.delta : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Brand.line)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('W$w', style: display(17, color: sel == w ? Colors.white : Brand.ink, w: FontWeight.w700)), Text(label(w), style: body(15, color: sel == w ? Colors.white : Brand.ink))]))))) ]),
         const SizedBox(height: 12),
         AppCard(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(tr(context, 'Week $sel', 'সপ্তাহ $sel'), style: display(21, color: Brand.ink)), if (sel == current && inWeek.any((t) => t['status'] != 'done')) Pill(tr(context, 'In progress', 'চলছে'), tone: Tone.saffron)]),
@@ -59,21 +59,21 @@ class _PlanState extends ConsumerState<PlanScreen> {
           ),
         ])),
         if (note != null) AppCard(color: const Color(0xFFF0F5F1), border: Colors.transparent, child: Row(children: [
-          const Avatar('M', size: 44, bg: Brand.lightGreen, fg: Brand.forest), const SizedBox(width: 12),
+          Avatar('M', size: 44, bg: Brand.lightGreen, fg: Brand.forest), const SizedBox(width: 12),
           Expanded(child: Text(note['mentorComment'], style: body(16))),
         ])),
         const SizedBox(height: 8),
         Row(children: [
-          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _cv, child: Text(tr(context, 'CV builder', 'সিভি বিল্ডার'), style: display(17, color: Brand.delta))))),
+          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: _cv, child: Text(tr(context, 'CV builder', 'সিভি বিল্ডার'), style: display(17, color: Brand.delta))))),
           const SizedBox(width: 12),
-          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/roadmaps'), child: Text(tr(context, 'Roadmaps', 'রোডম্যাপ'), style: display(17, color: Brand.delta))))),
+          Expanded(child: SizedBox(height: 54, child: OutlinedButton(style: OutlinedButton.styleFrom(side: BorderSide(color: Brand.delta, width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/roadmaps'), child: Text(tr(context, 'Roadmaps', 'রোডম্যাপ'), style: display(17, color: Brand.delta))))),
         ]),
         const SizedBox(height: 12),
         SizedBox(height: 54, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: Brand.delta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), onPressed: () => context.push('/targets'), child: Text(tr(context, 'Pick a target (e.g. Machine Learning)', 'লক্ষ্য বেছে নিন (যেমন মেশিন লার্নিং)'), style: display(16, color: Colors.white)))),
         if (reqs.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(tr(context, 'Chat with your mentor', 'মেন্টরের সাথে চ্যাট'), style: display(19, color: Brand.ink)),
-          for (final r in reqs) AppCard(margin: const EdgeInsets.only(top: 8), onTap: () => context.push('/chat/${r['_id']}'), child: Row(children: [const Icon(Icons.chat_bubble_outline, color: Brand.delta), const SizedBox(width: 12), Expanded(child: Text(r['goalText'], style: body(16, w: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.chevron_right)])),
+          for (final r in reqs) AppCard(margin: const EdgeInsets.only(top: 8), onTap: () => context.push('/chat/${r['_id']}'), child: Row(children: [Icon(Icons.chat_bubble_outline, color: Brand.delta), const SizedBox(width: 12), Expanded(child: Text(r['goalText'], style: body(16, w: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.chevron_right)])),
         ],
       ]);
     });

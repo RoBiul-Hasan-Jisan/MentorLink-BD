@@ -138,12 +138,12 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
           color: const Color(0xFFFFF7E3), border: Colors.transparent,
           onTap: () => context.push('/decision-lab'),
           child: Row(children: [
-            const Icon(Icons.science_outlined, color: Brand.forest), const SizedBox(width: 10),
+            Icon(Icons.science_outlined, color: Brand.forest), const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(context, 'Not sure yet?', 'এখনও নিশ্চিত নন?'), style: body(16, w: FontWeight.w800)),
               Text(tr(context, 'Compare careers in the Decision Lab, then come back. You can change your goal later.', 'ডিসিশন ল্যাবে ক্যারিয়ার তুলনা করে ফিরে আসুন। লক্ষ্য পরে বদলানো যায়।'), style: body(13, color: Brand.muted)),
             ])),
-            const Icon(Icons.chevron_right, color: Brand.muted),
+            Icon(Icons.chevron_right, color: Brand.muted),
           ]),
         ),
         for (final r in roles.cast<Map>())
@@ -152,7 +152,7 @@ class _GoalState extends ConsumerState<GoalWizardScreen> {
             onTap: () => setState(() => roleKey = '${r['key']}'),
             child: Row(children: [
               Expanded(child: Text(nm(context, r, 'titleEn', 'titleBn'), style: body(17, w: FontWeight.w700))),
-              if (roleKey == r['key']) const Icon(Icons.check_circle, color: Brand.delta),
+              if (roleKey == r['key']) Icon(Icons.check_circle, color: Brand.delta),
             ]),
           ),
       ]);

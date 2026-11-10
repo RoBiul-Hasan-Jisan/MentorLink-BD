@@ -181,7 +181,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
               padding: const EdgeInsets.all(6),
               child: Column(children: [
                 ListTile(
-                  leading: const Icon(Icons.download_outlined, color: Brand.delta),
+                  leading: Icon(Icons.download_outlined, color: Brand.delta),
                   title: Text(tr(context, 'Export my data', 'আমার ডেটা এক্সপোর্ট'), style: body(16, w: FontWeight.w600)),
                   subtitle: Text(tr(context, 'A copy of everything we hold about you', 'আপনার সম্পর্কে আমাদের কাছে থাকা সব তথ্যের কপি')),
                   onTap: _export,
@@ -198,7 +198,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
               color: Brand.lightGreen,
               border: Colors.transparent,
               child: Row(children: [
-                const Icon(Icons.lock_outline, color: Brand.forest),
+                Icon(Icons.lock_outline, color: Brand.forest),
                 const SizedBox(width: 12),
                 Expanded(child: Text(tr(context, 'We never collect your GPS or home location. Phone and email stay hidden unless you share them.', 'আমরা আপনার জিপিএস বা বাসার অবস্থান নিই না। ফোন ও ইমেইল আপনি না চাইলে গোপন থাকে।'), style: body(14))),
               ]),
@@ -357,7 +357,7 @@ class _RolesScreenState extends ConsumerState<RolesScreen> {
   }
 
   TableRow _row(String label, List<String> cells, {bool head = false}) => TableRow(
-        decoration: head ? const BoxDecoration(color: Brand.lightGreen) : null,
+        decoration: head ? BoxDecoration(color: Brand.lightGreen) : null,
         children: [
           Padding(padding: const EdgeInsets.all(8), child: Text(label, style: body(13, w: head ? FontWeight.w800 : FontWeight.w600))),
           for (final c in cells) Padding(padding: const EdgeInsets.all(8), child: Text(c, textAlign: TextAlign.center, style: body(13, w: head ? FontWeight.w800 : FontWeight.w500))),
@@ -429,7 +429,7 @@ class _RolesScreenState extends ConsumerState<RolesScreen> {
                       ),
                       if (u['role'] != 'admin') IconButton(
                         tooltip: tr(context, 'Change email or password', 'ইমেইল বা পাসওয়ার্ড বদলান'),
-                        icon: const Icon(Icons.key_outlined, color: Brand.delta),
+                        icon: Icon(Icons.key_outlined, color: Brand.delta),
                         onPressed: () => _changeAccount(u),
                       ),
                       if (u['role'] == 'student' || u['role'] == 'mentor' || u['role'] == 'department')

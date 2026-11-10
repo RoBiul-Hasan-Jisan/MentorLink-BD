@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme.dart';
 
 // ---------- text helpers ----------
 String tr(BuildContext c, String en, String bn) => Localizations.localeOf(c).languageCode == 'bn' ? bn : en;
 String nm(BuildContext c, Map m, String en, String bn) => Localizations.localeOf(c).languageCode == 'bn' ? ((m[bn] ?? m[en] ?? '') as String) : ((m[en] ?? '') as String);
-TextStyle display(double size, {Color color = Brand.forest, FontWeight w = FontWeight.w800}) =>
-    GoogleFonts.bricolageGrotesque(fontSize: size, fontWeight: w, color: color, height: 1.1);
-TextStyle body(double size, {Color color = Brand.ink, FontWeight w = FontWeight.w500}) =>
-    GoogleFonts.hindSiliguri(fontSize: size, fontWeight: w, color: color, height: 1.3);
+TextStyle display(double size, {Color? color, FontWeight w = FontWeight.w800}) =>
+    GoogleFonts.bricolageGrotesque(fontSize: size, fontWeight: w, color: color ?? Brand.forest, height: 1.1);
+TextStyle body(double size, {Color? color, FontWeight w = FontWeight.w500}) =>
+    GoogleFonts.hindSiliguri(fontSize: size, fontWeight: w, color: color ?? Brand.ink, height: 1.3);
 
 // ---------- green header with diamond pattern ----------
 class _DiamondPainter extends CustomPainter {
@@ -50,7 +51,7 @@ class GreenHeader extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(radius)),
         child: Container(
-          decoration: const BoxDecoration(gradient: RadialGradient(center: Alignment(0.6, -0.2), radius: 1.3, colors: [Brand.delta, Brand.forest])),
+          decoration: BoxDecoration(gradient: RadialGradient(center: Alignment(0.6, -0.2), radius: 1.3, colors: [Brand.glow, Brand.forest])),
           child: Stack(children: [
             Positioned.fill(child: CustomPaint(painter: _DiamondPainter())),
             Padding(padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, bottomPad), child: child),
@@ -60,17 +61,98 @@ class GreenHeader extends StatelessWidget {
 }
 
 // ---------- cards, pills ----------
-class AppCard extends StatelessWidget {
+class AppCard extends StatefulWidget {
   const AppCard({super.key, required this.child, this.color = Colors.white, this.border, this.padding = const EdgeInsets.all(18), this.onTap, this.margin = const EdgeInsets.only(bottom: 12)});
   final Widget child; final Color color; final Color? border; final EdgeInsets padding, margin; final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: margin,
+  State<AppCard> createState() => _AppCardState();
+}
+class _AppCardState extends State<AppCard> {
+  bool _down = false; // tappable cards shrink a touch while pressed and tick softly on tap
+  @override
+  Widget build(BuildContext context) {
+    final tappable = widget.onTap != null;
+    return Padding(
+      padding: widget.margin,
+      child: AnimatedScale(
+        scale: _down && tappable ? 0.98 : 1, duration: const Duration(milliseconds: 120), curve: Curves.easeOut,
         child: Material(
-          color: color,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: border ?? const Color(0xFFE2E8E3), width: border == null ? 1 : 2)),
-          child: InkWell(borderRadius: BorderRadius.circular(24), onTap: onTap, child: Padding(padding: padding, child: child)),
+          color: widget.color,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: widget.border ?? Brand.line, width: widget.border == null ? 1 : 2)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onHighlightChanged: tappable ? (v) => setState(() => _down = v) : null,
+            onTap: tappable ? () { HapticFeedback.selectionClick(); widget.onTap!(); } : null,
+            child: Padding(padding: widget.padding, child: widget.child),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------- loading / empty / entrance helpers ----------
+/// Pulsing placeholder block shown while data loads (calmer than a spinner).
+class Skeleton extends StatefulWidget {
+  const Skeleton({super.key, this.height = 14, this.width, this.radius = 10});
+  final double height, radius; final double? width;
+  @override
+  State<Skeleton> createState() => _SkeletonState();
+}
+class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
+  @override
+  void dispose() { _c.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) => Container(height: widget.height, width: widget.width, decoration: BoxDecoration(color: Color.lerp(const Color(0xFFE3EAE5), const Color(0xFFF2F6F3), _c.value), borderRadius: BorderRadius.circular(widget.radius))),
+      );
+}
+
+/// A few card-shaped skeletons. Safe in bounded and unbounded space (falls back to a small spinner when the space is tiny).
+class SkeletonList extends StatelessWidget {
+  const SkeletonList({super.key, this.count = 3});
+  final int count;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        if (box.maxHeight.isFinite && box.maxHeight < 260) return const Center(child: CircularProgressIndicator());
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (int i = 0; i < count; i++)
+              AppCard(child: Row(children: [
+                const Skeleton(height: 48, width: 48, radius: 24), const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Skeleton(height: 16, width: 160), SizedBox(height: 10), Skeleton(height: 12), SizedBox(height: 6), Skeleton(height: 12, width: 110)])),
+              ])),
+          ]),
+        );
+      });
+}
+
+/// Friendly empty state: icon, short title, one helpful line, optional action.
+class EmptyState extends StatelessWidget {
+  const EmptyState({super.key, required this.icon, required this.title, this.subtitle, this.actionLabel, this.onAction});
+  final IconData icon; final String title; final String? subtitle, actionLabel; final VoidCallback? onAction;
+  @override
+  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(32), child: FadeSlideIn(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 76, height: 76, decoration: BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(icon, size: 34, color: Brand.delta)),
+        const SizedBox(height: 16),
+        Text(title, textAlign: TextAlign.center, style: display(20)),
+        if (subtitle != null) ...[const SizedBox(height: 8), Text(subtitle!, textAlign: TextAlign.center, style: body(15, color: Brand.muted))],
+        if (actionLabel != null && onAction != null) ...[const SizedBox(height: 18), FilledButton(onPressed: onAction, child: Text(actionLabel!))],
+      ]))));
+}
+
+/// Fades and slides its child up a little when first shown. Use `delay` to stagger a list.
+class FadeSlideIn extends StatelessWidget {
+  const FadeSlideIn({super.key, required this.child, this.delay = Duration.zero, this.offset = 12});
+  final Widget child; final Duration delay; final double offset;
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1), duration: const Duration(milliseconds: 380) + delay, curve: Interval(delay.inMilliseconds / (380 + delay.inMilliseconds), 1, curve: Curves.easeOutCubic),
+        builder: (_, v, c) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, (1 - v) * offset), child: c)),
+        child: child,
       );
 }
 
@@ -82,10 +164,10 @@ class Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bg, fg) = switch (tone) {
       Tone.green => (Brand.lightGreen, Brand.forest),
-      Tone.saffron => (Brand.lightSaffron, const Color(0xFF7A4A00)),
+      Tone.saffron => (Brand.lightSaffron, Brand.deep),
       Tone.blue => (const Color(0xFFE6EEFB), const Color(0xFF1F4A8F)),
       Tone.red => (const Color(0xFFFBEDEA), const Color(0xFF9B2C1F)),
-      Tone.grey => (const Color(0xFFE9EEEA), Brand.muted),
+      Tone.grey => (Brand.lilac ? const Color(0xFFEFEDF4) : const Color(0xFFE9EEEA), Brand.muted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -96,23 +178,23 @@ class Pill extends StatelessWidget {
 }
 
 class Avatar extends StatelessWidget {
-  const Avatar(this.name, {super.key, this.size = 56, this.bg = Brand.forest, this.fg = Colors.white});
-  final String name; final double size; final Color bg, fg;
+  const Avatar(this.name, {super.key, this.size = 56, this.bg, this.fg = Colors.white});
+  final String name; final double size; final Color? bg; final Color fg;
   @override
   Widget build(BuildContext context) {
     final parts = name.trim().split(RegExp(r'\s+'));
     final ini = parts.isEmpty || parts.first.isEmpty ? '?' : (parts.first[0] + (parts.length > 1 ? parts[1][0] : parts.first.length > 1 ? parts.first[1] : '')).toUpperCase();
-    return Container(width: size, height: size, alignment: Alignment.center, decoration: BoxDecoration(color: bg, shape: BoxShape.circle), child: Text(ini, style: display(size * 0.34, color: fg)));
+    return Container(width: size, height: size, alignment: Alignment.center, decoration: BoxDecoration(color: bg ?? Brand.forest, shape: BoxShape.circle), child: Text(ini, style: display(size * 0.34, color: fg)));
   }
 }
 
 class ProgressBar extends StatelessWidget {
-  const ProgressBar(this.value, {super.key, this.color = Brand.delta, this.height = 10});
-  final double value; final Color color; final double height;
+  const ProgressBar(this.value, {super.key, this.color, this.height = 10});
+  final double value; final Color? color; final double height;
   @override
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: LinearProgressIndicator(value: value.clamp(0, 1).toDouble(), minHeight: height, color: color, backgroundColor: const Color(0xFFE3E9E5)),
+        child: LinearProgressIndicator(value: value.clamp(0, 1).toDouble(), minHeight: height, color: color ?? Brand.delta, backgroundColor: Brand.track),
       );
 }
 
@@ -157,7 +239,7 @@ class JourneyStepper extends StatelessWidget {
               Container(
                 width: 30, height: 30, alignment: Alignment.center,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: i < current ? Brand.saffron : (i == current ? Brand.saffron : Colors.transparent), border: Border.all(color: i <= current ? Brand.saffron : Colors.white30, width: 3)),
-                child: i < current ? const Icon(Icons.check, size: 16, color: Brand.ink) : (i == current ? Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)) : null),
+                child: i < current ? Icon(Icons.check, size: 16, color: Brand.ink) : (i == current ? Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)) : null),
               ),
               Expanded(child: Container(height: 3, color: i == labels.length - 1 ? Colors.transparent : (i < current ? Brand.saffron : Colors.white24))),
             ]),
@@ -172,7 +254,9 @@ class JourneyStepper extends StatelessWidget {
 class FactorBar extends StatelessWidget {
   const FactorBar(this.parts, {super.key});
   final List<(String, int)> parts; // label, points
-  static const colors = [Color(0xFF0A4A39), Color(0xFF0F6B52), Color(0xFF2E9C7E), Color(0xFFF0A21C), Color(0xFFF5C25C), Color(0xFFFADC9A)];
+  static List<Color> get colors => Brand.lilac
+      ? const [Color(0xFF15151B), Color(0xFF3B2C73), Color(0xFF5B34C9), Color(0xFF8A63F2), Color(0xFFB79CFF), Color(0xFFD9CAFF)]
+      : const [Color(0xFF0A4A39), Color(0xFF0F6B52), Color(0xFF2E9C7E), Color(0xFFF0A21C), Color(0xFFF5C25C), Color(0xFFFADC9A)];
   @override
   Widget build(BuildContext context) {
     final total = parts.fold<int>(0, (a, b) => a + (b.$2 <= 0 ? 1 : b.$2));
@@ -251,14 +335,19 @@ class PillNav extends StatelessWidget {
   final List<(IconData, String)> items; final int index; final ValueChanged<int> onTap;
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE2E8E3)))),
+        decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Brand.line))),
         child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [
           for (int i = 0; i < items.length; i++) Expanded(child: InkWell(
-            onTap: () => onTap(i),
+            onTap: () { if (i != index) HapticFeedback.selectionClick(); onTap(i); },
             child: SizedBox(height: 60, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(width: 64, height: 32, alignment: Alignment.center, decoration: BoxDecoration(color: i == index ? Brand.lightGreen : Colors.transparent, borderRadius: BorderRadius.circular(20)), child: Icon(items[i].$1, size: 22, color: i == index ? Brand.forest : Brand.muted)),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 240), curve: Curves.easeOutCubic,
+                width: i == index ? 64 : 40, height: 32, alignment: Alignment.center,
+                decoration: BoxDecoration(color: i == index ? Brand.lightGreen : Colors.transparent, borderRadius: BorderRadius.circular(20)),
+                child: AnimatedScale(scale: i == index ? 1.08 : 1, duration: const Duration(milliseconds: 240), curve: Curves.easeOutBack, child: Icon(items[i].$1, size: 22, color: i == index ? Brand.forest : Brand.muted)),
+              ),
               const SizedBox(height: 2),
-              Text(items[i].$2, style: display(12, color: i == index ? Brand.forest : Brand.muted, w: i == index ? FontWeight.w800 : FontWeight.w500)),
+              Text(items[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(12, color: i == index ? Brand.forest : Brand.muted, w: i == index ? FontWeight.w800 : FontWeight.w500)),
             ])),
           )),
         ]))),
@@ -269,7 +358,7 @@ class BackCircle extends StatelessWidget {
   const BackCircle({super.key, required this.onTap, this.dark = false});
   final VoidCallback onTap; final bool dark;
   @override
-  Widget build(BuildContext context) => InkWell(borderRadius: BorderRadius.circular(30), onTap: onTap, child: Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: dark ? Colors.white12 : Colors.white, border: dark ? null : Border.all(color: const Color(0xFFE2E8E3))), child: Icon(Icons.arrow_back_ios_new, size: 18, color: dark ? Colors.white : Brand.ink)));
+  Widget build(BuildContext context) => InkWell(borderRadius: BorderRadius.circular(30), onTap: onTap, child: Container(width: 44, height: 44, decoration: BoxDecoration(shape: BoxShape.circle, color: dark ? Colors.white12 : Colors.white, border: dark ? null : Border.all(color: Brand.line)), child: Icon(Icons.arrow_back_ios_new, size: 18, color: dark ? Colors.white : Brand.ink)));
 }
 
 class BigButton extends StatelessWidget {
@@ -279,7 +368,7 @@ class BigButton extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity, height: 56,
         child: outlined
-            ? OutlinedButton(onPressed: onPressed, style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), side: const BorderSide(color: Color(0xFFB9C9C0)), foregroundColor: Brand.delta), child: Text(text, style: display(17, color: Brand.delta, w: FontWeight.w700)))
-            : FilledButton(onPressed: onPressed, style: FilledButton.styleFrom(backgroundColor: Brand.delta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: Text(text, style: display(17, color: Colors.white, w: FontWeight.w700))),
+            ? OutlinedButton(onPressed: onPressed, style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), side: const BorderSide(color: Color(0xFFB9C9C0)), foregroundColor: Brand.button), child: Text(text, style: display(17, color: Brand.button, w: FontWeight.w700)))
+            : FilledButton(onPressed: onPressed, style: FilledButton.styleFrom(backgroundColor: Brand.button, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: Text(text, style: display(17, color: Colors.white, w: FontWeight.w700))),
       );
 }

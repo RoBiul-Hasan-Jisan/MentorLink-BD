@@ -22,7 +22,6 @@ final feedPostProvider = FutureProvider.autoDispose.family<Map<String, dynamic>,
 const _reactionIcons = {'like': Icons.thumb_up_alt_outlined, 'helpful': Icons.lightbulb_outline, 'idea': Icons.star_border};
 const _reactionIconsOn = {'like': Icons.thumb_up, 'helpful': Icons.lightbulb, 'idea': Icons.star};
 const _reactionTypes = ['like', 'helpful', 'idea'];
-const _line = Color(0xFFE2E8E3);
 const _fallbackGroups = [
   {'key': 'general', 'titleEn': 'General', 'titleBn': 'সাধারণ', 'posts': 0, 'joined': false},
 ];
@@ -119,12 +118,12 @@ Widget _linkChip(BuildContext context, String url) => Padding(
         onTap: () => _openLink(context, url),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(color: Brand.paper, borderRadius: BorderRadius.circular(14), border: Border.all(color: _line)),
+          decoration: BoxDecoration(color: Brand.paper, borderRadius: BorderRadius.circular(14), border: Border.all(color: Brand.line)),
           child: Row(children: [
-            const Icon(Icons.link, size: 18, color: Brand.delta),
+            Icon(Icons.link, size: 18, color: Brand.delta),
             const SizedBox(width: 8),
             Expanded(child: Text(_host(url), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, color: Brand.delta, w: FontWeight.w700))),
-            const Icon(Icons.open_in_new, size: 16, color: Brand.muted),
+            Icon(Icons.open_in_new, size: 16, color: Brand.muted),
           ]),
         ),
       ),
@@ -359,7 +358,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
         showCheckmark: false,
         selectedColor: Brand.lightGreen,
         backgroundColor: Colors.white,
-        side: BorderSide(color: on ? Brand.delta : const Color(0xFFC9D3CC)),
+        side: BorderSide(color: on ? Brand.delta : Brand.field),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         onSelected: (_) => _setGroup(key),
       ),
@@ -388,17 +387,17 @@ class _FeedState extends ConsumerState<FeedScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Flexible(child: Text(name, style: body(16, w: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              if (isMentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 16, color: Brand.saffron)),
+              if (isMentor) Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 16, color: Brand.saffron)),
             ]),
             if (sub.isNotEmpty) Text(sub, style: body(12, color: Brand.muted)),
           ])),
           if (!isMe && !following) OutlinedButton(
             onPressed: () => _follow(a),
-            style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 14), shape: const StadiumBorder(), side: const BorderSide(color: Brand.delta), foregroundColor: Brand.delta),
+            style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, minimumSize: const Size(0, 32), padding: const EdgeInsets.symmetric(horizontal: 14), shape: const StadiumBorder(), side: BorderSide(color: Brand.delta), foregroundColor: Brand.delta),
             child: Text(tr(context, 'Follow', 'অনুসরণ'), style: body(13, color: Brand.delta, w: FontWeight.w800)),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Brand.muted),
+            icon: Icon(Icons.more_vert, color: Brand.muted),
             onSelected: (v) {
               if (v == 'report') _report(p);
               if (v == 'delete') _delete(p);
@@ -421,7 +420,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
           ]),
         ),
         const SizedBox(height: 4),
-        Divider(height: 12, color: _line.withValues(alpha: 0.9)),
+        Divider(height: 12, color: Brand.line.withValues(alpha: 0.9)),
         Row(children: [
           for (final t in _reactionTypes) _reactButton(context, type: t, count: _count(p, t), on: mine.contains(t), onTap: () => _react(p, t)),
           const Spacer(),
@@ -429,7 +428,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _openPost(p),
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),
+              Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),
               const SizedBox(width: 5),
               Text('${p['commentCount'] ?? 0}', style: body(13, color: Brand.muted, w: FontWeight.w700)),
             ])),
@@ -460,7 +459,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
             ? (Icons.group_add_outlined, tr(context, 'Your following feed is empty', 'আপনার ফলো ফিড খালি'), tr(context, 'Follow people or join a group to see their posts here.', 'কাউকে ফলো করুন বা গ্রুপে যোগ দিন, তাদের পোস্ট এখানে দেখা যাবে।'))
             : (Icons.forum_outlined, tr(context, 'No posts here yet', 'এখানে এখনও পোস্ট নেই'), tr(context, 'Be the first to ask or share something.', 'প্রথম প্রশ্ন বা পোস্টটি আপনার হোক।'));
     return AppCard(padding: const EdgeInsets.fromLTRB(20, 28, 20, 24), child: Column(children: [
-      Container(width: 64, height: 64, decoration: const BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(icon, size: 30, color: Brand.delta)),
+      Container(width: 64, height: 64, decoration: BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(icon, size: 30, color: Brand.delta)),
       const SizedBox(height: 14),
       Text(title, textAlign: TextAlign.center, style: display(19, color: Brand.ink)),
       const SizedBox(height: 6),
@@ -506,7 +505,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
               Avatar(myName.isEmpty ? '?' : myName, size: 38, bg: Brand.lightGreen, fg: Brand.forest),
               const SizedBox(width: 12),
               Expanded(child: Text(tr(context, 'Ask a question or share a project…', 'প্রশ্ন করুন বা প্রজেক্ট শেয়ার করুন…'), style: body(15, color: Brand.muted))),
-              const Icon(Icons.edit_outlined, color: Brand.delta, size: 22),
+              Icon(Icons.edit_outlined, color: Brand.delta, size: 22),
             ]),
           )),
           Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: TextField(
@@ -532,7 +531,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
                     onPressed: () => _joinToggle(current.first),
                     icon: const Icon(Icons.check, size: 16),
                     label: Text(tr(context, 'Joined', 'যোগ দিয়েছেন'), style: body(13, color: Brand.delta, w: FontWeight.w800)),
-                    style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, shape: const StadiumBorder(), side: const BorderSide(color: Brand.delta), foregroundColor: Brand.delta),
+                    style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, shape: const StadiumBorder(), side: BorderSide(color: Brand.delta), foregroundColor: Brand.delta),
                   )
                 : FilledButton(
                     onPressed: () => _joinToggle(current.first),
@@ -543,7 +542,7 @@ class _FeedState extends ConsumerState<FeedScreen> {
           Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (loading && posts.isEmpty) _skeleton()
             else if (error != null && posts.isEmpty) AppCard(child: Column(children: [
-              const Icon(Icons.cloud_off, color: Brand.muted, size: 32),
+              Icon(Icons.cloud_off, color: Brand.muted, size: 32),
               const SizedBox(height: 8),
               Text(error!, textAlign: TextAlign.center, style: body(15)),
               TextButton(onPressed: _load, child: Text(tr(context, 'Try again', 'আবার চেষ্টা করুন'))),
@@ -636,7 +635,7 @@ class _ComposeState extends ConsumerState<_ComposeSheet> {
                 showCheckmark: false,
                 selectedColor: Brand.lightGreen,
                 backgroundColor: Colors.white,
-                side: BorderSide(color: topic == '${g['key']}' ? Brand.delta : const Color(0xFFC9D3CC)),
+                side: BorderSide(color: topic == '${g['key']}' ? Brand.delta : Brand.field),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 onSelected: (_) => setState(() => topic = '${g['key']}'),
               )),
@@ -757,11 +756,11 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
           const SizedBox(width: 8),
           Expanded(child: Container(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Brand.line)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Flexible(child: Text(by, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, w: FontWeight.w800))),
-                if (mentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 15, color: Brand.saffron)),
+                if (mentor) Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 15, color: Brand.saffron)),
                 const SizedBox(width: 8),
                 Text(_ago(context, c['createdAt']), style: body(12, color: Brand.muted)),
               ]),
@@ -797,7 +796,7 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(17, w: FontWeight.w800))),
-              if (isMentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 17, color: Brand.saffron)),
+              if (isMentor) Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 17, color: Brand.saffron)),
             ]),
             if (sub.isNotEmpty) Text(sub, style: body(13, color: Brand.muted)),
           ])),
@@ -806,7 +805,7 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
         if (link != null) Padding(padding: const EdgeInsets.only(right: 4), child: _linkChip(context, link)),
         Padding(padding: const EdgeInsets.only(top: 12), child: _groupTag(_groupTitle(context, groups, '${p['topic']}'))),
         const SizedBox(height: 6),
-        Divider(height: 14, color: _line.withValues(alpha: 0.9)),
+        Divider(height: 14, color: Brand.line.withValues(alpha: 0.9)),
         Wrap(spacing: 4, runSpacing: 2, children: [
           for (final t in _reactionTypes) _reactButton(context, type: t, count: _count(p, t), on: mine.contains(t), onTap: () => _react(p, t), label: true),
         ]),
@@ -855,7 +854,7 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
                   const SizedBox(height: 18),
                   Text('$total ${tr(context, total == 1 ? 'comment' : 'comments', 'মন্তব্য')}', style: display(16, color: Brand.ink)),
                   if (cs.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [
-                    const Icon(Icons.chat_bubble_outline, size: 34, color: Brand.muted),
+                    Icon(Icons.chat_bubble_outline, size: 34, color: Brand.muted),
                     const SizedBox(height: 8),
                     Text(canPost ? tr(context, 'No comments yet. Start the conversation.', 'এখনও কোনো মন্তব্য নেই। আলোচনা শুরু করুন।') : tr(context, 'No comments yet.', 'এখনও কোনো মন্তব্য নেই।'), textAlign: TextAlign.center, style: body(15, color: Brand.muted)),
                   ])),
@@ -868,7 +867,7 @@ class _PostDetailState extends ConsumerState<PostDetailScreen> {
         ),
         if (canPost)
           Container(
-            decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _line))),
+            decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Brand.line))),
             child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: Column(mainAxisSize: MainAxisSize.min, children: [
               if (replyTo != null) Container(
                 margin: const EdgeInsets.only(bottom: 6),
@@ -970,7 +969,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
         showCheckmark: false,
         selectedColor: Brand.lightGreen,
         backgroundColor: Colors.white,
-        side: BorderSide(color: on ? Brand.delta : const Color(0xFFC9D3CC)),
+        side: BorderSide(color: on ? Brand.delta : Brand.field),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         onSelected: (_) => setState(() => group = key),
       ),
@@ -995,7 +994,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Flexible(child: Text(name, style: body(16, w: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              if (isMentor) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 16, color: Brand.saffron)),
+              if (isMentor) Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, size: 16, color: Brand.saffron)),
             ]),
             if (sub.isNotEmpty) Text(sub, style: body(12, color: Brand.muted)),
           ])),
@@ -1008,7 +1007,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
             Padding(padding: const EdgeInsets.only(top: 10), child: _groupTag(_groupTitle(context, groups, '${p['topic']}'))),
           ]),
         ),
-        Divider(height: 14, color: _line.withValues(alpha: 0.9)),
+        Divider(height: 14, color: Brand.line.withValues(alpha: 0.9)),
         Row(children: [
           for (final t in _reactionTypes) _reactButton(context, type: t, count: _count(p, t), on: mine.contains(t), onTap: () => _react(p, t)),
           const Spacer(),
@@ -1016,7 +1015,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _openPost(p),
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),
+              Icon(Icons.chat_bubble_outline, size: 18, color: Brand.muted),
               const SizedBox(width: 5),
               Text('${p['commentCount'] ?? 0}', style: body(13, color: Brand.muted, w: FontWeight.w700)),
             ])),
@@ -1039,7 +1038,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(padding: const EdgeInsets.fromLTRB(4, 8, 4, 10), child: Row(children: [
-        Container(width: 36, height: 36, decoration: const BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: const Icon(Icons.forum_outlined, color: Brand.delta, size: 20)),
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(Icons.forum_outlined, color: Brand.delta, size: 20)),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr(context, 'Community', 'কমিউনিটি'), style: display(22, color: Brand.ink)),
@@ -1055,7 +1054,7 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
           Avatar(myName.isEmpty ? '?' : myName, size: 38, bg: Brand.lightGreen, fg: Brand.forest),
           const SizedBox(width: 12),
           Expanded(child: Text(tr(context, 'Ask a question or share a project…', 'প্রশ্ন করুন বা প্রজেক্ট শেয়ার করুন…'), style: body(15, color: Brand.muted))),
-          const Icon(Icons.edit_outlined, color: Brand.delta, size: 22),
+          Icon(Icons.edit_outlined, color: Brand.delta, size: 22),
         ]),
       ),
       Padding(padding: const EdgeInsets.only(bottom: 10), child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
@@ -1073,12 +1072,12 @@ class _CommunityPreviewState extends ConsumerState<CommunityPreview> {
         _skel(double.infinity, 12), const SizedBox(height: 8), _skel(double.infinity, 12), const SizedBox(height: 8), _skel(180, 12),
       ]))
       else if (async.hasError && posts.isEmpty) AppCard(child: Row(children: [
-        const Icon(Icons.cloud_off, color: Brand.muted, size: 22), const SizedBox(width: 10),
+        Icon(Icons.cloud_off, color: Brand.muted, size: 22), const SizedBox(width: 10),
         Expanded(child: Text(tr(context, 'Could not load the feed.', 'ফিড লোড করা যায়নি।'), style: body(15))),
         TextButton(onPressed: () => ref.invalidate(homeFeedProvider), child: Text(tr(context, 'Retry', 'আবার চেষ্টা করুন'))),
       ]))
       else if (posts.isEmpty) AppCard(padding: const EdgeInsets.fromLTRB(20, 22, 20, 20), child: Column(children: [
-        Container(width: 56, height: 56, decoration: const BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(following ? Icons.group_add_outlined : Icons.forum_outlined, size: 28, color: Brand.delta)),
+        Container(width: 56, height: 56, decoration: BoxDecoration(color: Brand.lightGreen, shape: BoxShape.circle), child: Icon(following ? Icons.group_add_outlined : Icons.forum_outlined, size: 28, color: Brand.delta)),
         const SizedBox(height: 12),
         Text(following ? tr(context, 'Your following feed is empty', 'আপনার ফলো ফিড খালি') : tr(context, 'No posts here yet', 'এখানে এখনও পোস্ট নেই'), textAlign: TextAlign.center, style: display(18, color: Brand.ink)),
         const SizedBox(height: 4),

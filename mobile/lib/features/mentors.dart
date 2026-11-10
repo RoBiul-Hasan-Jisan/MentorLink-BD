@@ -84,7 +84,7 @@ class MentorMatches extends ConsumerWidget {
         Avatar(mentor['name'], size: 62),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Flexible(child: Text(mentor['name'], style: display(22, color: Brand.ink))), const SizedBox(width: 6), const Icon(Icons.verified, color: Brand.delta, size: 20)]),
+          Row(children: [Flexible(child: Text(mentor['name'], style: display(22, color: Brand.ink))), const SizedBox(width: 6), Icon(Icons.verified, color: Brand.delta, size: 20)]),
           Text('${mentor['roleTitle']} · ${mentor['industry']} · ${mentor['yearsExperience']} ${tr(context, 'yrs', 'বছর')}', style: body(15, color: Brand.muted)),
         ])),
         Ring(value: (m['score'] as num) / 100, size: 66, stroke: 8, dark: false, label: '${m['score']}%', labelStyle: display(15, color: Brand.ink)),

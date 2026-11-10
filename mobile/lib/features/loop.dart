@@ -109,7 +109,7 @@ class OutcomeTrackerScreen extends ConsumerWidget {
               ])),
               AppCard(child: Row(children: [
                 _stat(context, tr(context, 'Readiness then', 'আগের প্রস্তুতি'), rd['first'] == null ? '–' : '${rd['first']}%'),
-                const Icon(Icons.arrow_forward, color: Brand.muted),
+                Icon(Icons.arrow_forward, color: Brand.muted),
                 _stat(context, tr(context, 'Readiness now', 'এখনকার প্রস্তুতি'), rd['latest'] == null ? '–' : '${rd['latest']}%'),
               ])),
               AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -143,10 +143,10 @@ class OutcomeTrackerScreen extends ConsumerWidget {
               ])),
               if (mocks['first'] != null && mocks['latest'] != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('${tr(context, 'Mock interview score', 'মক ইন্টারভিউ স্কোর')}: ${mocks['first']} → ${mocks['latest']}', style: body(14, color: Brand.muted))),
               AppCard(onTap: () => context.push('/my-reviews'), child: Row(children: [
-                const Icon(Icons.rate_review_outlined, color: Brand.delta),
+                Icon(Icons.rate_review_outlined, color: Brand.delta),
                 const SizedBox(width: 12),
                 Expanded(child: Text('${tr(context, 'Mentor feedback', 'মেন্টর ফিডব্যাক')} (${mentoring['reviewsReceived'] ?? 0})', style: body(16, w: FontWeight.w700))),
-                const Icon(Icons.chevron_right, color: Brand.muted),
+                Icon(Icons.chevron_right, color: Brand.muted),
               ])),
               AppCard(color: Brand.lightGreen, border: Colors.transparent, child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -244,7 +244,7 @@ class _GapMentorsState extends ConsumerState<GapMentorsScreen> {
                   const SizedBox(height: 8),
                   Text(tr(context, 'WHY THIS MENTOR', 'কেন এই মেন্টর'), style: body(12, color: Brand.muted, w: FontWeight.w800)),
                   for (final e in ((m['evidence'] ?? []) as List).cast<Map>()) Padding(padding: const EdgeInsets.only(top: 3), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.check_circle_outline, size: 16, color: Brand.delta),
+                    Icon(Icons.check_circle_outline, size: 16, color: Brand.delta),
                     const SizedBox(width: 6),
                     Expanded(child: Text(tr(context, '${e['en']}', '${e['bn']}'), style: body(14))),
                   ])),
@@ -322,7 +322,7 @@ class MentorReviewsScreen extends ConsumerWidget {
                   Text('${a['student']}', style: display(18, color: Brand.ink)),
                   Text('${nm(context, a, 'skillEn', 'skillBn')} · L${a['level']}', style: body(14, color: Brand.muted)),
                 ])),
-                const Icon(Icons.chevron_right, color: Brand.muted),
+                Icon(Icons.chevron_right, color: Brand.muted),
               ])),
               const SizedBox(height: 8),
               Text(tr(context, 'MY MENTEES', 'আমার মেন্টি'), style: body(12, color: Brand.muted, w: FontWeight.w800)),
@@ -331,7 +331,7 @@ class MentorReviewsScreen extends ConsumerWidget {
                 Avatar('${m['name']}', size: 38, bg: Brand.lightGreen, fg: Brand.forest),
                 const SizedBox(width: 10),
                 Expanded(child: Text('${m['name']}', style: body(16, w: FontWeight.w700))),
-                const Icon(Icons.chevron_right, color: Brand.muted),
+                Icon(Icons.chevron_right, color: Brand.muted),
               ])),
             ])),
           ]);
@@ -463,7 +463,7 @@ class _ReviewPackState extends ConsumerState<ReviewPackScreen> {
             Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               AppCard(child: Row(children: [
                 _stat(context, tr(context, 'Readiness first', 'শুরুতে'), hist.isEmpty ? '–' : '${hist.first['percent']}%'),
-                const Icon(Icons.arrow_forward, color: Brand.muted),
+                Icon(Icons.arrow_forward, color: Brand.muted),
                 _stat(context, tr(context, 'Readiness now', 'এখন'), hist.isEmpty ? '–' : '${hist.last['percent']}%'),
               ])),
               AppCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

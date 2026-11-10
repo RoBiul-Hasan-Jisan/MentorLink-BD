@@ -38,7 +38,7 @@ class MentorDetailScreen extends ConsumerWidget {
               Avatar(m['name'], size: 72, bg: Brand.saffron, fg: Brand.ink),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Flexible(child: Text(m['name'], style: display(26, color: Colors.white))), const SizedBox(width: 6), const Icon(Icons.verified, color: Brand.saffron, size: 22)]),
+                Row(children: [Flexible(child: Text(m['name'], style: display(26, color: Colors.white))), const SizedBox(width: 6), Icon(Icons.verified, color: Brand.saffron, size: 22)]),
                 Text('${m['roleTitle']} · ${m['industry']}', style: body(16, color: Colors.white70)),
               ])),
             ]),

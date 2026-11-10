@@ -158,7 +158,7 @@ class _Cv extends ConsumerState<CvScreen> {
         child: TextField(controller: c, minLines: lines, maxLines: lines + 2, decoration: InputDecoration(labelText: tr(context, en, bn), hintText: hint)),
       );
 
-  Widget _handle(int i) => ReorderableDragStartListener(index: i, child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.drag_indicator, color: Brand.muted)));
+  Widget _handle(int i) => ReorderableDragStartListener(index: i, child: Padding(padding: EdgeInsets.all(8), child: Icon(Icons.drag_indicator, color: Brand.muted)));
 
   // A drag-to-reorder list of rows. `row` builds the inside of each card.
   Widget _reorder<T>(List<T> items, Key Function(T) keyOf, Widget Function(T, int) row) => ReorderableListView(
@@ -309,7 +309,7 @@ class _Cv extends ConsumerState<CvScreen> {
         ]),
         const SizedBox(height: 8),
         for (final tp in tips) Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.lightbulb_outline, size: 18, color: Brand.saffron), const SizedBox(width: 8),
+          Icon(Icons.lightbulb_outline, size: 18, color: Brand.saffron), const SizedBox(width: 8),
           Expanded(child: Text(_t(Localizations.localeOf(context).languageCode == 'bn' ? (tp['bn'] ?? tp['en']) : tp['en']), style: body(14))),
         ])),
         BigButton(tr(context, 'Check my CV', 'আমার সিভি চেক করুন'), outlined: true, onPressed: busy ? null : _check),

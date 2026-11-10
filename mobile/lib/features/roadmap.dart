@@ -77,7 +77,7 @@ class RoadmapScreen extends ConsumerWidget {
           Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             for (int i = 0; i < stages.length; i++) AppCard(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Container(width: 30, height: 30, alignment: Alignment.center, decoration: const BoxDecoration(color: Brand.saffron, shape: BoxShape.circle), child: Text('${i + 1}', style: display(15, color: Brand.ink))),
+                Container(width: 30, height: 30, alignment: Alignment.center, decoration: BoxDecoration(color: Brand.saffron, shape: BoxShape.circle), child: Text('${i + 1}', style: display(15, color: Brand.ink))),
                 const SizedBox(width: 10),
                 Expanded(child: Text(nm(context, stages[i], 'titleEn', 'titleBn'), style: display(18, color: Brand.ink))),
               ]),
@@ -95,7 +95,7 @@ class RoadmapScreen extends ConsumerWidget {
                   Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(nm(context, t, 'titleEn', 'titleBn'), style: body(16, w: FontWeight.w600, color: t['done'] == true ? Brand.muted : Brand.ink).copyWith(decoration: t['done'] == true ? TextDecoration.lineThrough : null)))),
                   if (t['key'] == start) Padding(padding: const EdgeInsets.only(right: 6), child: Pill(tr(context, 'Start here', 'এখান থেকে শুরু'), tone: Tone.saffron)),
                   Text('${t['hours']} h', style: body(13, color: Brand.muted)),
-                  const Icon(Icons.chevron_right, color: Brand.muted, size: 20),
+                  Icon(Icons.chevron_right, color: Brand.muted, size: 20),
                 ])),
               ),
             ])),
@@ -106,7 +106,7 @@ class RoadmapScreen extends ConsumerWidget {
               for (final r in res) InkWell(
                 onTap: () async { final ok = await launchUrl(Uri.parse(r['url']), mode: LaunchMode.externalApplication); if (!ok && context.mounted) toast(context, tr(context, 'Could not open the link', 'লিংক খোলা যায়নি')); },
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [
-                  const Icon(Icons.open_in_new, size: 18, color: Brand.muted), const SizedBox(width: 10),
+                  Icon(Icons.open_in_new, size: 18, color: Brand.muted), const SizedBox(width: 10),
                   Expanded(child: Text('${r['title']}', style: body(16, w: FontWeight.w600))),
                   Pill(r['language'] == 'bn' ? 'বাংলা' : 'English', tone: r['language'] == 'bn' ? Tone.green : Tone.blue),
                 ])),
@@ -212,7 +212,7 @@ class _TopicState extends ConsumerState<TopicScreen> with WidgetsBindingObserver
               Text(tr(context, 'Read this first', 'আগে এটি পড়ুন'), style: display(19, color: Brand.ink)),
               const SizedBox(height: 8),
               for (final n in notes) Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Padding(padding: EdgeInsets.only(top: 7, right: 10), child: Icon(Icons.circle, size: 6, color: Brand.forest)),
+                Padding(padding: EdgeInsets.only(top: 7, right: 10), child: Icon(Icons.circle, size: 6, color: Brand.forest)),
                 Expanded(child: Text(n, style: body(16))),
               ])),
               if (example != null) ...[
@@ -233,7 +233,7 @@ class _TopicState extends ConsumerState<TopicScreen> with WidgetsBindingObserver
               for (final l in links) InkWell(
                 onTap: () => _open('${l['url']}'),
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
-                  const Icon(Icons.open_in_new, size: 18, color: Brand.muted), const SizedBox(width: 10),
+                  Icon(Icons.open_in_new, size: 18, color: Brand.muted), const SizedBox(width: 10),
                   Expanded(child: Text('${l['title']}', style: body(15, w: FontWeight.w600))),
                   Pill(l['language'] == 'bn' ? 'বাংলা' : 'English', tone: l['language'] == 'bn' ? Tone.green : Tone.blue),
                 ])),

@@ -27,7 +27,7 @@ InputDecoration _authDeco(String? hint) => InputDecoration(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _line)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _line)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Brand.delta, width: 2)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Brand.delta, width: 2)),
     );
 
 // Password box with a show/hide eye so people can check what they typed.
@@ -228,7 +228,7 @@ class ProblemScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final err = ref.watch(meProvider).error;
     return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Icon(Icons.cloud_off, size: 56, color: Brand.muted),
+      Icon(Icons.cloud_off, size: 56, color: Brand.muted),
       const SizedBox(height: 16),
       Text(tr(context, 'Signed in, but the server did not answer', 'সাইন ইন হয়েছে, কিন্তু সার্ভার সাড়া দেয়নি'), textAlign: TextAlign.center, style: display(22, color: Brand.ink)),
       const SizedBox(height: 10),

@@ -51,7 +51,7 @@ class StudentHome extends ConsumerWidget {
               Text(tr(context, 'Welcome back', 'স্বাগতম'), style: body(14, color: Colors.white70)),
               Text(name.split(' ').first, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(26, color: Colors.white)),
             ])),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(24)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.local_fire_department, color: Brand.saffron, size: 20), const SizedBox(width: 4), Text('$streak', style: display(17, color: Colors.white))])),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(24)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.local_fire_department, color: Brand.saffron, size: 20), const SizedBox(width: 4), Text('$streak', style: display(17, color: Colors.white))])),
             const SizedBox(width: 8),
             InkWell(borderRadius: BorderRadius.circular(30), onTap: () => context.push('/notifications'), child: Container(width: 46, height: 46, decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle), child: const Icon(Icons.notifications_none, color: Colors.white))),
           ]),
@@ -102,13 +102,13 @@ class StudentHome extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(12),
                 onTap: () => context.push(g != null ? '/roadmap/${g['skillKey']}' : '/roadmaps'),
                 child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
-                  const Icon(Icons.menu_book_outlined, color: Brand.forest),
+                  Icon(Icons.menu_book_outlined, color: Brand.forest),
                   const SizedBox(width: 10),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(g != null ? tr(context, 'Study ${g['nameEn']}: open your next topic', '${g['nameBn']} পড়ুন: পরের টপিক খুলুন') : tr(context, 'Pick a skill to start learning', 'শেখা শুরু করতে একটি স্কিল বাছুন'), style: body(15, w: FontWeight.w700)),
                     Text(tr(context, 'Mentor tasks appear here after your first session.', 'প্রথম সেশনের পর মেন্টরের কাজ এখানে আসবে।'), style: body(13, color: Brand.muted)),
                   ])),
-                  const Icon(Icons.chevron_right, color: Brand.muted),
+                  Icon(Icons.chevron_right, color: Brand.muted),
                 ])),
               );
             }(),

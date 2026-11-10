@@ -8,6 +8,8 @@ final authStateProvider = StreamProvider<User?>((_) => FirebaseAuth.instance.aut
 // The language the user chose. main() loads the saved choice before the app starts and overrides this provider, and
 // MentorLinkApp saves every change, so the language never flips back on its own (restart, relaunch, sign-in/out).
 final localeProvider = StateProvider<String>((_) => 'en');
+/// 'lilac' (Chrome Black + Digital Lilac) or 'green' (Green + Saffron). Saved on the device.
+final paletteProvider = StateProvider<String>((_) => 'lilac');
 
 // GET helper that returns decoded JSON.
 Future<Map<String, dynamic>> getJson(Ref ref, String path, {Map<String, dynamic>? q}) async =>

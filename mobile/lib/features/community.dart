@@ -48,7 +48,7 @@ class _Pathway {
   final List<String> tipsEn, tipsBn;
 }
 
-const List<_Pathway> _pathways = [
+List<_Pathway> get _pathways => [
   _Pathway('Higher study abroad', 'বিদেশে উচ্চশিক্ষা', 'SOP tips · scholarship checklist', 'এসওপি টিপস · স্কলারশিপ চেকলিস্ট', Brand.forest, Colors.white, [
     'Write your statement of purpose around one clear story: why this field, why this country, why you.',
     'Make a checklist of every scholarship deadline and the documents each one needs.',
@@ -115,7 +115,7 @@ void _showPathway(BuildContext context, _Pathway p) {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Padding(padding: EdgeInsets.only(top: 2, right: 10), child: Icon(Icons.check_circle, size: 20, color: Brand.delta)),
+                  Padding(padding: EdgeInsets.only(top: 2, right: 10), child: Icon(Icons.check_circle, size: 20, color: Brand.delta)),
                   Expanded(child: Text(t, style: body(16))),
                 ]),
               ),
@@ -201,7 +201,7 @@ class PathwaysScreen extends ConsumerWidget {
                       AppCard(
                         padding: const EdgeInsets.all(14),
                         child: Row(children: [
-                          Container(width: 48, height: 48, decoration: BoxDecoration(color: Brand.lightSaffron, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.groups_outlined, color: Brand.forest)),
+                          Container(width: 48, height: 48, decoration: BoxDecoration(color: Brand.lightSaffron, borderRadius: BorderRadius.circular(14)), child: Icon(Icons.groups_outlined, color: Brand.forest)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -242,7 +242,7 @@ class PathwaysScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFCBD6CF))),
                   child: Row(children: [
-                    const Icon(Icons.search, color: Brand.muted),
+                    Icon(Icons.search, color: Brand.muted),
                     const SizedBox(width: 8),
                     Expanded(child: Text(tr(context, 'Search in Bangla or English', 'বাংলা বা ইংরেজিতে খুঁজুন'), style: body(15, color: Brand.muted))),
                   ]),

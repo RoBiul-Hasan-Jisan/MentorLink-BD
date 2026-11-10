@@ -112,12 +112,12 @@ class _DonutPainter extends CustomPainter {
 }
 
 class SparklineBox extends StatelessWidget {
-  const SparklineBox({super.key, required this.values, this.height = 56, this.color = Brand.delta});
+  const SparklineBox({super.key, required this.values, this.height = 56, this.color});
   final List<double> values;
   final double height;
-  final Color color;
+  final Color? color;
   @override
-  Widget build(BuildContext context) => SizedBox(height: height, width: double.infinity, child: CustomPaint(painter: _SparkPainter(values, color)));
+  Widget build(BuildContext context) => SizedBox(height: height, width: double.infinity, child: CustomPaint(painter: _SparkPainter(values, color ?? Brand.delta)));
 }
 
 class _SparkPainter extends CustomPainter {

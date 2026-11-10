@@ -42,7 +42,7 @@ class MyPathsScreen extends ConsumerWidget {
             Text(nm(context, c, 'titleEn', 'titleBn'), style: display(20, color: Brand.ink)),
             Text('${tr(context, 'Verified', 'যাচাইকৃত')} ${c['verifiedPercent']}%${weeks != null ? ' · ~$weeks ${tr(context, 'weeks left', 'সপ্তাহ বাকি')}' : ''}', style: body(13, color: Brand.muted)),
           ])),
-          const Icon(Icons.chevron_right, color: Brand.muted),
+          Icon(Icons.chevron_right, color: Brand.muted),
         ]),
         if (next != null) ...[
           const SizedBox(height: 10),

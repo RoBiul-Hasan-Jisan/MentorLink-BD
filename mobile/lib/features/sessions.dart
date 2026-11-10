@@ -207,13 +207,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         child: InkWell(
           onTap: _looksLikeUrl(link) ? () => _openLink(context, link) : null,
           child: Row(children: [
-            const Icon(Icons.videocam_outlined, color: Brand.forest),
+            Icon(Icons.videocam_outlined, color: Brand.forest),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(context, 'Meeting link (pasted by mentor)', 'মিটিং লিংক (মেন্টরের দেওয়া)'), style: body(12, color: Brand.muted)),
               Text(link, style: body(15, color: Brand.forest, w: FontWeight.w700)),
             ])),
-            if (_looksLikeUrl(link)) const Icon(Icons.open_in_new, size: 18, color: Brand.forest),
+            if (_looksLikeUrl(link)) Icon(Icons.open_in_new, size: 18, color: Brand.forest),
           ]),
         ),
       ) else Text(isMentor ? tr(context, 'No meeting link on this session.', 'এই সেশনে কোনো মিটিং লিংক নেই।') : tr(context, 'No meeting link yet. Your mentor will paste it in the chat.', 'এখনও মিটিং লিংক নেই। মেন্টর চ্যাটে দেবেন।'), style: body(14, color: Brand.muted)),
@@ -386,7 +386,7 @@ class SessionNotesScreen extends ConsumerWidget {
                       const SizedBox(height: 6),
                       if (steps.isEmpty) AppCard(child: Text(tr(context, 'No next steps for this session.', 'এই সেশনের জন্য কোনো পরের ধাপ নেই।'), style: body(15, color: Brand.muted))),
                       for (final st in steps) AppCard(padding: const EdgeInsets.all(14), child: Row(children: [
-                        const Icon(Icons.check_circle_outline, color: Brand.delta),
+                        Icon(Icons.check_circle_outline, color: Brand.delta),
                         const SizedBox(width: 10),
                         Expanded(child: Text('${st['text'] ?? ''}', style: body(16, w: FontWeight.w600))),
                         const SizedBox(width: 8),

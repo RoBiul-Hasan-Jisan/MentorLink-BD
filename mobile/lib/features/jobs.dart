@@ -121,8 +121,8 @@ class ApplicationsScreen extends ConsumerWidget {
       const SizedBox(height: 12),
       if (!withdrawn && !notSel) for (int i = 0; i < stages.length; i++) Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Column(children: [
-          Container(width: 30, height: 30, decoration: BoxDecoration(shape: BoxShape.circle, color: i < reached ? Brand.delta : (i == reached ? Brand.saffron : Colors.transparent), border: Border.all(color: i <= reached ? (i == reached ? Brand.saffron : Brand.delta) : const Color(0xFFC9D3CC), width: 3)), child: i < reached ? const Icon(Icons.check, size: 16, color: Colors.white) : null),
-          if (i < stages.length - 1) Container(width: 3, height: 30, color: i < reached ? Brand.delta : const Color(0xFFE2E8E3)),
+          Container(width: 30, height: 30, decoration: BoxDecoration(shape: BoxShape.circle, color: i < reached ? Brand.delta : (i == reached ? Brand.saffron : Colors.transparent), border: Border.all(color: i <= reached ? (i == reached ? Brand.saffron : Brand.delta) : Brand.field, width: 3)), child: i < reached ? const Icon(Icons.check, size: 16, color: Colors.white) : null),
+          if (i < stages.length - 1) Container(width: 3, height: 30, color: i < reached ? Brand.delta : Brand.line),
         ]),
         const SizedBox(width: 12),
         Expanded(child: Padding(padding: const EdgeInsets.only(top: 3), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

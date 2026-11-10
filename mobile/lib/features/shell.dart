@@ -30,6 +30,7 @@ class Shell extends ConsumerStatefulWidget {
 }
 class _ShellState extends ConsumerState<Shell> {
   int i = 0;
+  final Set<int> _seen = {0}; // tabs are built the first time you open them, then kept alive (scroll position and data survive switching)
   @override
   void initState() { super.initState(); _registerPush(); }
   // Push notifications (Firebase Cloud Messaging). Mobile only; failures are ignored.
@@ -46,15 +47,15 @@ class _ShellState extends ConsumerState<Shell> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
     return AsyncBody(value: me, onRetry: () => ref.invalidate(meProvider), builder: (u) {
-      if (u == null || u['needsProfile'] == true) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      if (u == null || u['needsProfile'] == true) return const Scaffold(body: SkeletonList());
       final role = u['role'] as String;
       final tabs = _tabs(role);
       i = i.clamp(0, tabs.length - 1);
       final isProfile = i == tabs.length - 1;
       return Scaffold(
         appBar: (role == 'student' || isProfile) ? null : AppBar(title: Text(tabs[i].$2, style: display(24, color: Brand.ink)), centerTitle: false),
-        body: tabs[i].$3,
-        bottomNavigationBar: PillNav(items: [for (final t in tabs) (t.$1, t.$2)], index: i, onTap: (v) => setState(() => i = v)),
+        body: IndexedStack(index: i, children: [for (int k = 0; k < tabs.length; k++) _seen.contains(k) ? tabs[k].$3 : const SizedBox.shrink()]),
+        bottomNavigationBar: PillNav(items: [for (final t in tabs) (t.$1, t.$2)], index: i, onTap: (v) => setState(() { i = v; _seen.add(v); })),
       );
     });
   }
@@ -65,7 +66,7 @@ class _ShellState extends ConsumerState<Shell> {
       case 'student':
         // Home, Career (decisions, gaps, plan, proof), Mentors, Jobs, Profile. The 4-week plan now lives inside Career.
         return [
-          (Icons.home_outlined, tr(context, 'Home', 'হোম'), StudentHome(onTab: (v) => setState(() => i = v))),
+          (Icons.home_outlined, tr(context, 'Home', 'হোম'), StudentHome(onTab: (v) => setState(() { i = v; _seen.add(v); }))),
           (Icons.explore_outlined, tr(context, 'Career', 'ক্যারিয়ার'), const CareerHub()),
           (Icons.groups_outlined, tr(context, 'Mentors', 'মেন্টর'), const MentorMatches()),
           (Icons.work_outline, tr(context, 'Jobs', 'চাকরি'), const OpportunitiesScreen()),
@@ -119,19 +120,20 @@ class ProfileScreen extends ConsumerWidget {
         ])),
       ])),
       Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-        if (u['role'] != 'employer') AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.map_outlined, color: Brand.delta), title: Text(tr(context, 'University map & directory', 'বিশ্ববিদ্যালয় মানচিত্র ও ডিরেক্টরি'), style: body(17, w: FontWeight.w700)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/university-map'))),
+        if (u['role'] != 'employer') AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: Icon(Icons.map_outlined, color: Brand.delta), title: Text(tr(context, 'University map & directory', 'বিশ্ববিদ্যালয় মানচিত্র ও ডিরেক্টরি'), style: body(17, w: FontWeight.w700)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/university-map'))),
         AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
           for (final e in _entries(context, u['role'] as String?))
             ListTile(leading: Icon(e.$1, color: Brand.delta), title: Text(e.$2, style: body(16, w: FontWeight.w600)), trailing: const Icon(Icons.chevron_right), onTap: () => context.push(e.$3)),
         ])),
         AppCard(padding: const EdgeInsets.all(6), child: Column(children: [
           SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Show me in my university directory', 'আমার বিশ্ববিদ্যালয়ের ডিরেক্টরিতে দেখান'), style: body(16, w: FontWeight.w600)), value: u['showInDirectory'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'showInDirectory': v})),
-          ListTile(leading: const Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
+          ListTile(leading: Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
+          ListTile(leading: Icon(Icons.palette_outlined, color: Brand.delta), title: Text(tr(context, 'Colour theme', 'রঙের থিম'), style: body(16, w: FontWeight.w600)), subtitle: Text(ref.watch(paletteProvider) == 'lilac' ? tr(context, 'Chrome Black + Digital Lilac', 'ক্রোম ব্ল্যাক + লাইল্যাক') : tr(context, 'Green + Saffron', 'সবুজ + জাফরান'), style: body(13, color: Brand.muted)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: [ButtonSegment(value: 'lilac', label: Text(tr(context, 'Lilac', 'লাইল্যাক'))), ButtonSegment(value: 'green', label: Text(tr(context, 'Green', 'সবুজ')))], selected: {ref.watch(paletteProvider)}, onSelectionChanged: (s) => ref.read(paletteProvider.notifier).state = s.first)),
         ])),
-        if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: const Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
+        if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
         AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'lowDataMode': v}))),
         if (isStudent) _CompanyTile(),
-        AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [const Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
+        AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
       ])),
     ]);
@@ -190,7 +192,7 @@ class _CompanyTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final org = ref.watch(myOrgProvider).valueOrNull?['organization'] as Map?;
     return AppCard(padding: const EdgeInsets.all(6), child: ListTile(
-      leading: const Icon(Icons.business_outlined, color: Brand.delta),
+      leading: Icon(Icons.business_outlined, color: Brand.delta),
       title: Text(org == null ? tr(context, 'Register your company (recruiters)', 'কোম্পানি নিবন্ধন করুন (রিক্রুটার)') : '${org['name']} · ${org['verificationStatus']}', style: body(17, w: FontWeight.w700)),
       trailing: org == null ? const Icon(Icons.chevron_right) : null,
       onTap: org == null ? () => registerCompany(context, ref) : null,
