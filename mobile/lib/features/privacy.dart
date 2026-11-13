@@ -382,7 +382,7 @@ class _RolesScreenState extends ConsumerState<RolesScreen> {
             _row(tr(context, 'Use skill-gap, plan, CV', 'স্কিল-গ্যাপ, প্ল্যান, সিভি'), [yes, no, no, no]),
             _row(tr(context, 'Request mentors, apply to jobs', 'মেন্টর অনুরোধ, চাকরিতে আবেদন'), [yes, no, no, no]),
             _row(tr(context, 'Accept requests, write notes', 'অনুরোধ গ্রহণ, নোট লেখা'), [no, yes, no, no]),
-            _row(tr(context, 'Post opportunities', 'সুযোগ পোস্ট'), [no, tr(context, 'after review', 'রিভিউয়ের পর'), no, yes]),
+            _row(tr(context, 'Post jobs (company/employer accounts only)', 'চাকরি পোস্ট (শুধু কোম্পানি অ্যাকাউন্ট)'), [no, no, no, no]),
             _row(tr(context, "See a student's private data", 'ছাত্রের ব্যক্তিগত ডেটা দেখা'), [tr(context, 'own', 'নিজের'), tr(context, 'consent', 'সম্মতিতে'), tr(context, 'anon only', 'শুধু নামহীন'), tr(context, 'logged', 'লগসহ')]),
             _row(tr(context, 'Approve student affiliation', 'ছাত্রের অধিভুক্তি অনুমোদন'), [no, no, yes, yes]),
             _row(tr(context, 'Verify alumni, review scams', 'অ্যালামনাই যাচাই, স্ক্যাম রিভিউ'), [no, no, no, yes]),

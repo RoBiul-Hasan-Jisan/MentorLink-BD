@@ -10,6 +10,11 @@ void main() {
       expect(notificationRoute({'target': {'type': 'request', 'id': id}}, role: 'mentor'), '/mentor/request/$id');
       expect(notificationRoute({'target': {'type': 'request', 'id': id}}, role: 'student'), '/sessions');
     });
+    test('application target opens that application for every role', () {
+      expect(notificationRoute({'target': {'type': 'application', 'id': id}}, role: 'student'), '/application/$id');
+      expect(notificationRoute({'target': {'type': 'application', 'id': id}}, role: 'employer'), '/application/$id');
+      expect(notificationRoute({'target': {'type': 'application'}}, role: 'student'), '/applications');
+    });
     test('a malformed id is never put in a route', () => expect(notificationRoute({'target': {'type': 'chat', 'id': '../admin'}}, role: 'student'), isNull));
     test('unknown type goes nowhere', () => expect(notificationRoute({'target': {'type': 'zzz'}}, role: 'student'), isNull));
     test('old notification falls back to kind', () => expect(notificationRoute({'kind': 'reminder'}, role: 'student'), '/sessions'));

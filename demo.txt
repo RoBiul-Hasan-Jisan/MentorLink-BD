@@ -42,3 +42,13 @@ Mentors (23)
 21	mentor.s11@demo.mentorlink.bd	Fahim Reza	EDU
 22	mentor.s12@demo.mentorlink.bd	Mitu Barua	SUB
 23	mentor.s13@demo.mentorlink.bd	Parvez Alam	DU
+
+
+Employers (5): password Demo@12345
+#	Email	Name	Company
+1	employer@demo.mentorlink.bd	Demo Employer	Demo Tech Ltd (owner)
+2	employer.hr@demo.mentorlink.bd	Rafiq Ahmed	Demo Tech Ltd (recruiter)
+3	employer2@demo.mentorlink.bd	Nusrat Karim	Demo Bay Analytics Ltd
+4	employer3@demo.mentorlink.bd	Imran Chowdhury	Demo Karnaphuli Textiles Ltd
+5	employer4@demo.mentorlink.bd	Tahmina Haque	Demo Shikhon Learning Hub
+See HIRING_DEMO.txt for the walkthrough.

@@ -16,13 +16,13 @@ Status key: Done (changed, untested unless stated) / Open.
 | Report-user deep link + reviewer | Unreachable, state-based, no queue | Query-param route, entry points, server checks, admin queue | `privacy.dart`, `sessions.dart`, `opportunities.js`, `admin.js`, `admin-panel/app/page.tsx` | `audit_api.test.js` | Done |
 | Low-data map + attribution | Setting did nothing | Directory list when on; OSM credit | `university.dart` | Widget test | Done |
 | Reminders honour settings, no duplicates | Settings ignored; duplicate risk | Atomic claim, `remindersOn`, quiet hours | `services/reminders.js`, `helpers.js` | existing reminder test + API test | Done |
-| Complete data export and deletion | Posts, passport, sprints, projects, GitHub, invites, plan reviews remain | Extend `/me/export` and `DELETE /me` to every model holding the user id | `routes/extras.js` | New API tests | Open |
+| Complete data export and deletion | Posts, passport, sprints, projects, GitHub, invites, plan reviews remain | Extend `/me/export` and `DELETE /me` to every model holding the user id | `routes/extras.js`, `services/userdata.js` | `tests/userdata.test.js` (guards new models) | Done (update 36; routes not run against a database) |
 | Startup reliability | Silent missing modules | Require modules, `/ready`, exit on failed start | `app.js`, `server.js` | Boot test | Done |
 | Admin duplicate files | Stale `.js` twins | Removed; `.tsx` canonical | `admin-panel/app`, `lib` | `next build` | Done (build not run) |
 
 ## P2
-- Enforce blocks in chat and message send; check revocation on admin routes (`verifyIdToken(token, true)`).
-- Null-safe populate in applicant lists; restrict withdraw by stage; job search, filters, pagination, saved jobs.
+- ~~Enforce blocks in chat and message send~~ (done, update 36); check revocation on admin routes (`verifyIdToken(token, true)`).
+- Null-safe populate in applicant lists; restrict withdraw by stage; ~~job search, filters, pagination, saved jobs~~ (done, update 36).
 - Career Action Center: Home card using `/me/loop` + `/me/brief` with reason and link per action.
 - One shared progress calculation; distinct labels for `/targets`, `/my-paths`, `/pathways`.
 - Private vs shared mentor notes on sessions; reschedule flow; reminder text in Dhaka time.

@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { setup, teardown, bearer, mkUni, mkUser, models } = require('./helpers');
+const { setup, teardown, bearer, mkUni, mkUser, mkEmployer, models } = require('./helpers');
 const { seedLearning } = require('../src/seed/learning');
 let app, edu;
 beforeAll(async () => {
@@ -8,6 +8,7 @@ beforeAll(async () => {
   const m = await mkUser('dm', 'mentor', edu, { displayName: 'Design Mentor' });
   await models.MentorProfile.create({ userId: m._id, weeklyCapacity: 3, roleTitle: 'Data Analyst', expertiseSkills: [{ skillKey: 'sql', level: 3 }] });
   await mkUser('adm2', 'admin', edu);
+  await mkEmployer('emp2', 'Demo Tech');
   const s = await mkUser('ds', 'student', edu, { department: 'CSE' });
   await request(app).put('/api/me/goal').set(bearer('ds')).send({ careerGoalRoleKey: 'data-analyst', weeklyHours: 6 });
 });
@@ -36,10 +37,10 @@ test('notifications: mark all read', async () => {
 });
 
 test('job detail: fit and skill-by-skill breakdown; applications show CV version', async () => {
-  const adm = await models.User.findOne({ firebaseUid: 'adm2' });
-  const o = await request(app).post('/api/opportunities').set(bearer('adm2')).send({ title: 'Junior Data Analyst', organization: 'Demo Tech', description: 'Support the analytics team with weekly reports and dashboards.', noFeeConfirmed: true, requiredSkills: [{ skillKey: 'sql', requiredLevel: 3, weight: 5 }, { skillKey: 'excel', requiredLevel: 2, weight: 3 }] });
+  const o = await request(app).post('/api/employer/jobs').set(bearer('emp2')).send({ title: 'Junior Data Analyst', description: 'Support the analytics team with weekly reports and dashboards.', noFeeConfirmed: true, requiredSkills: [{ skillKey: 'sql', requiredLevel: 3, weight: 5 }, { skillKey: 'excel', requiredLevel: 2, weight: 3 }] });
   expect(o.status).toBe(201);
-  const id = o.body.opportunity._id;
+  const id = o.body.job._id;
+  await request(app).post(`/api/admin/opportunities/${id}/review`).set(bearer('adm2')).send({ decision: 'approve' }); // an employer's first post is reviewed by an admin
   const d = await request(app).get(`/api/opportunities/${id}`).set(bearer('ds'));
   expect(d.status).toBe(200);
   expect(d.body.fit).toBe(0);

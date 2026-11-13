@@ -77,6 +77,22 @@ class OpportunityDetailScreen extends ConsumerWidget {
     }
   }
 
+  // Saved jobs: a private shortlist (POST/DELETE /opportunities/:id/save).
+  Future<void> _toggleSave(BuildContext context, WidgetRef ref, bool saved) async {
+    try {
+      final dio = ref.read(dioProvider);
+      if (saved) {
+        await dio.delete('/opportunities/$id/save');
+      } else {
+        await dio.post('/opportunities/$id/save');
+      }
+      ref.invalidate(opportunityDetailProvider(id));
+      if (context.mounted) toast(context, saved ? tr(context, 'Removed from saved jobs', 'সংরক্ষণ থেকে সরানো হয়েছে') : tr(context, 'Saved. Find it under Saved in Jobs.', 'সংরক্ষিত। জবসে "সংরক্ষিত" ফিল্টারে পাবেন।'));
+    } catch (e) {
+      if (context.mounted) toast(context, errorText(e));
+    }
+  }
+
   Future<void> _report(BuildContext context, WidgetRef ref) async {
     final reason = TextEditingController(text: tr(context, 'Asks for money or looks suspicious', 'টাকা চায় বা সন্দেহজনক'));
     final ok = await showDialog<bool>(
@@ -113,6 +129,8 @@ class OpportunityDetailScreen extends ConsumerWidget {
           final closed = o['closed'] == true;
           final myApp = d['myApplication'] as Map?;
           final applied = myApp != null && myApp['withdrawn'] != true;
+          final saved = d['saved'] == true;
+          final days = (o['daysLeft'] as num?)?.toInt();
           return ListView(padding: EdgeInsets.zero, children: [
             GreenHeader(radius: 36, bottomPad: 26, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               BackCircle(dark: true, onTap: () => context.pop()),
@@ -122,10 +140,10 @@ class OpportunityDetailScreen extends ConsumerWidget {
             ])),
             Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Wrap(spacing: 8, runSpacing: 8, children: [
-                Pill(labels['source'] == 'verified_alumni' ? tr(context, 'Verified alumni post', 'যাচাইকৃত অ্যালামনাই পোস্ট') : tr(context, 'Admin post', 'অ্যাডমিন পোস্ট')),
+                Pill(labels['source'] == 'verified_alumni' ? tr(context, 'Verified alumni post', 'যাচাইকৃত অ্যালামনাই পোস্ট') : labels['source'] == 'student' ? tr(context, 'Student post (reviewed by admin)', 'শিক্ষার্থীর পোস্ট (অ্যাডমিন দেখেছেন)') : labels['source'] == 'employer' ? tr(context, 'Company post', 'কোম্পানির পোস্ট') : tr(context, 'Admin post', 'অ্যাডমিন পোস্ট')),
                 if (labels['noFeeDeclared'] == true) Pill(tr(context, 'No fee confirmed', 'কোনো ফি নেই')),
                 if (labels['listingReviewed'] == true) Pill(tr(context, 'Listing reviewed', 'তালিকা পর্যালোচিত')),
-                if (o['applicationDeadline'] != null) Pill(tr(context, 'Closes ${'${o['applicationDeadline']}'.substring(0, 10)}', 'শেষ ${'${o['applicationDeadline']}'.substring(0, 10)}'), tone: Tone.saffron),
+                if (o['applicationDeadline'] != null) Pill(tr(context, 'Closes ${'${o['applicationDeadline']}'.substring(0, 10)}${days != null && days >= 0 ? ' ($days days left)' : ''}', 'শেষ ${'${o['applicationDeadline']}'.substring(0, 10)}${days != null && days >= 0 ? ' ($days দিন বাকি)' : ''}'), tone: days != null && days <= 7 ? Tone.red : Tone.saffron),
               ]),
               const SizedBox(height: 12),
               if (fit != null)
@@ -145,9 +163,10 @@ class OpportunityDetailScreen extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Expanded(child: Text(nm(context, b, 'nameEn', 'nameBn'), style: body(15, w: FontWeight.w600))),
                         Text('${b['have']}/${b['need']}', style: body(14, color: Brand.muted)),
-                        if (b['status'] != 'met') TextButton(onPressed: () => context.push('/roadmap/${b['skillKey']}'), child: Text(tr(context, 'Learn', 'শিখুন'))),
+                        TextButton(onPressed: () => context.push('/roadmap/${b['skillKey']}'), child: Text(b['status'] != 'met' ? tr(context, 'Learn', 'শিখুন') : tr(context, 'Revise', 'রিভিশন'))),
                       ]),
                     ),
+                  if (fit >= 100) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(tr(context, '100% means you meet the levels this job lists. It does not mean you are done: tap Revise on any skill to practise before you apply or interview.', '১০০% মানে এই চাকরির চাহিদার লেভেল আপনার আছে। শেখা শেষ নয়: আবেদন বা ইন্টারভিউয়ের আগে যেকোনো স্কিলে "রিভিশন" চেপে অনুশীলন করুন।'), style: body(14, color: Brand.forest, w: FontWeight.w700))),
                   Text(tr(context, 'Fit uses your verified skill levels. Closing every gap would raise it, but it is not a promise of selection.', 'মিল আপনার যাচাইকৃত স্কিল লেভেল থেকে আসে। ঘাটতি পূরণে বাড়বে, তবে নির্বাচনের নিশ্চয়তা নয়।'), style: body(13, color: Brand.muted)),
                 ])),
               AppCard(child: Text('${o['description'] ?? ''}', style: body(16))),
@@ -163,6 +182,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                 ]))
               else
                 BigButton(closed ? tr(context, 'Closed', 'বন্ধ') : tr(context, 'Apply', 'আবেদন করুন'), onPressed: closed ? null : () => _apply(context, ref, o)),
+              TextButton.icon(onPressed: () => _toggleSave(context, ref, saved), icon: Icon(saved ? Icons.favorite : Icons.favorite_border, color: saved ? const Color(0xFF9B2C1F) : Brand.muted), label: Text(saved ? tr(context, 'Saved. Tap to remove', 'সংরক্ষিত। সরাতে ট্যাপ করুন') : tr(context, 'Save this job', 'চাকরিটি সংরক্ষণ করুন'))),
               TextButton.icon(onPressed: () => _report(context, ref), icon: const Icon(Icons.flag_outlined, color: Color(0xFF9B2C1F)), label: Text(tr(context, 'Report this post', 'পোস্টটি রিপোর্ট করুন'))),
             ])),
           ]);

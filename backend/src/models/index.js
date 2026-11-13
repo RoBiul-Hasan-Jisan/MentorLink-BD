@@ -3,6 +3,7 @@ module.exports = {
   ...require('./learning'),
   ...require('./mentoring'),
   ...require('./opportunity'),
+  ...require('./hiring'),
   ...require('./extras'),
   ...require('./community'),
   ...require('./loop'),

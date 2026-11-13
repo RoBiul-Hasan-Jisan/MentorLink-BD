@@ -5,6 +5,7 @@ import '../core/api.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
+import 'hiring.dart';
 import 'widgets.dart';
 
 // Recruiter dashboard: only for role=employer (the server also checks membership in a verified company).
@@ -19,12 +20,13 @@ class EmployerHome extends ConsumerWidget {
         Text(tr(context, 'Your jobs and applicants', 'আপনার চাকরি ও আবেদনকারী'), style: body(16, color: Colors.white70)),
       ])),
       Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+        const HiringInboxCard(),
         BigButton(tr(context, 'Post a job', 'চাকরি পোস্ট করুন'), onPressed: () => _post(context, ref)),
         const SizedBox(height: 12),
         AsyncBody(value: ref.watch(employerJobsProvider), onRetry: () => ref.invalidate(employerJobsProvider), builder: (d) {
           final jobs = (d['jobs'] as List).cast<Map>();
           if (jobs.isEmpty) return AppCard(child: Text(tr(context, 'No jobs yet. Your first post is reviewed by an admin.', 'এখনও কোনো চাকরি নেই। প্রথম পোস্ট অ্যাডমিন পর্যালোচনা করবেন।'), style: body(16)));
-          return Column(children: [for (final j in jobs) AppCard(padding: const EdgeInsets.all(16), onTap: () => context.push('/applicants/${j['_id']}', extra: j['title']), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          return Column(children: [for (final j in jobs) AppCard(padding: const EdgeInsets.all(16), onTap: () => context.push('/job/${j['_id']}/pipeline'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Text(j['title'], style: display(20, color: Brand.ink))), Pill(j['closed'] == true ? tr(context, 'Closed', 'বন্ধ') : j['status'], tone: j['status'] == 'approved' && j['closed'] != true ? Tone.green : Tone.saffron)]),
             const SizedBox(height: 6),
             Text(tr(context, '${j['applicants']} applicants', '${j['applicants']} জন আবেদনকারী'), style: body(15, color: Brand.muted)),

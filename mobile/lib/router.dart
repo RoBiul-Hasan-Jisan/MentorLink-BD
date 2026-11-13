@@ -28,6 +28,7 @@ import 'features/jobs_more.dart';
 import 'features/mentor_more.dart';
 import 'features/career.dart';
 import 'features/launch.dart';
+import 'features/hiring.dart';
 
 // The router only decides WHERE you land. The server still checks the role on every API call.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -60,6 +61,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, __) => const Shell()),
       ...pathTwinRoutes,
       ...hubRoutes,
+      ...hiringRoutes,
       ...feedRoutes,
       ...loopRoutes,
       ...jobGapRoutes,

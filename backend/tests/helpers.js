@@ -23,4 +23,11 @@ async function mkUni(name, short, city, lng, lat) {
 async function mkUser(uid, role, uni, extra = {}) {
   return models.User.create({ firebaseUid: uid, email: `${uid}@t.test`, displayName: extra.displayName || `User ${uid}`, role, universityId: uni && uni._id, verificationStatus: 'verified', ...extra });
 }
-module.exports = { setup, teardown, bearer, mkUni, mkUser, models };
+// An employer = role 'employer' + an ACTIVE membership in a VERIFIED company. This is the only kind of account that can post jobs.
+async function mkEmployer(uid, companyName = 'Acme BD') {
+  const u = await mkUser(uid, 'employer', null);
+  const org = (await models.Organization.findOne({ name: companyName })) || (await models.Organization.create({ name: companyName, workEmail: 'hr@acme.example', verificationEvidence: 'test', verificationStatus: 'verified' }));
+  await models.OrganizationMember.create({ organizationId: org._id, userId: u._id, membershipRole: 'owner', status: 'active' });
+  return u;
+}
+module.exports = { setup, teardown, bearer, mkUni, mkUser, mkEmployer, models };

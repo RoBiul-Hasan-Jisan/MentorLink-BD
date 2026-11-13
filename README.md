@@ -9,6 +9,49 @@ mobile/        Flutter (Riverpod, GoRouter, Dio, flutter_map)
 admin-panel/   Next.js web admin panel (Firebase Web SDK)
 ```
 
+## Who can post jobs (rule)
+**Only an `employer` can post a job.** An employer is a user whose role is `employer` AND who is an active member of a **verified** company.
+- The only endpoint that creates a job is `POST /api/employer/jobs` (`backend/src/routes/employer.js`). Student, mentor, department and admin accounts get **403** there.
+- The old open route `POST /api/opportunities` (student / mentor / admin posting) was **deleted**. It now returns 404 for everyone.
+- Students, mentors, departments and admins can only read jobs (students can also save, apply and report). Admins review and approve/hide jobs, but never post them.
+- A client can never set its own role. `employer` is given by the server only when an admin verifies the company (`POST /api/admin/organizations/:id/review`).
+- The first post of every company is held for admin review; later clean posts of the same company are approved automatically; posts that ask for money are always held.
+- Every job in the database carries `sourceLabel: 'employer'` and an `organizationId`.
+- Mobile app: the "Post a job" buttons and screens for students and mentors were removed. Only the recruiter dashboard has "Post a job". Mentors now see a read-only list of live jobs. The Privacy screen table says "Post jobs: company/employer accounts only".
+- If your database still has old jobs from students, mentors or admins, run `cd backend && npm run cleanup:jobs`. It deletes those jobs and their applications, interviews, papers, offers, messages, saved marks and reports. `npm run seed:demo` does the same cleanup automatically.
+
+## Demo jobs: which employer posted which job
+All demo accounts use password `Demo@12345`. **19 jobs in total: 17 live, 2 waiting for admin review** (1 of the 17 live jobs is closed).
+
+| Employer account (sign in) | Name | Company | Job posted | Status |
+|---|---|---|---|---|
+| employer@demo.mentorlink.bd | Demo Employer (Phase 2), owner | Demo Tech Ltd | Junior Backend Developer (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Frontend Developer (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | QA Engineer (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Junior Data Scientist (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Mobile App Developer (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | DevOps Intern (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Security Analyst Trainee (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | UI/UX Design Intern (Demo) | live |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Sales Assistant, closed (Demo) | live, **closed** |
+| employer@demo.mentorlink.bd | | Demo Tech Ltd | Backend Developer, awaiting review (Demo) | **pending** admin review |
+| employer.hr@demo.mentorlink.bd | Rafiq Ahmed, recruiter (same company, 2nd recruiter) | Demo Tech Ltd | Technical Support Engineer (Demo) | live |
+| employer2@demo.mentorlink.bd | Nusrat Karim (HR), owner | Demo Bay Analytics Ltd | Business Intelligence Analyst (Demo) | live |
+| employer2@demo.mentorlink.bd | | Demo Bay Analytics Ltd | Analytics Intern (Demo) | live |
+| employer2@demo.mentorlink.bd | | Demo Bay Analytics Ltd | Data Entry Operator (Demo) | live |
+| employer3@demo.mentorlink.bd | Imran Chowdhury (HR), owner | Demo Karnaphuli Textiles Ltd | Accounts Executive (Demo) | live |
+| employer3@demo.mentorlink.bd | | Demo Karnaphuli Textiles Ltd | Merchandiser Trainee (Demo) | live |
+| employer3@demo.mentorlink.bd | | Demo Karnaphuli Textiles Ltd | Textile Quality Inspector (Demo) | **pending** admin review |
+| employer4@demo.mentorlink.bd | Tahmina Haque (HR), owner | Demo Shikhon Learning Hub | Spoken English Instructor (Demo) | live |
+| employer4@demo.mentorlink.bd | | Demo Shikhon Learning Hub | Student Success Officer (Demo) | live |
+
+How to check each one:
+1. Sign in as that employer: the recruiter dashboard lists exactly the jobs of its own company (`GET /api/employer/jobs`). Recruiters of the same company (Demo Tech Ltd has two) see the same jobs. Another company's jobs return 404.
+2. Sign in as `admin@demo.mentorlink.bd` (password `Admin@12345`): Jobs tab shows every job with its poster and source; the source is `employer` for all 19.
+3. Try the rule: sign in as a student, mentor or department account and call `POST /api/employer/jobs`: you get 403. `POST /api/opportunities` gives 404 for everyone.
+4. A company that is still waiting for verification (Demo Greenway Logistics, owner student.su@) cannot post at all until the admin verifies it.
+5. Removed from the demo because they were posted by non-employers: 11 admin jobs, 5 student posts, 1 alumni referral (and their applicants).
+
 ## Honest status
 | Part | Status |
 |---|---|
@@ -67,7 +110,7 @@ Tabs: Queue (users, mentor applications, job posts with scam flags), Companies (
 4. **Mentors tab:** top matches come from several universities (Abrar, Rahim Ahmed of North South, others). Open one: six-part score and "Why this mentor". Send a request.
 5. **Abrar (mentor):** accept the request, open chat. A session note becomes tasks in Robiul's four-week plan.
 6. **Robiul:** tick a task. Jobs tab: apply with the consent screen; the tracker shows the 5 stages.
-7. **Employer:** post a job (first post goes to admin review), open applicants (only consented fields), move a stage (invalid jumps are rejected).
+7. **Employer (only employers can post jobs):** post a job (first post goes to admin review), open applicants (only consented fields), move a stage (invalid jumps are rejected).
 8. **Ayesha (admin, same app, normal Sign in):** Queue tab approves the job; Companies, Resources (check links) and Insights (audit log, fairness, campuses).
 9. **University map:** seven campuses at different pins; people appear as "Robiul H.", never an address. The employer gets 403 on the directory.
 
@@ -317,3 +360,21 @@ All four reuse existing evidence, mentor review and company rules. The server en
 
 ## Hosted backend
 Default API is https://dryrunapp.onrender.com (mobile/lib/core/api.dart). Override with --dart-define=API_URL=... for local runs. Render free plan sleeps when idle, so the first request can take about a minute (timeouts raised to 60 s). Seed the demo data on Render once if needed.
+
+
+## Update 36: job search, saved jobs, chat blocking, complete data export and delete
+Three items from `docs/IMPROVEMENT_ROADMAP.md` (P1 "complete data export and deletion", P2 "enforce blocks in chat", P2 "job search, filters, pagination, saved jobs").
+
+1. **Job search and saved jobs.** `GET /api/opportunities` now takes `q`, `type`, `mode`, `minFit`, `closingSoon`, `hideApplied`, `savedOnly`, `sort=newest|deadline|fit`, `page`, `limit` (max 50) and returns `total`, `page`, `hasMore`. With no query it is still newest first (20 per page). Jobs whose deadline has passed are no longer listed (applying to them already failed). Each item has `daysLeft`; for students also `saved` and `applied`. Bad values return 400 `BAD_QUERY`. New: `POST` and `DELETE /api/opportunities/:id/save` (private to the student, at most 100) and a `saved` flag on the job detail. Rules are pure functions in `backend/src/services/jobsearch.js`. Flutter: the Jobs tab has a search box, type chips, Saved / Remote / Closing in 7 days / Hide applied chips, a sort menu, "Show more", a heart on every card, and "N days left"; the job detail has Save.
+2. **Blocking now closes the chat.** Before, `POST /users/:id/block` hid people from lists but both people could still read and send messages. `GET` and `POST /requests/:id/messages` now return 403 when either side blocked the other, and a Socket.IO `join` is refused. No notification is sent to the blocked person. Rule: `backend/src/services/blocks.js`.
+3. **One list for "Download my data" and "Delete my account"** (`backend/src/services/userdata.js`). Export and delete now cover passport, sprints, projects, GitHub link, plan reviews, mentor reviews, saved jobs, company invitations, journey, community posts, comments, follows, Q&A, hosted workshops, plans, matches and verification-document metadata (never the file bytes). Reactions and reports by the person are removed from other people's posts; a mentor's name is cleared from students' sprints and endorsements; comments on a deleted post go with it; chat messages of the other person go with the chat. Kept on purpose, and listed in the download as `keptAfterDeletion` with the reason: the blank account row, safety reports, the admin audit log, and job posts other students applied to.
+   - **Bug fixed on the way:** the old delete and export looked up resource progress by `userId`, but the model uses `studentId`, so account deletion never removed it. Fixed.
+   - **A test keeps this honest:** `tests/userdata.test.js` reads every model file and fails if a model that points at a user is in neither the delete list nor the "kept on purpose" list. A future feature cannot be added and forgotten.
+   - Behaviour change to know about: workshops a person hosted are now deleted with their account (before they stayed, still showing the host's id).
+
+**Tests:** `tests/jobsearch.test.js` (17), `tests/blocks.test.js` (6), `tests/userdata.test.js` (13). All 36 pass. They are plain Jest files with no database. **Honest status:** these were run with a small Jest-compatible runner because the package registry was blocked in the environment where this was written, so run `npm test` once yourself. The three route files (`opportunities.js`, `mentoring.js`, `extras.js`) pass a syntax check and an undefined-name lint but their HTTP routes were **not executed** (no Express/MongoDB there). The Flutter changes (`jobs.dart`, `jobs_more.dart`) are **not compiled**: run `flutter analyze` and send me the error text if there is any.
+
+## Update 37: admin Jobs tab (all jobs and who applied)
+- New admin tab **Jobs** (app: admin bottom bar). Lists every job post in any status (pending, approved, hidden, removed) with search and a status filter, totals (jobs, applications, pending), and per job: how many applied (and per stage), how many saved it, report count, scam flags, who posted it. Admin can Approve, Restore or Remove from the card. Tap a job (or "Who applied") for the applicant list.
+- Privacy: the applicant list shows name, department, stage and date only. Never the CV, the note or contact details; those stay with what the student agreed to share with the poster.
+- API: `GET /api/admin/jobs?status=&q=&page=&limit=` and `GET /api/admin/jobs/:id/applications` (admin only). Rules: `backend/src/services/adminjobs.js`; tests: `tests/adminjobs.test.js` (11, pass with the same Jest-compatible runner; routes not run against a database). Flutter: `mobile/lib/features/admin_jobs.dart`, tab added in `shell.dart` (not compiled; run `flutter analyze`).

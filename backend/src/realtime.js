@@ -2,6 +2,7 @@
 const { Server } = require('socket.io');
 const { User, MentorRequest } = require('./models');
 const env = require('./config/env');
+const { isBlockedBetween, otherId } = require('./services/blocks');
 
 function attach(server, verify = require('./config/firebase').verifyCredential) {
   // Same origin allowlist as the REST API (CORS_ORIGINS). Empty list = allow any origin, as before.
@@ -21,6 +22,9 @@ function attach(server, verify = require('./config/firebase').verifyCredential) 
         const rq = await MentorRequest.findById(requestId);
         const ok = rq && rq.status === 'accepted' && [String(rq.studentId), String(rq.mentorId)].includes(String(socket.user._id));
         if (!ok) return ack && ack({ error: 'FORBIDDEN' });
+        // A block (either direction) closes the room. Re-read the user: the block may have happened after the socket connected.
+        const [me, other] = await Promise.all([User.findById(socket.user._id).select('blockedBy'), User.findById(otherId(rq, socket.user._id)).select('blockedBy')]);
+        if (isBlockedBetween(me, other)) return ack && ack({ error: 'FORBIDDEN' });
         socket.join(`req:${rq._id}`); ack && ack({ ok: true });
       } catch { ack && ack({ error: 'FORBIDDEN' }); }
     });

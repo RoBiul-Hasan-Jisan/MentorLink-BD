@@ -105,8 +105,6 @@ class MentorRequests extends ConsumerWidget {
               ],
               const SizedBox(height: 8),
               const _ImpactMini(),
-              const SizedBox(height: 14),
-              BigButton(tr(context, 'Post a verified opportunity', 'যাচাইকৃত সুযোগ পোস্ট করুন'), onPressed: () => context.push('/mentor/post-opportunity')),
               const SizedBox(height: 24),
             ])),
           ]),

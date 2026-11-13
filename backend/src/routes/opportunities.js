@@ -1,14 +1,18 @@
 const express = require('express');
 const { z } = require('zod');
 const { normalizeCv, stripContact, cvTips } = require('../services/cv');
-const { Opportunity, Application, Report, CvVersion, SkillEvidence, Skill, User, STAGES } = require('../models');
+const { Opportunity, Application, Report, CvVersion, SkillEvidence, Skill, User, SavedJob, STAGES } = require('../models');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { audit, notify, toObjectId } = require('../utils/helpers');
 const { scamFlags, uiStage, canMove } = require('../services/scam');
 const { levelsFromEvidence } = require('../services/readiness');
+const { parseParams, filterJobs, sortJobs, paginate, daysLeft } = require('../services/jobsearch');
 const env = require('../config/env');
+const { posterIds, isPoster } = require('../services/posters');
+
+const MAX_SAVED_JOBS = 100;
 
 module.exports = function opportunityRoutes(auth) {
   const r = express.Router();
@@ -58,25 +62,8 @@ module.exports = function opportunityRoutes(auth) {
     res.json({ cv });
   });
 
-  // ---- opportunity posting (verified alumni mentors or admin) ----
-  const oppSchema = z.object({
-    title: z.string().trim().min(3).max(120), organization: z.string().trim().min(2).max(120), type: z.enum(['job', 'internship', 'other']).default('job'),
-    workplaceMode: z.enum(['onsite', 'hybrid', 'remote']).default('onsite'), locationText: z.string().max(120).optional(),
-    description: z.string().trim().min(20).max(4000), applicationDeadline: z.coerce.date().optional(),
-    requiredSkills: z.array(z.object({ skillKey: z.string(), requiredLevel: z.number().int().min(1).max(3).default(2), weight: z.number().min(0).default(1) })).max(10).default([]),
-    noFeeConfirmed: z.boolean(),
-  }).strict();
-  r.post('/opportunities', A, requireRole('mentor', 'admin'), validate(oppSchema), async (req, res) => {
-    if (req.user.verificationStatus !== 'verified') throw forbidden('Only verified users can post.');
-    if (!req.body.noFeeConfirmed) throw bad('NO_FEE_REQUIRED', 'You must confirm that this post never asks applicants for money.');
-    const flags = scamFlags(`${req.body.title} ${req.body.description}`);
-    const isAdmin = req.user.role === 'admin';
-    const opp = await Opportunity.create({
-      ...req.body, postedBy: req.user._id, sourceLabel: isAdmin ? 'admin' : 'verified_alumni', suspiciousFlags: flags,
-      status: isAdmin && !flags.length ? 'approved' : 'pending', listingReviewed: isAdmin && !flags.length,
-    });
-    res.status(201).json({ opportunity: opp });
-  });
+  // Jobs are posted ONLY by employers (see routes/employer.js: POST /api/employer/jobs). Students, mentors, departments and admins cannot post jobs.
+  // This file only lets people browse, save and apply.
 
   const publicOpp = (o, fit) => ({
     id: o._id, title: o.title, organization: o.organization, type: o.type, workplaceMode: o.workplaceMode, locationText: o.locationText,
@@ -89,12 +76,47 @@ module.exports = function opportunityRoutes(auth) {
     for (const s of o.requiredSkills) { d += s.weight; n += s.weight * Math.min(((have[s.skillKey] || {}).level || 0) / s.requiredLevel, 1); }
     return d ? Math.round((100 * n) / d) : undefined;
   };
+  // Search, filter, sort and page. Query: q, type, mode, minFit, closingSoon, hideApplied, savedOnly, sort=newest|deadline|fit, page, limit.
+  // With no query it behaves as before (newest first), now paged (20 per page) and without jobs whose deadline has passed.
+  // Each item carries `saved`, `applied` and `daysLeft` for the student's own account. Rules live in services/jobsearch.js.
   r.get('/opportunities', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
-    const list = await Opportunity.find({ status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(100);
+    const p = parseParams(req.query);
+    const isStudent = req.user.role === 'student';
+    const list = await Opportunity.find({ status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(500);
     let have = {};
-    if (req.user.role === 'student') have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
-    const posters = new Map((await User.find({ _id: { $in: list.map((o) => o.postedBy) } }).select('displayName').lean()).map((u) => [String(u._id), u.displayName]));
-    res.json({ opportunities: list.map((o) => ({ ...publicOpp(o, req.user.role === 'student' ? fitOf(o, have) : undefined), postedByName: posters.get(String(o.postedBy)) || '' })) });
+    const fit = new Map(), applied = new Set(), saved = new Set();
+    if (isStudent) {
+      have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
+      for (const o of list) { const f = fitOf(o, have); if (f !== undefined) fit.set(String(o._id), f); }
+      for (const a of await Application.find({ studentId: req.user._id }).select('opportunityId stage').lean()) if (a.stage !== 'Withdrawn') applied.add(String(a.opportunityId));
+      for (const s of await SavedJob.find({ studentId: req.user._id }).select('opportunityId').lean()) saved.add(String(s.opportunityId));
+    } else if (p.savedOnly || p.hideApplied || p.minFit) {
+      throw bad('STUDENT_ONLY_FILTER', 'Saved, applied and fit filters are for student accounts.');
+    }
+    const ctx = { fit, applied, saved, now: new Date() };
+    const page = paginate(sortJobs(filterJobs(list, p, ctx), p.sort, ctx), p.page, p.limit);
+    const posters = new Map((await User.find({ _id: { $in: page.items.map((o) => o.postedBy) } }).select('displayName').lean()).map((u) => [String(u._id), u.displayName]));
+    res.json({
+      opportunities: page.items.map((o) => ({
+        ...publicOpp(o, fit.get(String(o._id))), postedByName: posters.get(String(o.postedBy)) || '',
+        daysLeft: daysLeft(o, ctx.now), ...(isStudent ? { saved: saved.has(String(o._id)), applied: applied.has(String(o._id)) } : {}),
+      })),
+      total: page.total, page: page.page, limit: page.limit, hasMore: page.hasMore,
+    });
+  });
+  // Saved jobs (a private shortlist; employers and mentors never see it).
+  r.post('/opportunities/:id/save', ...student, async (req, res) => {
+    toObjectId(req.params.id);
+    if (!(await Opportunity.exists({ _id: req.params.id, status: 'approved' }))) throw notFound('This opportunity is not available.');
+    if (await SavedJob.exists({ studentId: req.user._id, opportunityId: req.params.id })) return res.json({ saved: true }); // saving twice is fine
+    if ((await SavedJob.countDocuments({ studentId: req.user._id })) >= MAX_SAVED_JOBS) throw conflict('SAVED_LIMIT', `You can save up to ${MAX_SAVED_JOBS} jobs. Remove one first.`);
+    try { await SavedJob.create({ studentId: req.user._id, opportunityId: req.params.id }); } catch (e) { if (e.code !== 11000) throw e; }
+    res.status(201).json({ saved: true });
+  });
+  r.delete('/opportunities/:id/save', ...student, async (req, res) => {
+    toObjectId(req.params.id);
+    await SavedJob.deleteOne({ studentId: req.user._id, opportunityId: req.params.id });
+    res.json({ saved: false });
   });
   // Job detail: the fit percentage and a skill-by-skill breakdown (design: "Your fit before applying").
   r.get('/opportunities/:id', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
@@ -115,12 +137,13 @@ module.exports = function opportunityRoutes(auth) {
       const gapsOnly = breakdown.filter((b) => b.status === 'gap');
       if (gapsOnly.length) projectedFit = 100; // fit if every listed gap were closed; shown with the gap list, not as a promise
     }
-    let myApplication = null;
+    let myApplication = null, saved = false;
     if (req.user.role === 'student') {
+      saved = !!(await SavedJob.exists({ studentId: req.user._id, opportunityId: o._id }));
       const a = await Application.findOne({ studentId: req.user._id, opportunityId: o._id }).lean();
       if (a) myApplication = { id: a._id, stage: uiStage(a.stage), withdrawn: a.stage === 'Withdrawn', appliedAt: a.createdAt };
     }
-    res.json({ opportunity: { ...publicOpp(o, fit), postedByName: (poster || {}).displayName || '', closed: !!o.closed }, fit, breakdown, projectedFit, myApplication });
+    res.json({ opportunity: { ...publicOpp(o, fit), postedByName: (poster || {}).displayName || '', closed: !!o.closed, daysLeft: daysLeft(o) }, fit, breakdown, projectedFit, myApplication, saved });
   });
 
   // ---- applications ----
@@ -130,6 +153,7 @@ module.exports = function opportunityRoutes(auth) {
     const opp = await Opportunity.findOne({ _id: req.params.id, status: 'approved', closed: { $ne: true } });
     if (!opp) throw notFound('This opportunity is not available.');
     if (opp.applicationDeadline && opp.applicationDeadline < new Date()) throw conflict('DEADLINE_PASSED', 'The deadline has passed.');
+    if (await isPoster(req.user, opp)) throw forbidden('You cannot apply to a job you run.');
     toObjectId(req.body.cvVersionId, 'cv id');
     const cv = await CvVersion.findOne({ _id: req.body.cvVersionId, studentId: req.user._id });
     if (!cv) throw bad('CV_REQUIRED', 'Choose one of your CV versions.');
@@ -141,7 +165,7 @@ module.exports = function opportunityRoutes(auth) {
       prior.consentSnapshot = { sharedFields: req.body.sharedFields, consentedAt: new Date() };
       prior.stageHistory.push({ stage: 'Applied', by: req.user._id });
       await prior.save();
-      await notify(opp.postedBy, 'New application', opp.title, 'application');
+      for (const id of await posterIds(opp)) await notify(id, 'New application', opp.title, 'application', { type: 'application', id: String(prior._id) });
       return res.status(201).json({ application: { id: prior._id, stage: uiStage(prior.stage) } });
     }
     const app = await Application.create({
@@ -149,7 +173,7 @@ module.exports = function opportunityRoutes(auth) {
       consentSnapshot: { sharedFields: req.body.sharedFields, consentedAt: new Date() },
       stageHistory: [{ stage: 'Applied', by: req.user._id }],
     });
-    await notify(opp.postedBy, 'New application', opp.title, 'application');
+    for (const id of await posterIds(opp)) await notify(id, 'New application', opp.title, 'application', { type: 'application', id: String(app._id) });
     res.status(201).json({ application: { id: app._id, stage: uiStage(app.stage) } });
   });
   r.get('/me/applications', ...student, async (req, res) => {
@@ -170,21 +194,21 @@ module.exports = function opportunityRoutes(auth) {
     res.json({ ok: true });
   });
   // The poster sees applicants and moves them through stages. Only consented fields are shown.
-  r.get('/opportunities/:id/applications', A, requireRole('mentor', 'admin'), async (req, res) => {
+  r.get('/opportunities/:id/applications', A, async (req, res) => {
     toObjectId(req.params.id);
     const opp = await Opportunity.findById(req.params.id);
-    if (!opp || (req.user.role !== 'admin' && String(opp.postedBy) !== String(req.user._id))) throw notFound();
+    if (!opp || (req.user.role !== 'admin' && !(await isPoster(req.user, opp)))) throw notFound();
     const apps = await Application.find({ opportunityId: opp._id }).populate('studentId', 'displayName department').populate('cvVersionId');
     res.json({ applications: apps.map((a) => {
       const f = a.consentSnapshot.sharedFields;
       return { id: a._id, stage: a.stage, name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote };
     }) });
   });
-  r.patch('/applications/:id/stage', A, requireRole('mentor', 'admin'), validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
+  r.patch('/applications/:id/stage', A, validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
     toObjectId(req.params.id);
     const a = await Application.findById(req.params.id);
     const opp = a && (await Opportunity.findById(a.opportunityId));
-    if (!a || (req.user.role !== 'admin' && String(opp.postedBy) !== String(req.user._id))) throw notFound();
+    if (!a || !opp || (req.user.role !== 'admin' && !(await isPoster(req.user, opp)))) throw notFound();
     if (a.stage === 'Withdrawn') throw conflict('WITHDRAWN', 'The student withdrew this application.');
     if (!canMove(a.stage, req.body.stage)) throw conflict('INVALID_STAGE', `Cannot move from ${a.stage} to ${req.body.stage}.`);
     a.stage = req.body.stage; a.statusMessage = req.body.message || a.statusMessage;

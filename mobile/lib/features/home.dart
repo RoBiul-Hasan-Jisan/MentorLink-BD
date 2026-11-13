@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../core/ui.dart';
 import 'feed.dart';
 import 'launch.dart';
+import 'hiring.dart';
 import 'widgets.dart';
 
 
@@ -86,6 +87,7 @@ class StudentHome extends ConsumerWidget {
         Transform.translate(offset: const Offset(0, -64), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
           _nextSession(context, sessions),
           const BriefCard(),
+          const HiringInboxCard(),
           AppCard(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(tr(context, 'This week', 'এই সপ্তাহ'), style: display(20, color: Brand.ink)),

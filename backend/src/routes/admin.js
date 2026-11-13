@@ -1,6 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
-const { Resource, Skill, User, University, MentorProfile, StudentProfile, SkillEvidence, Opportunity, Report, AuditLog, Application, Match } = require('../models');
+const { Resource, Skill, User, University, MentorProfile, StudentProfile, SkillEvidence, Opportunity, Report, AuditLog, Application, Match, SavedJob } = require('../models');
+const aj = require('../services/adminjobs');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { notFound, bad } = require('../utils/httpError');
@@ -53,6 +54,9 @@ module.exports = function adminRoutes(auth) {
     await o.save();
     if (req.body.decision !== 'approve') await Report.updateMany({ targetType: 'opportunity', targetId: o._id }, { status: req.body.decision === 'restore' ? 'dismissed' : 'actioned' });
     await audit(req.user._id, `opportunity_${req.body.decision}`, 'opportunity', o._id);
+    // The person who posted it hears the decision (a student or alumnus posting for the first time would otherwise wait in silence).
+    const said = { approve: 'Your job post was approved and is now visible.', restore: 'Your job post is visible again.', reject: 'Your job post was not approved.', remove: 'Your job post was removed.' }[req.body.decision];
+    if (o.postedBy) await notify(o.postedBy, said, o.title, 'opportunity', { type: 'opportunity', id: String(o._id) });
     res.json({ status: o.status });
   });
   // Safety reports (users, opportunities, resources). The reporter is never shown; the queue shows what was reported and why.
@@ -70,6 +74,33 @@ module.exports = function adminRoutes(auth) {
     if (!rep) throw notFound('No open report with this id.');
     await audit(req.user._id, `report_${req.body.decision}`, 'report', rep._id, { targetType: rep.targetType });
     res.json({ ok: true, status: rep.status });
+  });
+  // ALL job posts, any status, with how many people applied (by stage) and how many saved it. Filters: status, q, page, limit.
+  r.get('/admin/jobs', ...admin, async (req, res) => {
+    const p = aj.parseAdminParams(req.query);
+    const jobs = await Opportunity.find({}).sort({ createdAt: -1 }).limit(2000).lean();
+    const ids = jobs.map((j) => j._id);
+    const [apps, saves] = await Promise.all([
+      Application.find({ opportunityId: { $in: ids } }).select('opportunityId stage').lean(),
+      SavedJob.find({ opportunityId: { $in: ids } }).select('opportunityId').lean(),
+    ]);
+    const appsBy = aj.groupBy(apps, 'opportunityId'), savesBy = aj.groupBy(saves, 'opportunityId');
+    const page = aj.paginate(aj.filterAdminJobs(jobs, p), p.page, p.limit);
+    const posters = new Map((await User.find({ _id: { $in: page.items.map((j) => j.postedBy) } }).select('displayName').lean()).map((u) => [String(u._id), u.displayName]));
+    res.json({
+      totals: aj.totals(jobs, appsBy, savesBy),
+      jobs: page.items.map((j) => aj.jobRow(j, appsBy.get(String(j._id)) || [], (savesBy.get(String(j._id)) || []).length, posters.get(String(j.postedBy)) || '')),
+      total: page.total, page: page.page, limit: page.limit, hasMore: page.hasMore,
+    });
+  });
+  // Who applied to one job. Names, department, stage and date only: never the CV, note or contact details.
+  r.get('/admin/jobs/:id/applications', ...admin, async (req, res) => {
+    toObjectId(req.params.id);
+    const job = await Opportunity.findById(req.params.id).lean();
+    if (!job) throw notFound();
+    const apps = await Application.find({ opportunityId: job._id }).sort({ createdAt: -1 }).limit(500).select('studentId stage createdAt').lean();
+    const students = new Map((await User.find({ _id: { $in: apps.map((a) => a.studentId) } }).select('displayName department').lean()).map((u) => [String(u._id), u]));
+    res.json({ job: { id: job._id, title: job.title, organization: job.organization, status: job.status }, byStage: aj.countByStage(apps), applications: apps.map((a) => aj.applicantRow(a, students.get(String(a.studentId)))) });
   });
   r.get('/admin/audit-logs', ...admin, async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || '100'), 10) || 100));

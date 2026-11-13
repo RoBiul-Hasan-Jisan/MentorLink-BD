@@ -24,17 +24,19 @@ test('seeds all accounts, is idempotent, EDU and Southern differ', async () => {
   const t = await seedDemo({ auth });
   await seedDemo({ auth });
   expect(t).toHaveLength(7);
-  expect(await models.User.countDocuments({ isDemo: true })).toBe(28); // 7 main + 10 extra students + 8 extra mentors + 3 pending-approval records (no login)
-  expect(auth.users.size).toBe(25);
+  expect(await models.User.countDocuments({ isDemo: true })).toBe(60); // main accounts, extra students and mentors, study and coverage mentors, pending-approval records (no login) and 4 more employers
+  expect(auth.users.size).toBe(57);
   // people spread over all 7 universities, each under its own campus pin
   const unis = await models.User.distinct('universityId', { isDemo: true, role: { $in: ['student', 'mentor'] } });
   expect(unis).toHaveLength(7);
-  expect(await models.MentorProfile.countDocuments()).toBe(10);
+  expect(await models.MentorProfile.countDocuments()).toBe(38);
   const edu = await models.University.findOne({ shortName: 'EDU' });
   const su = await models.University.findOne({ shortName: 'SUB' });
   expect(edu.campus.coordinates).not.toEqual(su.campus.coordinates);
   expect((await models.User.findOne({ email: 'student.edu@demo.mentorlink.bd' })).displayName).toBe('Robiul');
-  expect(await models.Organization.countDocuments({ verificationStatus: 'verified' })).toBe(1);
-  expect(await models.OrganizationMember.countDocuments({ status: 'active' })).toBe(1);
-  expect(await models.Opportunity.countDocuments({ status: 'approved' })).toBe(2);
+  expect(await models.Organization.countDocuments({ verificationStatus: 'verified' })).toBe(4); // Demo Tech + three more companies (a fifth is waiting for the admin)
+  expect(await models.OrganizationMember.countDocuments({ status: 'active' })).toBe(5); // Demo Tech has an owner and a recruiter
+  expect(await models.Opportunity.countDocuments({ status: 'approved' })).toBe(17); // ONLY employer jobs: base + more + hiring seed, including 1 closed
+  expect(await models.Opportunity.countDocuments({ status: 'pending' })).toBe(2); // two employer posts waiting for the admin (a first post of a company, and the backend post)
+  expect(await models.Opportunity.countDocuments({ closed: true })).toBe(1);
 });

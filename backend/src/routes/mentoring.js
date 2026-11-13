@@ -1,5 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
+const { isBlockedBetween, otherId } = require('../services/blocks');
 const { User, MentorProfile, MentorRequest, Session, Plan, Task, Message, Notification, Match, StudentProfile, RoleTemplate, SkillEvidence, Skill } = require('../models');
 const { computeReadiness } = require('../services/readiness');
 const { requireRole } = require('../middleware/auth');
@@ -187,6 +188,9 @@ module.exports = function mentoringRoutes(auth) {
     const rq = await MentorRequest.findById(req.params.id);
     if (!rq || !mine(req, rq)) throw notFound();
     if (rq.status !== 'accepted') throw forbidden('Chat opens after the mentor accepts.');
+    // Blocking ends the chat for both people: nothing can be read or sent, and the other person is not notified.
+    const other = await User.findById(otherId(rq, req.user._id)).select('blockedBy');
+    if (isBlockedBetween(req.user, other)) throw forbidden('This chat is not available.');
     return rq;
   }
   r.get('/requests/:id/messages', A, async (req, res) => {

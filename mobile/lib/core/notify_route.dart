@@ -21,6 +21,7 @@ String? notificationRoute(Map n, {required String role}) {
     case 'plan':
       return '/plan';
     case 'application':
+      if (id != null) return '/application/$id';
       return role == 'student' ? '/applications' : null;
     case 'opportunity':
       return id == null ? null : '/opportunity/$id';

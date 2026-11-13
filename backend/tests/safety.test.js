@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { setup, teardown, bearer, mkUni, mkUser, models } = require('./helpers');
+const { setup, teardown, bearer, mkUni, mkUser, mkEmployer, models } = require('./helpers');
 let app, edu, opp;
 beforeAll(async () => {
   app = await setup();
@@ -8,26 +8,35 @@ beforeAll(async () => {
   await mkUser('mnt', 'mentor', edu);
   for (const s of ['a', 'b', 'c', 'd']) await mkUser(s, 'student', edu);
   await mkUser('dept', 'department', edu);
+  await mkEmployer('emp');
 });
 afterAll(teardown);
 const job = (extra = {}) => ({ title: 'Junior Analyst', organization: 'Acme BD', description: 'Work with data and dashboards in a friendly team.', noFeeConfirmed: true, ...extra });
 
-test('post requires no-fee confirmation; scam words are flagged and held', async () => {
-  expect((await request(app).post('/api/opportunities').set(bearer('mnt')).send(job({ noFeeConfirmed: false }))).status).toBe(400);
-  expect((await request(app).post('/api/opportunities').set(bearer('a')).send(job())).status).toBe(403);
-  const r = await request(app).post('/api/opportunities').set(bearer('adm')).send(job({ description: 'Pay a registration fee via bKash to confirm your seat today.' }));
-  expect(r.body.opportunity.suspiciousFlags.length).toBeGreaterThan(0);
-  expect(r.body.opportunity.status).toBe('pending');
+test('ONLY an employer can post a job: student, mentor, department and admin cannot', async () => {
+  // the old open route is gone for everyone
+  for (const u of ['a', 'mnt', 'dept', 'adm', 'emp']) expect((await request(app).post('/api/opportunities').set(bearer(u)).send(job())).status).toBe(404);
+  // the employer route refuses every other role
+  for (const u of ['a', 'mnt', 'dept', 'adm']) expect((await request(app).post('/api/employer/jobs').set(bearer(u)).send(job())).status).toBe(403);
+  expect(await models.Opportunity.countDocuments({})).toBe(0);
 });
-test('mentor post pending until admin approves; labels are separate', async () => {
-  const p = await request(app).post('/api/opportunities').set(bearer('mnt')).send(job());
-  opp = p.body.opportunity;
+test('employer post requires no-fee confirmation; scam words are flagged and held', async () => {
+  expect((await request(app).post('/api/employer/jobs').set(bearer('emp')).send(job({ noFeeConfirmed: false }))).status).toBe(400);
+  const r = await request(app).post('/api/employer/jobs').set(bearer('emp')).send(job({ title: 'Data Helper', description: 'Pay a registration fee via bKash to confirm your seat today.' }));
+  expect(r.status).toBe(201);
+  expect(r.body.job.suspiciousFlags.length).toBeGreaterThan(0);
+  expect(r.body.job.status).toBe('pending');
+  await models.Opportunity.deleteOne({ _id: r.body.job._id });
+});
+test('employer post is pending until admin approves; label is employer', async () => {
+  const p = await request(app).post('/api/employer/jobs').set(bearer('emp')).send(job());
+  opp = p.body.job;
   expect(opp.status).toBe('pending');
   expect((await request(app).get('/api/opportunities').set(bearer('a'))).body.opportunities).toHaveLength(0);
-  expect((await request(app).post(`/api/admin/opportunities/${opp._id}/review`).set(bearer('mnt')).send({ decision: 'approve' })).status).toBe(403);
+  expect((await request(app).post(`/api/admin/opportunities/${opp._id}/review`).set(bearer('emp')).send({ decision: 'approve' })).status).toBe(403);
   await request(app).post(`/api/admin/opportunities/${opp._id}/review`).set(bearer('adm')).send({ decision: 'approve' });
   const l = (await request(app).get('/api/opportunities').set(bearer('a'))).body.opportunities[0];
-  expect(l.labels).toEqual({ source: 'verified_alumni', organizationVerified: false, listingReviewed: true, noFeeDeclared: true });
+  expect(l.labels).toEqual({ source: 'employer', organizationVerified: true, listingReviewed: true, noFeeDeclared: true });
 });
 test('apply needs consent, one application per post, 5-stage mapping, withdrawn separate', async () => {
   const cv = (await request(app).post('/api/me/cv').set(bearer('a')).send({ data: { summary: 'Hi' } })).body.cv;
@@ -37,15 +46,15 @@ test('apply needs consent, one application per post, 5-stage mapping, withdrawn 
   expect(ok.status).toBe(201);
   expect((await request(app).post(`/api/opportunities/${opp._id}/apply`).set(bearer('a')).send(ap)).status).toBe(409);
   const id = ok.body.application.id;
-  const bad = await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage: 'Hired' });
+  const bad = await request(app).patch(`/api/applications/${id}/stage`).set(bearer('emp')).send({ stage: 'Hired' });
   expect(bad.status).toBe(409); // cannot skip stages
   for (const [stage, sees] of [['Under Review', 'Applied'], ['Shortlisted', 'Shortlisted'], ['Interview', 'Interview'], ['Offer', 'Selected']]) {
-    expect((await request(app).patch(`/api/applications/${id}/stage`).set(bearer('mnt')).send({ stage })).body.studentSees).toBe(sees);
+    expect((await request(app).patch(`/api/applications/${id}/stage`).set(bearer('emp')).send({ stage })).body.studentSees).toBe(sees);
   }
   expect((await request(app).get('/api/me/applications').set(bearer('a'))).body.applications[0].stage).toBe('Selected');
-    const list = await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('mnt'));
+    const list = await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('emp'));
   expect(list.body.applications[0].department).toBeUndefined(); // not consented
-  expect((await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('b'))).status).toBe(403);
+  expect((await request(app).get(`/api/opportunities/${opp._id}/applications`).set(bearer('b'))).status).toBe(404); // not the poster: the post is invisible to them
 });
 test('3 unique reporters auto-hide; repeat reporter counts once; admin can restore', async () => {
   const rep = (u) => request(app).post('/api/reports').set(bearer(u)).send({ targetType: 'opportunity', targetId: String(opp._id), reason: 'asked me for money' });

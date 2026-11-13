@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../core/ui.dart';
 import 'admin.dart';
 import 'admin_more.dart';
+import 'admin_jobs.dart';
 import 'employer.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -82,6 +83,7 @@ class _ShellState extends ConsumerState<Shell> {
       case 'admin':
         return [
           (Icons.verified_outlined, tr(context, 'Queue', 'তালিকা'), const AdminQueue()),
+          (Icons.work_outline, tr(context, 'Jobs', 'চাকরি'), const AdminJobs()),
           (Icons.business_outlined, tr(context, 'Companies', 'কোম্পানি'), const AdminCompanies()),
           (Icons.menu_book_outlined, tr(context, 'Resources', 'রিসোর্স'), const AdminResources()),
           (Icons.fact_check_outlined, tr(context, 'Insights', 'তথ্য'), const AdminInsights()),
@@ -130,9 +132,7 @@ class ProfileScreen extends ConsumerWidget {
           ListTile(leading: Icon(Icons.language, color: Brand.delta), title: Text(tr(context, 'Language', 'ভাষা'), style: body(16, w: FontWeight.w600)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'bn', label: Text('বাং')), ButtonSegment(value: 'en', label: Text('EN'))], selected: {ref.watch(localeProvider)}, onSelectionChanged: (s) => ref.read(localeProvider.notifier).state = s.first)),
           ListTile(leading: Icon(Icons.palette_outlined, color: Brand.delta), title: Text(tr(context, 'Colour theme', 'রঙের থিম'), style: body(16, w: FontWeight.w600)), subtitle: Text(ref.watch(paletteProvider) == 'lilac' ? tr(context, 'Chrome Black + Digital Lilac', 'ক্রোম ব্ল্যাক + লাইল্যাক') : tr(context, 'Green + Saffron', 'সবুজ + জাফরান'), style: body(13, color: Brand.muted)), trailing: SegmentedButton<String>(showSelectedIcon: false, segments: [ButtonSegment(value: 'lilac', label: Text(tr(context, 'Lilac', 'লাইল্যাক'))), ButtonSegment(value: 'green', label: Text(tr(context, 'Green', 'সবুজ')))], selected: {ref.watch(paletteProvider)}, onSelectionChanged: (s) => ref.read(paletteProvider.notifier).state = s.first)),
         ])),
-        if (isStudent) AppCard(padding: const EdgeInsets.all(6), child: ListTile(leading: Icon(Icons.workspace_premium_outlined, color: Brand.delta), title: Text(pending ? tr(context, 'Mentor application pending', 'মেন্টর আবেদন অপেক্ষমাণ') : tr(context, 'Become a mentor', 'মেন্টর হন'), style: body(17, w: FontWeight.w700)), trailing: pending ? null : const Icon(Icons.chevron_right), onTap: pending ? null : () => _apply(context, ref))),
         AppCard(padding: const EdgeInsets.all(6), child: SwitchListTile(activeColor: Brand.delta, title: Text(tr(context, 'Low-data mode', 'লো-ডেটা মোড'), style: body(16, w: FontWeight.w600)), subtitle: Text(tr(context, 'Fewer images, map replaced by the directory list', 'কম ছবি, মানচিত্রের বদলে তালিকা'), style: body(13, color: Brand.muted)), value: u['lowDataMode'] == true, onChanged: (v) => savePrivacySetting(context, ref, {'lowDataMode': v}))),
-        if (isStudent) _CompanyTile(),
         AppCard(color: Brand.lightGreen, border: Colors.transparent, child: Row(children: [Icon(Icons.lock_outline, color: Brand.forest), const SizedBox(width: 12), Expanded(child: Text(tr(context, 'People appear at their university campus. We never track personal location.', 'সবাইকে তার বিশ্ববিদ্যালয়ের ক্যাম্পাসে দেখানো হয়। আমরা ব্যক্তিগত অবস্থান ট্র্যাক করি না।'), style: body(15, color: Brand.forest)))])),
         BigButton(tr(context, 'Sign out', 'সাইন আউট'), outlined: true, onPressed: () => FirebaseAuth.instance.signOut()),
       ])),

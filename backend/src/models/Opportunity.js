@@ -15,7 +15,7 @@ const opportunitySchema = new Schema(
     applicationDeadline: Date,
     noFeeConfirmed: { type: Boolean, default: false },
     // Separate, honest labels: who posted it, whether a person reviewed this listing, whether the poster declared no fee.
-    sourceLabel: { type: String, enum: ['verified_alumni', 'admin', 'employer'], required: true },
+    sourceLabel: { type: String, enum: ['verified_alumni', 'admin', 'employer', 'student'], required: true },
     organizationId: ref('Organization'),
     employmentType: { type: String, enum: ['full_time', 'part_time', 'internship', 'contract', 'freelance'] },
     closed: { type: Boolean, default: false },
@@ -46,6 +46,8 @@ const applicationSchema = new Schema(
     statusMessage: { type: String, default: 'Your application was received.' },
     stageHistory: [{ stage: String, by: ref('User'), at: { type: Date, default: Date.now }, message: String }],
     outcomeFeedback: { type: String, enum: ['yes', 'little', 'not_yet'] },
+    // When each side last opened the conversation (used for the unread count).
+    readAt: { student: Date, poster: Date },
   },
   { timestamps: true }
 );
@@ -64,6 +66,13 @@ const reportSchema = new Schema(
 );
 // One person reporting the same target repeatedly counts once.
 reportSchema.index({ reporterId: 1, targetType: 1, targetId: 1 }, { unique: true });
+
+// A student's private shortlist of jobs. One row per student and job.
+const savedJobSchema = new Schema(
+  { studentId: ref('User', { required: true, index: true }), opportunityId: ref('Opportunity', { required: true }) },
+  { timestamps: true }
+);
+savedJobSchema.index({ studentId: 1, opportunityId: 1 }, { unique: true });
 
 const auditLogSchema = new Schema(
   {
@@ -110,5 +119,6 @@ module.exports = {
   Opportunity: mongoose.model('Opportunity', opportunitySchema),
   Application: mongoose.model('Application', applicationSchema),
   Report: mongoose.model('Report', reportSchema),
+  SavedJob: mongoose.model('SavedJob', savedJobSchema),
   AuditLog: mongoose.model('AuditLog', auditLogSchema),
 };

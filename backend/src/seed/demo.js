@@ -56,9 +56,6 @@ async function seedDemo({ auth }) {
   await MentorProfile.updateOne({ userId: m2._id }, { $set: { roleKey: 'management-trainee', relatedRoleKeys: ['banking-trainee'], roleTitle: 'Management Trainee Lead', industry: 'FMCG', yearsExperience: 3, expertiseSkills: [{ skillKey: 'communication', level: 3 }, { skillKey: 'leadership', level: 2 }], languages: ['bn'], weeklyCapacity: 4, availableSlots: ['wed-20'], isRising: true, paused: false } }, { upsert: true });
   await CvVersion.updateOne({ studentId: stu._id, version: 1 }, { $set: { data: require('../services/cv').sampleCv() } }, { upsert: true }); // demo CV in the v2 layout (no phone or email)
   const adm = ids['admin@demo.mentorlink.bd'];
-  if (!(await Opportunity.findOne({ title: 'Junior Data Analyst (Demo)' }))) {
-    await Opportunity.create({ postedBy: adm._id, title: 'Junior Data Analyst (Demo)', organization: 'Demo Fintech Ltd', type: 'job', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Support the analytics team with SQL reports and dashboards. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'sql', requiredLevel: 2, weight: 3 }, { skillKey: 'excel', requiredLevel: 2, weight: 2 }], noFeeConfirmed: true, sourceLabel: 'admin', listingReviewed: true, status: 'approved' });
-  }
   // Phase 2: a verified demo company with an ACTIVE membership for the employer demo account, plus one reviewed job.
   const emp = ids['employer@demo.mentorlink.bd'];
   const org = await Organization.findOneAndUpdate({ name: 'Demo Tech Ltd' }, { $set: { website: 'https://demo-tech.example', industry: 'Software', city: 'Chattogram', publicDescription: 'Demo company for MentorLink BD.', workEmail: 'hr@demo-tech.example', verificationStatus: 'verified', verificationEvidence: 'Demo seed', reviewedBy: adm._id, reviewedAt: new Date() } }, { upsert: true, returnDocument: 'after' });
@@ -66,6 +63,8 @@ async function seedDemo({ auth }) {
   if (!(await Opportunity.findOne({ title: 'Junior Backend Developer (Demo)' }))) {
     await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
+  await require('./cleanup_non_employer_jobs').removeNonEmployerJobs(); // old demo databases: drop jobs posted by anyone who is not an employer
+  await require('./demo_jobs').seedMoreJobs(); // more demo jobs posted by employers only (one pending, one closed)
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
   await require('./demo_study').seedStudyMentors({ auth }); // 13 more mentors so the matching study has enough variety
   await require('./demo_coverage').seedCoverageMentors({ auth }); // mentors for every skill of every career goal (machine learning, maths, web, design, security, cloud...)
@@ -74,6 +73,7 @@ async function seedDemo({ auth }) {
   await require('./demo_community').seedCommunity(); // Community feed: posts, comments, reactions, follows, two moderation examples
   await require('./demo_portfolio').seedPortfolioDemo(); // portfolio projects, a verified demo GitHub link and a plan review request
   await require('./demo_startup').seedStartupDemo(); // shared Career Passport, sprints, a company invitation
+  await require('./demo_hiring').seedHiringDemo({ auth }); // more employers and companies, student-posted jobs, applicants with interviews, papers, offers and chat
   return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
 }
 module.exports = { seedDemo, ACCOUNTS };

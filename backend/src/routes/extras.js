@@ -13,6 +13,7 @@ const { computeReadiness } = require('../services/readiness');
 const { W } = require('../services/matching');
 const { scamFlags } = require('../services/scam');
 const { recordSnapshot, weekStreak, badgeList } = require('../services/progress');
+const { exportUser, eraseUser, RETAINED } = require('../services/userdata');
 
 const K = 3; // groups smaller than this are hidden from the department (privacy)
 
@@ -175,38 +176,25 @@ module.exports = function extrasRoutes(auth) {
       applications: apps.map((a) => ({ opportunity: a.opportunityId && a.opportunityId.title, organization: a.opportunityId && a.opportunityId.organization, sharedFields: a.consentSnapshot && a.consentSnapshot.sharedFields, at: a.consentSnapshot && a.consentSnapshot.at })),
     });
   });
+  // Everything we hold about the person: the account block here, every collection from services/userdata.js (one shared list for export and delete).
   r.get('/me/export', A, async (req, res) => {
-    const id = req.user._id;
-    const own = (Model, f = 'studentId') => Model.find({ [f]: id }).lean();
-    const [profile, mentorProfile, evidence, cvs, tasks, apps, requests, sessions, notifications, roadmap, resources, snaps, messages, mocks] = await Promise.all([
-      M.StudentProfile.findOne({ userId: id }).lean(), M.MentorProfile.findOne({ userId: id }).lean(), own(M.SkillEvidence), own(M.CvVersion), own(M.Task),
-      own(M.Application), M.MentorRequest.find({ $or: [{ studentId: id }, { mentorId: id }] }).lean(), M.Session.find({ $or: [{ studentId: id }, { mentorId: id }] }).lean(),
-      M.Notification.find({ userId: id }).lean(), own(M.RoadmapProgress), M.ResourceProgress.find({ userId: id }).lean(), own(M.ProgressSnapshot),
-      M.Message.find({ senderId: id }).lean(), M.MockInterview.find({ $or: [{ studentId: id }, { mentorId: id }] }).lean(),
-    ]);
     const u = req.user;
+    const data = await exportUser(M, u._id);
     res.setHeader('Content-Disposition', 'attachment; filename="mentorlink-my-data.json"');
     res.json({
       exportedAt: new Date(), account: { email: u.email, displayName: u.displayName, role: u.role, department: u.department, batchYear: u.batchYear, language: u.language, verificationStatus: u.verificationStatus, createdAt: u.createdAt },
       settings: { showInDirectory: u.showInDirectory, lowDataMode: u.lowDataMode, remindersOn: u.remindersOn, quietHours: u.quietHours, shareProgressWithDept: u.shareProgressWithDept, shareProgressWithMentors: u.shareProgressWithMentors },
-      profile, mentorProfile, evidence, cvVersions: cvs, tasks, applications: apps, requests, sessions, mockInterviews: mocks, notifications, roadmapProgress: roadmap, resourceProgress: resources, progressHistory: snaps, messagesSent: messages,
+      ...data,
+      keptAfterDeletion: RETAINED,
     });
   });
   r.delete('/me', A, validate(z.object({ confirm: z.literal('DELETE') }).strict()), async (req, res) => {
     const u = req.user;
     if (u.role === 'admin') throw forbidden('An admin account cannot delete itself here.');
     const id = u._id;
-    await Promise.all([
-      M.StudentProfile.deleteMany({ userId: id }), M.MentorProfile.deleteMany({ userId: id }), M.SkillEvidence.deleteMany({ studentId: id }), M.CvVersion.deleteMany({ studentId: id }),
-      M.Task.deleteMany({ studentId: id }), M.Plan.deleteMany({ studentId: id }), M.Notification.deleteMany({ userId: id }), M.RoadmapProgress.deleteMany({ studentId: id }),
-      M.ResourceProgress.deleteMany({ userId: id }), M.ProgressSnapshot.deleteMany({ studentId: id }), M.VerificationDoc.deleteMany({ userId: id }), M.Match.deleteMany({ $or: [{ studentId: id }, { mentorId: id }] }),
-      M.Message.deleteMany({ senderId: id }), M.Application.deleteMany({ studentId: id }), M.MockInterview.deleteMany({ $or: [{ studentId: id }, { mentorId: id }] }),
-      M.Session.deleteMany({ $or: [{ studentId: id }, { mentorId: id }] }), M.MentorRequest.deleteMany({ $or: [{ studentId: id }, { mentorId: id }] }),
-      M.Answer.deleteMany({ authorId: id }), M.Question.deleteMany({ authorId: id }),
-      M.Workshop.updateMany({}, { $pull: { attendees: id } }),
-    ]);
+    await eraseUser(M, id);
     const uid = u.firebaseUid;
-    Object.assign(u, { email: `deleted+${id}@deleted.invalid`, displayName: 'Deleted user', department: undefined, showInDirectory: false, deviceTokens: [], verificationStatus: 'rejected', deletedAt: new Date(), shareProgressWithDept: false, shareProgressWithMentors: false });
+    Object.assign(u, { email: `deleted+${id}@deleted.invalid`, displayName: 'Deleted user', department: undefined, showInDirectory: false, deviceTokens: [], blockedBy: [], verificationStatus: 'rejected', deletedAt: new Date(), shareProgressWithDept: false, shareProgressWithMentors: false });
     u.mentorApplication = { status: 'none' }; u.departmentApplication = { status: 'none' };
     await u.save();
     await audit(id, 'self_delete', 'user', id);
