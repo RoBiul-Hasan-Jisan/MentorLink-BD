@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/api.dart';
+import '../core/badges.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
@@ -23,7 +24,14 @@ class _Chat extends ConsumerState<ChatScreen> {
   String? unsent; // a message that failed to send; shown with a Retry button
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() { super.initState(); activeChatId = widget.requestId; _load(); _clearBadge(); }
+  // Messages from this chat count as read while it is open.
+  Future<void> _clearBadge() async {
+    try {
+      await ref.read(dioProvider).post('/notifications/read-target', data: {'type': 'chat', 'id': widget.requestId});
+      if (mounted) ref.invalidate(unreadNotificationsProvider);
+    } catch (_) {}
+  }
   Future<void> _load() async {
     try {
       final r = await ref.read(dioProvider).get('/requests/${widget.requestId}/messages');
@@ -31,7 +39,7 @@ class _Chat extends ConsumerState<ChatScreen> {
       final credential = await FirebaseAuth.instance.currentUser!.getIdToken();
       socket = io.io(apiUrl, io.OptionBuilder().setTransports(['websocket']).setAuth({'token': credential}).build());
       socket!.onConnect((_) => socket!.emitWithAck('join', widget.requestId, ack: (_) {}));
-      socket!.on('message', (m) { if (mounted) setState(() { if (!msgs.any((x) => x['_id'] == m['_id'])) msgs.add(Map<String, dynamic>.from(m)); }); });
+      socket!.on('message', (m) { if (mounted) { setState(() { if (!msgs.any((x) => x['_id'] == m['_id'])) msgs.add(Map<String, dynamic>.from(m)); }); if (m['senderId'] != ref.read(meProvider).valueOrNull?['id']) _clearBadge(); } });
     } catch (e) { if (mounted) setState(() => error = errorText(e)); }
   }
   Future<void> _send() async {
@@ -41,7 +49,7 @@ class _Chat extends ConsumerState<ChatScreen> {
     catch (e) { if (mounted) { setState(() => unsent = v); toast(context, errorText(e)); } }
   }
   @override
-  void dispose() { socket?.dispose(); super.dispose(); }
+  void dispose() { if (activeChatId == widget.requestId) activeChatId = null; socket?.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     final myId = ref.watch(meProvider).valueOrNull?['id'];

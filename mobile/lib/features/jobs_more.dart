@@ -24,7 +24,9 @@ class OpportunityDetailScreen extends ConsumerWidget {
       }
       if (!context.mounted) return;
       String cvId = '${cvs.first['_id']}';
-      final shared = <String>{'name', 'cv'};
+      final shared = <String>{'name', 'cv', 'skills'};
+      final qs = ((o['screeningQuestions'] as List?) ?? const []).map((e) => '$e').toList();
+      final answers = [for (final _ in qs) TextEditingController()];
       bool consent = false;
       final go = await showDialog<bool>(
         context: context,
@@ -48,6 +50,11 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   FilterChip(label: Text(tr(context, 'Skill levels', 'স্কিল লেভেল')), selected: shared.contains('skills'), onSelected: (v) => set(() { if (v) { shared.add('skills'); } else { shared.remove('skills'); } })),
                   FilterChip(label: Text(tr(context, 'Contact (phone, email)', 'যোগাযোগ (ফোন, ইমেইল)')), selected: shared.contains('contact'), onSelected: (v) => set(() { if (v) { shared.add('contact'); } else { shared.remove('contact'); } })),
                 ]),
+                if (qs.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(tr(context, 'Questions from the employer', 'নিয়োগকর্তার প্রশ্ন'), style: body(15, w: FontWeight.w700)),
+                  for (var i = 0; i < qs.length; i++) Padding(padding: const EdgeInsets.only(top: 6), child: TextField(controller: answers[i], maxLines: 2, onChanged: (_) => set(() {}), decoration: InputDecoration(labelText: qs[i], isDense: true))),
+                ],
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: consent,
@@ -59,13 +66,13 @@ class OpportunityDetailScreen extends ConsumerWidget {
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr(context, 'Cancel', 'বাতিল'))),
-              FilledButton(onPressed: consent ? () => Navigator.pop(c, true) : null, child: Text(tr(context, 'Apply', 'আবেদন'))),
+              FilledButton(onPressed: consent && answers.every((a) => a.text.trim().isNotEmpty) ? () => Navigator.pop(c, true) : null, child: Text(tr(context, 'Apply', 'আবেদন'))),
             ],
           ),
         ),
       );
       if (go != true) return;
-      await dio.post('/opportunities/$id/apply', data: {'cvVersionId': cvId, 'consent': true, 'sharedFields': shared.toList()});
+      await dio.post('/opportunities/$id/apply', data: {'cvVersionId': cvId, 'consent': true, 'sharedFields': shared.toList(), 'answers': [for (final a in answers) a.text.trim()]});
       ref.invalidate(applicationsProvider);
       ref.invalidate(opportunityDetailProvider(id));
       if (context.mounted) {
@@ -143,6 +150,9 @@ class OpportunityDetailScreen extends ConsumerWidget {
                 Pill(labels['source'] == 'verified_alumni' ? tr(context, 'Verified alumni post', 'যাচাইকৃত অ্যালামনাই পোস্ট') : labels['source'] == 'student' ? tr(context, 'Student post (reviewed by admin)', 'শিক্ষার্থীর পোস্ট (অ্যাডমিন দেখেছেন)') : labels['source'] == 'employer' ? tr(context, 'Company post', 'কোম্পানির পোস্ট') : tr(context, 'Admin post', 'অ্যাডমিন পোস্ট')),
                 if (labels['noFeeDeclared'] == true) Pill(tr(context, 'No fee confirmed', 'কোনো ফি নেই')),
                 if (labels['listingReviewed'] == true) Pill(tr(context, 'Listing reviewed', 'তালিকা পর্যালোচিত')),
+                if (o['salaryMin'] != null || o['salaryMax'] != null) Pill('৳ ${o['salaryMin'] ?? ''}${o['salaryMin'] != null && o['salaryMax'] != null ? '–' : ''}${o['salaryMax'] ?? ''} / ${tr(context, 'month', 'মাস')}'),
+                if (((o['vacancies'] as num?) ?? 1) > 1) Pill(tr(context, '${o['vacancies']} vacancies', '${o['vacancies']}টি পদ')),
+                if (o['experienceLevel'] != null) Pill('${o['experienceLevel']}'),
                 if (o['applicationDeadline'] != null) Pill(tr(context, 'Closes ${'${o['applicationDeadline']}'.substring(0, 10)}${days != null && days >= 0 ? ' ($days days left)' : ''}', 'শেষ ${'${o['applicationDeadline']}'.substring(0, 10)}${days != null && days >= 0 ? ' ($days দিন বাকি)' : ''}'), tone: days != null && days <= 7 ? Tone.red : Tone.saffron),
               ]),
               const SizedBox(height: 12),
@@ -170,6 +180,8 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   Text(tr(context, 'Fit uses your verified skill levels. Closing every gap would raise it, but it is not a promise of selection.', 'মিল আপনার যাচাইকৃত স্কিল লেভেল থেকে আসে। ঘাটতি পূরণে বাড়বে, তবে নির্বাচনের নিশ্চয়তা নয়।'), style: body(13, color: Brand.muted)),
                 ])),
               AppCard(child: Text('${o['description'] ?? ''}', style: body(16))),
+              if (o['companyId'] != null) TextButton.icon(onPressed: () => context.push('/company/${o['companyId']}'), icon: const Icon(Icons.business_outlined), label: Text(tr(context, 'About ${o['organization']}', '${o['organization']} সম্পর্কে'))),
+              _SimilarJobs(id: id),
               AppCard(color: Brand.lightSaffron, border: Colors.transparent, child: Text(
                 tr(context, 'Never pay to apply. A real listing here is always free. Report anything that asks for money.', 'আবেদনের জন্য কখনো টাকা দেবেন না। এখানে আসল তালিকা সবসময় বিনামূল্যে। টাকা চাইলে রিপোর্ট করুন।'),
                 style: body(14, color: const Color(0xFF5A3600)),
@@ -192,6 +204,66 @@ class OpportunityDetailScreen extends ConsumerWidget {
   }
 }
 
+final similarJobsProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/opportunities/$id/similar'));
+final companyProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) => getJson(ref, '/companies/$id'));
+
+// "Similar jobs": shown under a job, nothing is drawn when there are none.
+class _SimilarJobs extends ConsumerWidget {
+  const _SimilarJobs({required this.id});
+  final String id;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ((ref.watch(similarJobsProvider(id)).valueOrNull ?? const {})['opportunities'] as List?)?.cast<Map>() ?? const [];
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(tr(context, 'Similar jobs', 'একই ধরনের চাকরি'), style: body(17, w: FontWeight.w800))),
+      for (final j in list) AppCard(onTap: () => context.push('/opportunity/${j['id']}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${j['title']}', style: body(16, w: FontWeight.w700)),
+        Text('${j['organization']}', style: body(14, color: Brand.muted)),
+      ])),
+    ]);
+  }
+}
+
+// Company page: public facts, how quickly it replies, and its open jobs. Never the private proof.
+class CompanyScreen extends ConsumerWidget {
+  const CompanyScreen({super.key, required this.id});
+  final String id;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(body: AsyncBody(
+        value: ref.watch(companyProvider(id)), onRetry: () => ref.invalidate(companyProvider(id)),
+        builder: (d) {
+          final c = d['company'] as Map;
+          final resp = (d['responsiveness'] ?? {}) as Map;
+          final jobs = (d['jobs'] as List).cast<Map>();
+          return ListView(padding: EdgeInsets.zero, children: [
+            GreenHeader(radius: 36, bottomPad: 26, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              BackCircle(dark: true, onTap: () => context.pop()),
+              const SizedBox(height: 12),
+              Text('${c['name']}', style: display(26, color: Colors.white)),
+              Text([if (c['industry'] != null) c['industry'], if (c['city'] != null) c['city']].join(' · '), style: body(15, color: Colors.white70)),
+            ])),
+            Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                Pill(tr(context, 'Verified company', 'যাচাই করা কোম্পানি')),
+                if (resp['responseRate'] != null) Pill(tr(context, 'Replies to ${resp['responseRate']}% of applicants', '${resp['responseRate']}% আবেদনকারীকে উত্তর দেয়'), tone: (resp['responseRate'] as num) >= 60 ? Tone.green : Tone.saffron),
+                if (resp['avgReplyDays'] != null) Pill(tr(context, 'Usually replies in ${resp['avgReplyDays']} days', 'সাধারণত ${resp['avgReplyDays']} দিনে উত্তর দেয়')),
+              ]),
+              if ('${c['publicDescription'] ?? ''}'.isNotEmpty) AppCard(child: Text('${c['publicDescription']}', style: body(16))),
+              const SizedBox(height: 8),
+              Text(tr(context, 'Open jobs', 'চলমান চাকরি'), style: body(17, w: FontWeight.w800)),
+              if (jobs.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr(context, 'No open jobs right now.', 'এখন কোনো চলমান চাকরি নেই।'), style: body(15, color: Brand.muted))),
+              for (final j in jobs) AppCard(onTap: () => context.push('/opportunity/${j['id']}'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${j['title']}', style: body(16, w: FontWeight.w700)),
+                Text([j['type'], j['workplaceMode'], if (j['locationText'] != null) j['locationText']].join(' · '), style: body(14, color: Brand.muted)),
+              ])),
+            ])),
+          ]);
+        },
+      ));
+}
+
 final jobsMoreRoutes = <RouteBase>[
+  GoRoute(path: '/company/:id', builder: (_, s) => CompanyScreen(id: s.pathParameters['id']!)),
   GoRoute(path: '/opportunity/:id', builder: (_, s) => OpportunityDetailScreen(id: s.pathParameters['id']!)),
 ];

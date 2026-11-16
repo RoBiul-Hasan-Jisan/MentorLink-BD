@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api.dart';
+import '../core/badges.dart';
+import '../core/count_badge.dart';
 import '../core/links.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
@@ -9,6 +11,7 @@ import '../core/ui.dart';
 import 'feed.dart';
 import 'launch.dart';
 import 'hiring.dart';
+import 'ready.dart';
 import 'widgets.dart';
 
 
@@ -42,7 +45,7 @@ class StudentHome extends ConsumerWidget {
     final streak = (plan?['streak'] ?? 0) as int;
 
     return RefreshIndicator(
-      onRefresh: () async { ref.invalidate(briefProvider); ref.invalidate(readinessProvider); ref.invalidate(planProvider); ref.invalidate(matchesProvider); ref.invalidate(sessionsProvider); ref.invalidate(homeFeedProvider); },
+      onRefresh: () async { ref.invalidate(briefProvider); ref.invalidate(readinessProvider); ref.invalidate(planProvider); ref.invalidate(matchesProvider); ref.invalidate(sessionsProvider); ref.invalidate(homeFeedProvider); ref.invalidate(readyPathProvider); },
       child: ListView(padding: EdgeInsets.zero, children: [
         GreenHeader(bottomPad: 90, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -54,7 +57,7 @@ class StudentHome extends ConsumerWidget {
             ])),
             Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(24)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.local_fire_department, color: Brand.saffron, size: 20), const SizedBox(width: 4), Text('$streak', style: display(17, color: Colors.white))])),
             const SizedBox(width: 8),
-            InkWell(borderRadius: BorderRadius.circular(30), onTap: () => context.push('/notifications'), child: Container(width: 46, height: 46, decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle), child: const Icon(Icons.notifications_none, color: Colors.white))),
+            InkWell(borderRadius: BorderRadius.circular(30), onTap: () => context.push('/notifications'), child: Container(width: 46, height: 46, decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle), child: CountBadge(count: ref.watch(unreadNotificationsProvider).valueOrNull?.length ?? 0, child: const Icon(Icons.notifications_none, color: Colors.white)))),
           ]),
           const SizedBox(height: 18),
           rd.when(
@@ -86,6 +89,7 @@ class StudentHome extends ConsumerWidget {
         ])),
         Transform.translate(offset: const Offset(0, -64), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
           _nextSession(context, sessions),
+          const NextStepCard(),
           const BriefCard(),
           const HiringInboxCard(),
           AppCard(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api.dart';
+import '../core/badges.dart';
 import '../core/notify_route.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
@@ -38,6 +39,7 @@ class NotificationsScreen extends ConsumerWidget {
           await ref.read(dioProvider).post('/notifications/${n['_id'] ?? n['id']}/read');
         } catch (_) {}
         ref.invalidate(notificationsProvider);
+        ref.invalidate(unreadNotificationsProvider);
         final role = '${ref.read(meProvider).valueOrNull?['role'] ?? ''}';
         final route = notificationRoute(n, role: role);
         if (route != null && context.mounted) context.push(route);
@@ -57,6 +59,9 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
+    // The list refreshes by itself when something new arrives or is read elsewhere.
+    String sig(AsyncValue<List<Map>>? v) { final l = v?.valueOrNull ?? const <Map>[]; return '${l.length}|${l.isEmpty ? '' : l.first['_id']}'; }
+    ref.listen<AsyncValue<List<Map>>>(unreadNotificationsProvider, (p, n) { if (sig(p) != sig(n)) ref.invalidate(notificationsProvider); });
     return Scaffold(
       body: Column(children: [
         GreenHeader(radius: 28, bottomPad: 18, child: Row(children: [
@@ -68,6 +73,7 @@ class NotificationsScreen extends ConsumerWidget {
               try {
                 await ref.read(dioProvider).post('/notifications/read-all');
                 ref.invalidate(notificationsProvider);
+                ref.invalidate(unreadNotificationsProvider);
               } catch (e) {
                 if (context.mounted) toast(context, errorText(e));
               }

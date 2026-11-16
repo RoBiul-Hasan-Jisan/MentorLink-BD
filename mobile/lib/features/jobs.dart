@@ -22,7 +22,7 @@ class _OppState extends ConsumerState<OpportunitiesScreen> {
   Timer? _debounce;
   String type = 'all';
   String sort = 'newest';
-  bool remote = false, closingSoon = false, hideApplied = false, savedOnly = false;
+  bool remote = false, closingSoon = false, hideApplied = false, savedOnly = false, salary20k = false, fresher = false, myCity = false;
   List<Map> items = [];
   int total = 0, page = 0;
   bool hasMore = false, loading = false;
@@ -62,6 +62,9 @@ class _OppState extends ConsumerState<OpportunitiesScreen> {
         if (closingSoon) 'closingSoon': true,
         if (hideApplied) 'hideApplied': true,
         if (savedOnly) 'savedOnly': true,
+        if (salary20k) 'minSalary': 20000,
+        if (fresher) 'experience': 'fresher',
+        if (myCity) 'city': 'chattogram',
       });
       if (!mounted || gen != _gen) return;
       final d = r.data as Map;
@@ -136,7 +139,7 @@ class _OppState extends ConsumerState<OpportunitiesScreen> {
   Widget build(BuildContext context) {
     final types = {'all': tr(context, 'All', 'সব'), 'internship': tr(context, 'Internship', 'ইন্টার্নশিপ'), 'job': tr(context, 'Full time', 'ফুল টাইম'), 'other': tr(context, 'Freelance', 'ফ্রিল্যান্স')};
     final sorts = {'newest': tr(context, 'Newest', 'নতুন আগে'), 'deadline': tr(context, 'Closing soonest', 'শেষ তারিখ আগে'), 'fit': tr(context, 'Best fit', 'সেরা মিল')};
-    final filtered = _search.text.trim().isNotEmpty || type != 'all' || remote || closingSoon || hideApplied || savedOnly;
+    final filtered = _search.text.trim().isNotEmpty || type != 'all' || remote || closingSoon || hideApplied || savedOnly || salary20k || fresher || myCity;
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
@@ -175,6 +178,9 @@ class _OppState extends ConsumerState<OpportunitiesScreen> {
           _chip(tr(context, 'Remote', 'রিমোট'), remote, () => _change(() => remote = !remote)),
           _chip(tr(context, 'Closing in 7 days', '৭ দিনের মধ্যে শেষ'), closingSoon, () => _change(() => closingSoon = !closingSoon)),
           _chip(tr(context, 'Hide applied', 'আবেদন করাগুলো লুকান'), hideApplied, () => _change(() => hideApplied = !hideApplied)),
+          _chip(tr(context, 'Salary 20k+', 'বেতন ২০ হাজার+'), salary20k, () => _change(() => salary20k = !salary20k)),
+          _chip(tr(context, 'Fresher', 'ফ্রেশার'), fresher, () => _change(() => fresher = !fresher)),
+          _chip(tr(context, 'Chattogram', 'চট্টগ্রাম'), myCity, () => _change(() => myCity = !myCity)),
         ])),
         const SizedBox(height: 8),
         Row(children: [
@@ -312,6 +318,18 @@ class ApplicationsScreen extends ConsumerWidget {
         ]))),
       ]),
       if (withdrawn || notSel) Text(a['statusMessage'] ?? '', style: body(15, color: Brand.muted)),
+      // What to do next at this stage (the server decides the advice; the tap goes to the matching screen).
+      if (a['nextStep'] is Map) Padding(padding: const EdgeInsets.only(top: 10), child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.push((a['nextStep']['route'] ?? '/ready') as String),
+        child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Brand.lightSaffron, borderRadius: BorderRadius.circular(14)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.lightbulb_outline, size: 20, color: Brand.deep), const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(context, 'What to do next', 'এরপর কী করবেন'), style: body(12, color: Brand.deep, w: FontWeight.w800)),
+            Text(nm(context, a['nextStep'] as Map, 'en', 'bn'), style: body(14)),
+          ])),
+        ])),
+      )),
       if (!withdrawn) Padding(padding: const EdgeInsets.only(top: 8), child: BigButton(tr(context, 'Interviews, papers and messages', 'ইন্টারভিউ, কাগজ ও বার্তা'), outlined: true, onPressed: () => context.push('/application/${a['id']}'))),
       if (stage == 'Interview' && !withdrawn) Padding(padding: const EdgeInsets.only(top: 8), child: BigButton(tr(context, 'Practise with a mock interview', 'মক ইন্টারভিউ অনুশীলন করুন'), outlined: true, onPressed: () => context.push('/mock-interviews'))),
       if (!withdrawn && !notSel && stage != 'Selected') TextButton(onPressed: () async { await ref.read(dioProvider).post('/applications/${a['id']}/withdraw'); ref.invalidate(applicationsProvider); }, child: Text(tr(context, 'Withdraw application', 'আবেদন প্রত্যাহার'), style: body(15, color: const Color(0xFF9B2C1F), w: FontWeight.w700))),
