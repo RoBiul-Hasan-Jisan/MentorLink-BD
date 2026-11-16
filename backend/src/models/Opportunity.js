@@ -18,10 +18,18 @@ const opportunitySchema = new Schema(
     sourceLabel: { type: String, enum: ['verified_alumni', 'admin', 'employer', 'student'], required: true },
     organizationId: ref('Organization'),
     employmentType: { type: String, enum: ['full_time', 'part_time', 'internship', 'contract', 'freelance'] },
+    // richer job form (all optional except vacancies)
+    salaryMin: { type: Number, min: 0 }, salaryMax: { type: Number, min: 0 }, // BDT per month
+    vacancies: { type: Number, min: 1, default: 1 },
+    experienceLevel: { type: String, enum: ['fresher', 'junior', 'mid'] },
+    screeningQuestions: [{ type: String, maxlength: 200 }], // up to 3, answered by the applicant
+    views: { type: Number, default: 0 },
+    reviewDueAt: Date, // admin should review a pending job before this time
     closed: { type: Boolean, default: false },
+    demoKey: { type: String, index: true }, // demo seed only: the original demo title, so renaming a demo job does not make the seed add it again
     listingReviewed: { type: Boolean, default: false },
     suspiciousFlags: [String],
-    status: { type: String, enum: ['pending', 'approved', 'hidden', 'removed'], default: 'pending', index: true },
+    status: { type: String, enum: ['draft', 'pending', 'approved', 'hidden', 'removed'], default: 'pending', index: true },
     reportCount: { type: Number, default: 0 },
     reviewedBy: ref('User'),
     reviewedAt: Date,
@@ -37,6 +45,8 @@ const applicationSchema = new Schema(
     opportunityId: ref('Opportunity', { required: true, index: true }),
     cvVersionId: ref('CvVersion', { required: true }),
     applicantNote: { type: String, maxlength: 500 },
+    answers: [{ type: String, maxlength: 400 }], // answers to the job's screening questions
+    nudgedAt: Date, // the employer was reminded that this applicant is still waiting
     // Exactly what the student agreed to share, and when.
     consentSnapshot: {
       sharedFields: [String],
@@ -69,7 +79,7 @@ reportSchema.index({ reporterId: 1, targetType: 1, targetId: 1 }, { unique: true
 
 // A student's private shortlist of jobs. One row per student and job.
 const savedJobSchema = new Schema(
-  { studentId: ref('User', { required: true, index: true }), opportunityId: ref('Opportunity', { required: true }) },
+  { studentId: ref('User', { required: true, index: true }), opportunityId: ref('Opportunity', { required: true }), deadlineReminded: { type: Boolean, default: false } },
   { timestamps: true }
 );
 savedJobSchema.index({ studentId: 1, opportunityId: 1 }, { unique: true });
@@ -112,7 +122,11 @@ const orgMemberSchema = new Schema(
 );
 orgMemberSchema.index({ organizationId: 1, userId: 1 }, { unique: true });
 
+// Remembers demo jobs that a recruiter deleted on purpose, so the demo seed does not create them again.
+const deletedDemoJobSchema = new Schema({ key: { type: String, required: true, unique: true } }, { timestamps: true });
+
 module.exports = {
+  DeletedDemoJob: mongoose.model('DeletedDemoJob', deletedDemoJobSchema),
   Organization: mongoose.model('Organization', organizationSchema),
   OrganizationMember: mongoose.model('OrganizationMember', orgMemberSchema),
   STAGES,

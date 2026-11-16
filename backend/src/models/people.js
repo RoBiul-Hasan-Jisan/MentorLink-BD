@@ -11,6 +11,7 @@ const userSchema = new Schema(
     firebaseUid: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, lowercase: true },
     displayName: { type: String, required: true, trim: true, maxlength: 80 },
+    jobAlertsOn: { type: Boolean, default: true }, // students: tell me when a new job fits my skills
     role: { type: String, enum: ROLES, default: 'student', required: true },
     universityId: { type: Schema.Types.ObjectId, ref: 'University' },
     department: { type: String, trim: true, maxlength: 80 },
@@ -35,6 +36,7 @@ const userSchema = new Schema(
     quietHours: { from: { type: Number, min: 0, max: 23, default: 22 }, to: { type: Number, min: 0, max: 23, default: 7 } },
     shareProgressWithDept: { type: Boolean, default: false }, // counts only, never identity
     shareProgressWithMentors: { type: Boolean, default: false },
+    shareStory: { type: Boolean, default: false }, // the student agrees to appear as an anonymous "from X% to hired" story (no name, no university)
     shareOutcomesForResearch: { type: Boolean, default: false }, // anonymous, grouped results only (never individual rows)
     emailDomainMatch: { type: Boolean, default: false }, // the sign-up email domain matches the chosen university (not proof of ownership)
     affiliationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },

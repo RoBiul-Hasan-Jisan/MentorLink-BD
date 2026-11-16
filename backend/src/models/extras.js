@@ -67,7 +67,19 @@ const journeySchema = new Schema({
   note: { type: String, maxlength: 300, default: '' },
 }, { timestamps: true });
 
+// Self-practice for interviews: the student answers a question out loud or in writing, then rates how it went (1-5).
+// Private to the student. A mentor sees only a short summary, and only when the student asks that mentor for feedback.
+const practiceAnswerSchema = new Schema({
+  studentId: ref('User', { required: true, index: true }),
+  roleKey: { type: String, required: true },
+  questionId: { type: String, required: true },
+  rating: { type: Number, min: 1, max: 5, required: true },
+  note: { type: String, maxlength: 1000, default: '' },
+}, { timestamps: true });
+practiceAnswerSchema.index({ studentId: 1, questionId: 1, createdAt: -1 });
+
 module.exports = {
+  PracticeAnswer: mongoose.model('PracticeAnswer', practiceAnswerSchema),
   Journey: mongoose.model('Journey', journeySchema),
   MockInterview: mongoose.model('MockInterview', mockInterviewSchema),
   ProgressSnapshot: mongoose.model('ProgressSnapshot', progressSnapshotSchema),

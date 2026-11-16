@@ -1,7 +1,7 @@
 // Demo accounts. Idempotent: run it as often as you like. Refuses to run unless DEMO_MODE=true.
 // Works against real Firebase (service account) or the Firebase Auth Emulator (FIREBASE_AUTH_EMULATOR_HOST).
 const env = require('../config/env');
-const { User, University, StudentProfile, MentorProfile, SkillEvidence, Opportunity, CvVersion, Organization, OrganizationMember } = require('../models');
+const { User, University, StudentProfile, MentorProfile, SkillEvidence, Opportunity, CvVersion, Organization, OrganizationMember, DeletedDemoJob } = require('../models');
 const { seedLearning } = require('./learning');
 const { seedUniversities } = require('./universities');
 
@@ -60,11 +60,14 @@ async function seedDemo({ auth }) {
   const emp = ids['employer@demo.mentorlink.bd'];
   const org = await Organization.findOneAndUpdate({ name: 'Demo Tech Ltd' }, { $set: { website: 'https://demo-tech.example', industry: 'Software', city: 'Chattogram', publicDescription: 'Demo company for MentorLink BD.', workEmail: 'hr@demo-tech.example', verificationStatus: 'verified', verificationEvidence: 'Demo seed', reviewedBy: adm._id, reviewedAt: new Date() } }, { upsert: true, returnDocument: 'after' });
   await OrganizationMember.updateOne({ organizationId: org._id, userId: emp._id }, { $set: { membershipRole: 'owner', status: 'active' } }, { upsert: true });
-  if (!(await Opportunity.findOne({ title: 'Junior Backend Developer (Demo)' }))) {
-    await Opportunity.create({ postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
+  if (!(await DeletedDemoJob.exists({ key: 'Junior Backend Developer (Demo)' })) && !(await Opportunity.findOne({ $or: [{ demoKey: 'Junior Backend Developer (Demo)' }, { title: 'Junior Backend Developer (Demo)' }] }))) {
+    await Opportunity.create({ demoKey: 'Junior Backend Developer (Demo)', postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
   }
   await require('./cleanup_non_employer_jobs').removeNonEmployerJobs(); // old demo databases: drop jobs posted by anyone who is not an employer
-  await require('./demo_jobs').seedMoreJobs(); // more demo jobs posted by employers only (one pending, one closed)
+  await require('./demo_jobs').seedMoreJobs();
+  // richer job details for the demo (salary, vacancies, level), safe to repeat
+  await Opportunity.updateMany({ organization: 'Demo Tech Ltd', salaryMin: { $exists: false } }, { $set: { salaryMin: 25000, salaryMax: 40000, vacancies: 2, experienceLevel: 'junior' } });
+  await Opportunity.updateMany({ organization: { $ne: 'Demo Tech Ltd' }, salaryMin: { $exists: false } }, { $set: { salaryMin: 15000, salaryMax: 25000, experienceLevel: 'fresher' } }); // more demo jobs posted by employers only (one pending, one closed)
   await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
   await require('./demo_study').seedStudyMentors({ auth }); // 13 more mentors so the matching study has enough variety
   await require('./demo_coverage').seedCoverageMentors({ auth }); // mentors for every skill of every career goal (machine learning, maths, web, design, security, cloud...)

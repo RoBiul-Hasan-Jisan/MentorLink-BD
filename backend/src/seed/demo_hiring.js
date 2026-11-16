@@ -4,7 +4,7 @@
 //   * Applicants at every stage with interviews, papers (documents), offers and chat messages, plus a pending-review example.
 // Every person and company is invented, every job title ends with "(Demo)", no listing asks for a fee.
 // Idempotent: a job, application or account is only created when it does not exist yet. Needs the base demo seed first.
-const { User, Organization, OrganizationMember, Opportunity, Application, CvVersion, Interview, AppMessage, DocumentRequest, Offer, Report, Notification } = require('../models');
+const { User, Organization, OrganizationMember, Opportunity, Application, CvVersion, Interview, AppMessage, DocumentRequest, Offer, Report, Notification, DeletedDemoJob } = require('../models');
 const { normalizeCv } = require('../services/cv');
 const { scamFlags } = require('../services/scam');
 const { UNI } = require('./demo_more');
@@ -193,13 +193,14 @@ async function seedHiringDemo({ auth }) {
   // jobs
   const jobIds = new Map();
   for (const [posterEmail, company, title, orgLabel, type, employmentType, workplaceMode, locationText, desc, requiredSkills, deadline, status, source, recruiterKey] of JOBS) {
-    let job = await Opportunity.findOne({ title });
+    let job = await Opportunity.findOne({ $or: [{ demoKey: title }, { title }] });
+    if (!job && await DeletedDemoJob.exists({ key: title })) continue; // a recruiter deleted this demo job on purpose
     if (!job) {
       const org = company ? await Organization.findOne({ name: company }) : null;
       const poster = people.get(recruiterKey || posterEmail);
       const flags = scamFlags(`${title} ${desc}`);
       job = await Opportunity.create({
-        postedBy: poster._id, organizationId: org ? org._id : undefined, organization: org ? org.name : orgLabel, title, type, employmentType, workplaceMode, locationText,
+        demoKey: title, postedBy: poster._id, organizationId: org ? org._id : undefined, organization: org ? org.name : orgLabel, title, type, employmentType, workplaceMode, locationText,
         description: status === 'hidden' ? desc : desc + NOFEE, requiredSkills, applicationDeadline: ahead(deadline * 24), noFeeConfirmed: status !== 'hidden', sourceLabel: source,
         suspiciousFlags: flags, status, listingReviewed: status === 'approved', reportCount: status === 'hidden' ? 3 : 0, reviewedBy: status === 'pending' ? undefined : adm._id, reviewedAt: status === 'pending' ? undefined : ago(deadline > 10 ? 25 : 8),
       });
@@ -208,7 +209,7 @@ async function seedHiringDemo({ auth }) {
     jobIds.set(title, job);
   }
   // existing jobs from the base seed that also get applicants
-  for (const t of ['Frontend Developer (Demo)', 'QA Engineer (Demo)']) jobIds.set(t, await Opportunity.findOne({ title: t }));
+  for (const t of ['Frontend Developer (Demo)', 'QA Engineer (Demo)']) jobIds.set(t, await Opportunity.findOne({ $or: [{ demoKey: t }, { title: t }] }));
 
   // applications and everything that happened to them
   for (const a of APPS) {
@@ -259,7 +260,7 @@ async function seedHiringDemo({ auth }) {
   const rob = people.get(mail('robiul'));
   if (!(await Notification.exists({ userId: rob._id, title: 'Interview scheduled' }))) {
     const bi = jobIds.get('Business Intelligence Analyst (Demo)');
-    const bapp = await Application.findOne({ studentId: rob._id, opportunityId: bi._id });
+    const bapp = bi && await Application.findOne({ studentId: rob._id, opportunityId: bi._id });
     const t = bapp && { targetType: 'application', targetId: String(bapp._id) };
     await Notification.insertMany([
       { userId: rob._id, title: 'Interview scheduled', body: 'Business Intelligence Analyst (Demo): Analyst interview', kind: 'application', ...t, createdAt: ago(1) },

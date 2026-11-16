@@ -1,7 +1,7 @@
 // More DEMO jobs and internships (ALL posted by the employer demo account for Demo Tech Ltd; nobody else can post) so the job board, matching, job-gap and saved-jobs screens have variety.
 // Every organisation here is invented and every title ends with "(Demo)". No listing asks for a fee.
 // Idempotent: a job is only created if its title does not exist yet.
-const { Opportunity, Organization, User } = require('../models');
+const { Opportunity, Organization, User, DeletedDemoJob } = require('../models');
 
 const NOFEE = ' No fee is ever asked from applicants.';
 const day = (n) => new Date(Date.now() + n * 864e5);
@@ -23,7 +23,8 @@ async function seedMoreJobs() {
   if (!emp) return 0;
   const org = await Organization.findOne({ name: 'Demo Tech Ltd' });
   let created = 0;
-  const add = async (doc) => { if (!(await Opportunity.exists({ title: doc.title }))) { await Opportunity.create({ noFeeConfirmed: true, ...doc }); created++; } };
+  // Keyed by the original demo title (demoKey), so a recruiter renaming or editing a demo job does not bring the original back on the next seed run.
+  const add = async (doc) => { if (await DeletedDemoJob.exists({ key: doc.title })) return; if (!(await Opportunity.exists({ $or: [{ demoKey: doc.title }, { title: doc.title }] }))) { await Opportunity.create({ noFeeConfirmed: true, demoKey: doc.title, ...doc }); created++; } };
 
   if (org) {
     for (const [title, type, employmentType, workplaceMode, locationText, desc, requiredSkills, deadline] of EMPLOYER_JOBS) {
