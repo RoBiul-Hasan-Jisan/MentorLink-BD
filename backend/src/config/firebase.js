@@ -24,9 +24,25 @@ async function verifyCredential(credential) {
   return { uid: d.uid, email: d.email };
 }
 // Best-effort push through Firebase Cloud Messaging. Never throws: a failed push must not break a request.
-async function sendPush(tokens, title, body) {
+// `unreadCount` becomes the number on the app icon (like Kick's red "4"); `data` lets a tap open the right screen.
+async function sendPush(tokens, title, body, unreadCount, data, userId) {
   if (!tokens || !tokens.length || process.env.NODE_ENV === 'test') return;
-  try { await sdk().messaging().sendEachForMulticast({ tokens, notification: { title, body } }); } catch (e) { console.warn('push failed:', e.message); }
+  try {
+    const count = Number.isFinite(unreadCount) && unreadCount > 0 ? Math.min(unreadCount, 99) : undefined;
+    const out = await sdk().messaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      data: { ...(data || {}), ...(count ? { unreadCount: String(count) } : {}) },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'mentorlink_alerts', ...(count ? { notificationCount: count } : {}) },
+      },
+      apns: { payload: { aps: { sound: 'default', ...(count ? { badge: count } : {}) } } },
+    });
+    // A phone that uninstalled the app or reset its token will never accept pushes again: forget it, so the list does not grow forever.
+    const dead = tokens.filter((_t, i) => { const e = out.responses[i] && out.responses[i].error; return e && ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'].includes(e.code); });
+    if (dead.length && userId) await require('../models').User.updateOne({ _id: userId }, { $pull: { deviceTokens: { $in: dead } } });
+  } catch (e) { console.warn('push failed:', e.message); }
 }
 // Best-effort: remove the Firebase sign-in when a user deletes their data.
 async function deleteFirebaseUser(uid) {
