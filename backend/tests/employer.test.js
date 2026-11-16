@@ -7,30 +7,34 @@ beforeAll(async () => {
   app = await setup();
   edu = await mkUni('EDU', 'EDU', 'Chattogram', 91.83, 22.35);
   await mkUser('adm', 'admin', null);
-  for (const s of ['own1', 'own2', 'stu', 'stu2']) await mkUser(s, 'student', edu);
+  for (const s of ['stu', 'stu2']) await mkUser(s, 'student', edu);
 });
 afterAll(teardown);
 
-test('company flow: register -> no tools until admin verifies -> role promoted by server', async () => {
-  const bodyWithRole = await request(app).post('/api/orgs/register').set(bearer('own1')).send({ ...org('Acme'), role: 'employer' });
-  expect(bodyWithRole.status).toBe(400);
-  const reg = await request(app).post('/api/orgs/register').set(bearer('own1')).send(org('Acme'));
+test('recruiter sign-up: account + company together; no tools until admin verifies; students cannot register a company', async () => {
+  const post = (who, body) => request(app).post('/api/auth/register-recruiter').set(bearer(who)).send(body);
+  expect((await post('own1', { displayName: 'Owner One', company: org('Acme'), role: 'admin' })).status).toBe(400); // a client never chooses a role
+  const reg = await post('own1', { displayName: 'Owner One', company: org('Acme') });
   expect(reg.status).toBe(201);
-  expect((await models.User.findOne({ firebaseUid: 'own1' })).role).toBe('student');
-  expect((await request(app).get('/api/employer/jobs').set(bearer('own1'))).status).toBe(403);
-  expect((await request(app).post(`/api/admin/organizations/${reg.body.id}/review`).set(bearer('own1')).send({ decision: 'verified' })).status).toBe(403);
-  await request(app).post(`/api/admin/organizations/${reg.body.id}/review`).set(bearer('adm')).send({ decision: 'verified' });
-  expect((await models.User.findOne({ firebaseUid: 'own1' })).role).toBe('employer');
-  const reg2 = await request(app).post('/api/orgs/register').set(bearer('own2')).send(org('Beta Ltd'));
-  await request(app).post(`/api/admin/organizations/${reg2.body.id}/review`).set(bearer('adm')).send({ decision: 'verified' });
+  expect(reg.body.user.role).toBe('employer');
+  expect((await post('own1', { displayName: 'Owner One', company: org('Acme2') })).status).toBe(409); // profile exists
+  expect((await post('dup', { displayName: 'Dup', company: org('Acme') })).status).toBe(409); // company name taken, and no orphan account is left
+  expect(await models.User.findOne({ firebaseUid: 'dup' })).toBeNull();
+  expect((await request(app).get('/api/employer/jobs').set(bearer('own1'))).status).toBe(403); // not verified yet
+  expect((await request(app).post(`/api/admin/organizations/${reg.body.organization.id}/review`).set(bearer('own1')).send({ decision: 'verified' })).status).toBe(403);
+  await request(app).post(`/api/admin/organizations/${reg.body.organization.id}/review`).set(bearer('adm')).send({ decision: 'verified' });
+  expect((await request(app).get('/api/employer/jobs').set(bearer('own1'))).status).toBe(200);
+  const reg2 = await post('own2', { displayName: 'Owner Two', company: org('Beta Ltd') });
+  await request(app).post(`/api/admin/organizations/${reg2.body.organization.id}/review`).set(bearer('adm')).send({ decision: 'verified' });
+  expect((await request(app).post('/api/orgs/register').set(bearer('stu')).send(org('Gamma'))).status).toBe(404); // students cannot register a company
 });
 
-test('first job is reviewed by admin; later clean jobs auto-approve; scam words are held', async () => {
+test('every job is reviewed by admin before students see it; scam words are held', async () => {
   const j1 = await request(app).post('/api/employer/jobs').set(bearer('own1')).send(job());
   expect(j1.body.job.status).toBe('pending');
   expect((await request(app).post('/api/employer/jobs').set(bearer('own1')).send(job({ noFeeConfirmed: false }))).status).toBe(400);
   await request(app).post(`/api/admin/opportunities/${j1.body.job._id}/review`).set(bearer('adm')).send({ decision: 'approve' });
-  expect((await request(app).post('/api/employer/jobs').set(bearer('own1')).send(job({ title: 'Backend Developer' }))).body.job.status).toBe('approved');
+  expect((await request(app).post('/api/employer/jobs').set(bearer('own1')).send(job({ title: 'Backend Developer' }))).body.job.status).toBe('pending');
   expect((await request(app).post('/api/employer/jobs').set(bearer('own1')).send(job({ title: 'QA Tester', description: 'Pay a registration fee via bKash to secure this seat now.' }))).body.job.status).toBe('pending');
 });
 

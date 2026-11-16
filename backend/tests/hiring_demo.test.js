@@ -65,7 +65,7 @@ test('Robiul (main demo student) has things waiting: an interview to confirm, a 
   expect(inbox.applicant.interviews[0].status).toBe('scheduled');
   expect(inbox.applicant.documents.length).toBe(1);
   expect(inbox.applicant.unreadMessages).toBe(1);
-  expect((await get('student.edu@demo.mentorlink.bd', '/me/jobs')).body.jobs).toHaveLength(0); // a student has no jobs of their own: students cannot post
+  expect((await get('student.edu@demo.mentorlink.bd', '/me/jobs')).status).toBe(403); // students have no employer tools: they cannot post
 });
 
 test('every kind of state is present somewhere in the demo', async () => {
