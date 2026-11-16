@@ -301,10 +301,27 @@ class CompleteProfileScreen extends ConsumerStatefulWidget {
 class _Complete extends ConsumerState<CompleteProfileScreen> {
   final name = TextEditingController(), dept = TextEditingController();
   String? uni;
-  String want = 'student'; // student | alumni | department
+  String want = 'student'; // student | alumni | department | recruiter
+  final company = TextEditingController(), workEmail = TextEditingController(), proof = TextEditingController(), website = TextEditingController(), city = TextEditingController();
   final jobTitle = TextEditingController(), industry = TextEditingController(), years = TextEditingController(text: '2');
   bool busy = false;
+  // Recruiter: account + company in one step. Nothing works until an admin verifies the company.
+  Future<void> saveRecruiter() async {
+    if (name.text.trim().length < 2 || company.text.trim().length < 2 || !workEmail.text.contains('@') || proof.text.trim().length < 5) {
+      toast(context, tr(context, 'Enter your name, company name, work email and proof', 'আপনার নাম, কোম্পানির নাম, অফিসের ইমেইল ও প্রমাণ দিন')); return;
+    }
+    setState(() => busy = true);
+    try {
+      await ref.read(dioProvider).post('/auth/register-recruiter', data: {
+        'displayName': name.text.trim(), 'language': ref.read(localeProvider),
+        'company': {'name': company.text.trim(), 'workEmail': workEmail.text.trim(), 'verificationEvidence': proof.text.trim(), if (website.text.trim().isNotEmpty) 'website': website.text.trim(), if (city.text.trim().isNotEmpty) 'city': city.text.trim()},
+      });
+      ref.invalidate(meProvider);
+    } catch (e) { if (mounted) toast(context, errorText(e)); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
   Future<void> save() async {
+    if (want == 'recruiter') return saveRecruiter();
     if (uni == null || name.text.trim().length < 2) { toast(context, tr(context, 'Enter your name and choose your university', 'নাম লিখুন ও বিশ্ববিদ্যালয় বেছে নিন')); return; }
     setState(() => busy = true);
     try {
@@ -340,11 +357,14 @@ class _Complete extends ConsumerState<CompleteProfileScreen> {
           _roleChoice('alumni', 'Alumni mentor', 'অ্যালামনাই মেন্টর'),
           _roleChoice('department', 'Department', 'বিভাগ'),
         ]),
-        if (want != 'student') Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr(context, 'You start as a student. An admin reviews your request before the role is given.', 'আপনি শিক্ষার্থী হিসেবে শুরু করবেন। রোল দেওয়ার আগে অ্যাডমিন যাচাই করবেন।'), style: body(13, color: Brand.muted))),
+        Row(children: [_roleChoice('recruiter', 'Recruiter (company)', 'রিক্রুটার (কোম্পানি)')]),
+        if (want == 'recruiter') Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr(context, 'An admin verifies your company first. Until then you cannot post jobs.', 'আগে অ্যাডমিন আপনার কোম্পানি যাচাই করবেন। তার আগে চাকরি পোস্ট করা যাবে না।'), style: body(13, color: Brand.muted))),
+        if (want == 'alumni' || want == 'department') Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr(context, 'You start as a student. An admin reviews your request before the role is given.', 'আপনি শিক্ষার্থী হিসেবে শুরু করবেন। রোল দেওয়ার আগে অ্যাডমিন যাচাই করবেন।'), style: body(13, color: Brand.muted))),
         const SizedBox(height: 16),
         _authLabel(tr(context, 'Full name', 'পূর্ণ নাম')),
         TextField(controller: name, autofillHints: const [AutofillHints.name], decoration: _authDeco(null)),
         const SizedBox(height: 16),
+        if (want != 'recruiter') ...[
         _authLabel(tr(context, 'University', 'বিশ্ববিদ্যালয়')),
         AsyncBody(value: unis, onRetry: () => ref.invalidate(universitiesProvider), builder: (list) => DropdownButtonFormField<String>(
           initialValue: uni, isExpanded: true,
@@ -355,6 +375,23 @@ class _Complete extends ConsumerState<CompleteProfileScreen> {
         const SizedBox(height: 16),
         _authLabel(tr(context, 'Department', 'বিভাগ')),
         TextField(controller: dept, decoration: _authDeco('CSE')),
+        ],
+        if (want == 'recruiter') ...[
+          _authLabel(tr(context, 'Company name', 'কোম্পানির নাম')),
+          TextField(controller: company, decoration: _authDeco(null)),
+          const SizedBox(height: 16),
+          _authLabel(tr(context, 'Work email', 'অফিসের ইমেইল')),
+          TextField(controller: workEmail, keyboardType: TextInputType.emailAddress, decoration: _authDeco(null)),
+          const SizedBox(height: 16),
+          _authLabel(tr(context, 'Proof (trade licence no., LinkedIn page...)', 'প্রমাণ (ট্রেড লাইসেন্স নম্বর, লিংকডইন পেজ...)')),
+          TextField(controller: proof, maxLines: 2, decoration: _authDeco(null)),
+          const SizedBox(height: 16),
+          _authLabel(tr(context, 'Website (optional)', 'ওয়েবসাইট (ঐচ্ছিক)')),
+          TextField(controller: website, keyboardType: TextInputType.url, decoration: _authDeco('https://')),
+          const SizedBox(height: 16),
+          _authLabel(tr(context, 'City (optional)', 'শহর (ঐচ্ছিক)')),
+          TextField(controller: city, decoration: _authDeco(null)),
+        ],
         if (want == 'alumni') ...[
           const SizedBox(height: 16),
           _authLabel(tr(context, 'Job title', 'পদবি')),

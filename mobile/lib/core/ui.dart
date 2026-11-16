@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'count_badge.dart';
 import 'theme.dart';
 
 // ---------- text helpers ----------
@@ -331,8 +332,9 @@ class _RadarPainter extends CustomPainter {
 
 // ---------- bottom nav ----------
 class PillNav extends StatelessWidget {
-  const PillNav({super.key, required this.items, required this.index, required this.onTap});
+  const PillNav({super.key, required this.items, required this.index, required this.onTap, this.badges});
   final List<(IconData, String)> items; final int index; final ValueChanged<int> onTap;
+  final List<int>? badges; // unread count per tab; 0 or missing = no badge
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Brand.line))),
@@ -344,7 +346,7 @@ class PillNav extends StatelessWidget {
                 duration: const Duration(milliseconds: 240), curve: Curves.easeOutCubic,
                 width: i == index ? 64 : 40, height: 32, alignment: Alignment.center,
                 decoration: BoxDecoration(color: i == index ? Brand.lightGreen : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-                child: AnimatedScale(scale: i == index ? 1.08 : 1, duration: const Duration(milliseconds: 240), curve: Curves.easeOutBack, child: Icon(items[i].$1, size: 22, color: i == index ? Brand.forest : Brand.muted)),
+                child: AnimatedScale(scale: i == index ? 1.08 : 1, duration: const Duration(milliseconds: 240), curve: Curves.easeOutBack, child: CountBadge(count: (badges != null && i < badges!.length) ? badges![i] : 0, child: Icon(items[i].$1, size: 22, color: i == index ? Brand.forest : Brand.muted))),
               ),
               const SizedBox(height: 2),
               Text(items[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(12, color: i == index ? Brand.forest : Brand.muted, w: i == index ? FontWeight.w800 : FontWeight.w500)),
