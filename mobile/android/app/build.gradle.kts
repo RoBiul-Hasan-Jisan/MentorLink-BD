@@ -5,6 +5,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase Cloud Messaging needs android/app/google-services.json (Firebase console > Project settings > your Android app).
+// Without the file the app still builds, but no push (and no number on the app icon) can arrive.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.mentorlink_bd"
     compileSdk = flutter.compileSdkVersion
@@ -21,7 +27,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.mentorlink_bd"
+        applicationId = "mentorlinkbd.com" // must match package_name in google-services.json
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

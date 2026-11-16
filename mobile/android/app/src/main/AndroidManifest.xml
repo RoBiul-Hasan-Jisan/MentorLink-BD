@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+: without this the phone never shows push notifications, so the app icon never gets a badge. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
-        android:label="mentorlink_bd"
+        android:label="MentorLink BD"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -27,6 +30,10 @@
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <!-- Pushes that arrive while the app is closed go to this channel (created in MainActivity.kt). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="mentorlink_alerts" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
