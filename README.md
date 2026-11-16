@@ -15,7 +15,7 @@ admin-panel/   Next.js web admin panel (Firebase Web SDK)
 - The old open route `POST /api/opportunities` (student / mentor / admin posting) was **deleted**. It now returns 404 for everyone.
 - Students, mentors, departments and admins can only read jobs (students can also save, apply and report). Admins review and approve/hide jobs, but never post them.
 - A client can never set its own role. `employer` is given by the server only when an admin verifies the company (`POST /api/admin/organizations/:id/review`).
-- The first post of every company is held for admin review; later clean posts of the same company are approved automatically; posts that ask for money are always held.
+- Every new job post (and every repost) is held for admin review and only becomes visible to students after an admin approves it.
 - Every job in the database carries `sourceLabel: 'employer'` and an `organizationId`.
 - Mobile app: the "Post a job" buttons and screens for students and mentors were removed. Only the recruiter dashboard has "Post a job". Mentors now see a read-only list of live jobs. The Privacy screen table says "Post jobs: company/employer accounts only".
 - If your database still has old jobs from students, mentors or admins, run `cd backend && npm run cleanup:jobs`. It deletes those jobs and their applications, interviews, papers, offers, messages, saved marks and reports. `npm run seed:demo` does the same cleanup automatically.
@@ -51,6 +51,43 @@ How to check each one:
 3. Try the rule: sign in as a student, mentor or department account and call `POST /api/employer/jobs`: you get 403. `POST /api/opportunities` gives 404 for everyone.
 4. A company that is still waiting for verification (Demo Greenway Logistics, owner student.su@) cannot post at all until the admin verifies it.
 5. Removed from the demo because they were posted by non-employers: 11 admin jobs, 5 student posts, 1 alumni referral (and their applicants).
+
+## Job portal v2: what was added
+**Employer side**
+- **Recruiter sign-up:** a new "Recruiter (company)" card on sign-up creates the recruiter account and its company together (`POST /api/auth/register-recruiter`). The account can do nothing until an admin verifies the company; the app shows "Waiting for admin verification". Students can no longer register a company.
+- **Richer job form:** salary range (BDT/month), vacancies, experience level (fresher/junior/mid), city, and up to 3 screening questions.
+- **Edit, draft, repost:** `PATCH /api/employer/jobs/:id` (edit; money words send a live job back to review; admin-removed jobs cannot be edited), `saveAsDraft` + `POST .../submit`, `POST .../repost`, `POST .../reopen`.
+- **Applicant ranking:** `GET /api/employer/jobs/:id/applicants?sort=fit|newest|stage&stage=...`. Skill fit % and screening answers are shown; fit appears **only if the student agreed to share "skills"** when applying.
+- **Job stats:** views, saves, applications, applicants per stage (`GET /api/employer/jobs/:id/stats`). The dashboard shows views and saves on every job.
+- **Response rate:** the company page and recruiter dashboard show how many applicants got a reply and the average days to the first reply (only after 3+ applications older than 3 days).
+- **Nudges:** an applicant waiting 7+ days in "Applied" sends the employer team one reminder per job.
+
+**Student side**
+- **Job alerts:** when a job goes live, students whose verified skills fit it (40%+) get one notification. They can switch it off in Profile > Job alerts (`jobAlertsOn`).
+- **Filters:** salary 20k+, fresher, Chattogram (API: `minSalary`, `experience`, `city`). **Similar jobs** under every job. **Company page** (`GET /api/companies/:id`: public facts, response rate, open jobs; never the private proof).
+- **Deadline reminders:** a saved job closing within 48 hours sends one reminder (unless already applied).
+- **Apply form:** answers the employer's questions and chooses to share "Skill levels" (on by default, can be unticked).
+
+**Admin side**
+- **Bulk approve / reject:** `POST /api/admin/opportunities/bulk-review` (pending only, up to 50, audited, posters told). The review queue is sorted oldest-first with an `overdue` flag (target: reviewed within 48 hours).
+- **Auto-close:** every 15 minutes, approved jobs past their deadline are closed automatically.
+
+## Who can use what (access matrix)
+Roles are fixed on the server. A client can never choose or change a role. Every route checks the role; the test `backend/tests/jobportal.test.js` ("access matrix") proves it, and `safety.test.js` / `employer.test.js` / `hiring_flow.test.js` cover posting, isolation between companies and the hiring steps.
+
+| Function | Student | Mentor | Department | Employer | Admin |
+|---|---|---|---|---|---|
+| Browse, save, apply to jobs, see company pages | yes | read only | read only | no | read only |
+| Post / edit / close / repost jobs, see own applicants | no | no | no | yes (own verified company only) | no |
+| Move applicants, interviews, papers, offers, messages | own applications only | no | no | yes (own company only) | read only (every view is audited) |
+| Approve / reject / hide jobs, verify companies, bulk review | no | no | no | no | yes |
+| Learning roadmaps, resources, community feed, directory | yes | yes | yes | no | yes |
+| Mentor requests and sessions | requests | answers | no | no | sees all |
+| Department analytics and approvals | no | no | yes | no | yes |
+| Everyone's data, reports, audit log, hiring overview | no | no | no | no | **yes (only admin sees everything)** |
+
+What the admin can see "between" them: `GET /api/admin/hiring/overview`, each job's applicants and pipeline (`/admin/jobs/:id/applications`), the messages of any application (each read is written to the audit log), reports, and the audit log.
+Another company's jobs and applicants look like 404 to an employer. An applicant never sees other applicants.
 
 ## Honest status
 | Part | Status |
