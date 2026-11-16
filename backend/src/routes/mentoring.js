@@ -8,6 +8,7 @@ const { validate } = require('../middleware/guards');
 const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { notify, toObjectId } = require('../utils/helpers');
 const { normalizeMeetingLink } = require('../utils/links');
+const { emitToUser } = require('../realtime');
 
 module.exports = function mentoringRoutes(auth) {
   const r = express.Router();
@@ -208,6 +209,8 @@ module.exports = function mentoringRoutes(auth) {
   });
 
   r.post('/me/device-token', A, validate(z.object({ token: z.string().min(20).max(400) }).strict()), async (req, res) => {
+    // A phone token belongs to ONE account: take it away from anyone else who used this phone before (they signed out), so their pushes never reach the next person.
+    await User.updateMany({ _id: { $ne: req.user._id }, deviceTokens: req.body.token }, { $pull: { deviceTokens: req.body.token } });
     await User.updateOne({ _id: req.user._id }, { $addToSet: { deviceTokens: req.body.token } });
     res.json({ ok: true });
   });
@@ -232,11 +235,21 @@ module.exports = function mentoringRoutes(auth) {
   });
   r.post('/notifications/read-all', A, async (req, res) => {
     await Notification.updateMany({ userId: req.user._id, read: { $ne: true } }, { read: true });
+    emitToUser(req.user._id, 'notifications:changed', {}); // the person's other devices drop their badge too
+    res.json({ ok: true });
+  });
+  // Opening a screen clears the notifications that point at it (for example opening a chat clears its message badge).
+  r.post('/notifications/read-target', A, validate(z.object({ type: z.string().min(1).max(30), id: z.string().max(40).optional() }).strict()), async (req, res) => {
+    const f = { userId: req.user._id, read: { $ne: true }, targetType: req.body.type };
+    if (req.body.id) f.targetId = req.body.id;
+    await Notification.updateMany(f, { read: true });
+    emitToUser(req.user._id, 'notifications:changed', {});
     res.json({ ok: true });
   });
   r.post('/notifications/:id/read', A, async (req, res) => {
     toObjectId(req.params.id);
     await Notification.updateOne({ _id: req.params.id, userId: req.user._id }, { read: true });
+    emitToUser(req.user._id, 'notifications:changed', {});
     res.json({ ok: true });
   });
   r.post('/users/:id/block', A, async (req, res) => {

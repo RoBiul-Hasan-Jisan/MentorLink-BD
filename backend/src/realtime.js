@@ -4,6 +4,13 @@ const { User, MentorRequest } = require('./models');
 const env = require('./config/env');
 const { isBlockedBetween, otherId } = require('./services/blocks');
 
+let ioInstance = null;
+// Send an event to every open app of one person (phone, tablet, web). Does nothing when no socket server is running (tests, scripts).
+function emitToUser(userId, event, payload) {
+  try { if (ioInstance) ioInstance.to(`user:${userId}`).emit(event, payload); } catch { /* realtime is best effort; the notification is already saved */ }
+}
+function setIo(io) { ioInstance = io; }
+
 function attach(server, verify = require('./config/firebase').verifyCredential) {
   // Same origin allowlist as the REST API (CORS_ORIGINS). Empty list = allow any origin, as before.
   const io = new Server(server, { cors: { origin: env.corsOrigins.length ? env.corsOrigins : true } });
@@ -16,7 +23,9 @@ function attach(server, verify = require('./config/firebase').verifyCredential) 
       socket.user = u; next();
     } catch { next(new Error('unauthenticated')); }
   });
+  ioInstance = io;
   io.on('connection', (socket) => {
+    socket.join(`user:${socket.user._id}`); // personal room: live notifications and badge updates arrive here
     socket.on('join', async (requestId, ack) => {
       try {
         const rq = await MentorRequest.findById(requestId);
@@ -31,4 +40,4 @@ function attach(server, verify = require('./config/firebase').verifyCredential) 
   });
   return io;
 }
-module.exports = { attach };
+module.exports = { attach, emitToUser, setIo };

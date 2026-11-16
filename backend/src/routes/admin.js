@@ -15,10 +15,10 @@ module.exports = function adminRoutes(auth) {
     const [users, mentorApps, opps, hidden] = await Promise.all([
       User.find({ verificationStatus: 'pending', role: { $in: ['student', 'mentor', 'department'] } }).select('displayName email role universityId department verificationProof').limit(100),
       User.find({ 'mentorApplication.status': 'pending' }).select('displayName email mentorApplication universityId'),
-      Opportunity.find({ status: 'pending' }).limit(100),
+      Opportunity.find({ status: 'pending' }).sort({ reviewDueAt: 1, createdAt: 1 }).limit(100), // oldest / most overdue first
       Opportunity.find({ status: 'hidden' }).select('title organization suspiciousFlags status').limit(100), // auto-hidden after 3 reports: admin can restore or remove
     ]);
-    res.json({ users, mentorApplications: mentorApps, opportunities: opps, hiddenOpportunities: hidden });
+    res.json({ users, mentorApplications: mentorApps, opportunities: opps.map((o) => ({ ...o.toObject(), overdue: !!o.reviewDueAt && o.reviewDueAt < new Date() })), hiddenOpportunities: hidden });
   });
   r.post('/admin/users/:id/verify', ...admin, validate(z.object({ decision: z.enum(['verified', 'rejected']) }).strict()), async (req, res) => {
     toObjectId(req.params.id);
@@ -54,10 +54,29 @@ module.exports = function adminRoutes(auth) {
     await o.save();
     if (req.body.decision !== 'approve') await Report.updateMany({ targetType: 'opportunity', targetId: o._id }, { status: req.body.decision === 'restore' ? 'dismissed' : 'actioned' });
     await audit(req.user._id, `opportunity_${req.body.decision}`, 'opportunity', o._id);
+    if (req.body.decision === 'approve') await require('../services/jobtools').alertMatchingStudents(o);
     // The person who posted it hears the decision (a student or alumnus posting for the first time would otherwise wait in silence).
     const said = { approve: 'Your job post was approved and is now visible.', restore: 'Your job post is visible again.', reject: 'Your job post was not approved.', remove: 'Your job post was removed.' }[req.body.decision];
     if (o.postedBy) await notify(o.postedBy, said, o.title, 'opportunity', { type: 'opportunity', id: String(o._id) });
     res.json({ status: o.status });
+  });
+  // Bulk approve / reject of PENDING jobs (up to 50 at a time). Each one is audited and its poster is told, exactly like a single review.
+  r.post('/admin/opportunities/bulk-review', ...admin, validate(z.object({ ids: z.array(z.string()).min(1).max(50), decision: z.enum(['approve', 'reject']) }).strict()), async (req, res) => {
+    req.body.ids.forEach((id) => toObjectId(id));
+    const jobtools = require('../services/jobtools');
+    let done = 0; const skipped = [];
+    for (const id of req.body.ids) {
+      const o = await Opportunity.findOne({ _id: id, status: 'pending' });
+      if (!o) { skipped.push(id); continue; }
+      o.status = req.body.decision === 'approve' ? 'approved' : 'removed'; o.reviewedBy = req.user._id; o.reviewedAt = new Date();
+      if (req.body.decision === 'approve') o.listingReviewed = true;
+      await o.save();
+      await audit(req.user._id, `opportunity_${req.body.decision}`, 'opportunity', o._id, { bulk: true });
+      if (o.postedBy) await notify(o.postedBy, req.body.decision === 'approve' ? 'Your job post was approved and is now visible.' : 'Your job post was not approved.', o.title, 'opportunity', { type: 'opportunity', id: String(o._id) });
+      if (req.body.decision === 'approve') await jobtools.alertMatchingStudents(o);
+      done += 1;
+    }
+    res.json({ done, skipped });
   });
   // Safety reports (users, opportunities, resources). The reporter is never shown; the queue shows what was reported and why.
   r.get('/admin/reports', ...admin, async (req, res) => {

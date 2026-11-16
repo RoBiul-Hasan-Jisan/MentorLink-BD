@@ -11,6 +11,9 @@ const { levelsFromEvidence } = require('../services/readiness');
 const { parseParams, filterJobs, sortJobs, paginate, daysLeft } = require('../services/jobsearch');
 const env = require('../config/env');
 const { posterIds, isPoster } = require('../services/posters');
+const jobtools = require('../services/jobtools');
+const { nextForStage } = require('../services/jobready');
+const { Organization } = require('../models');
 
 const MAX_SAVED_JOBS = 100;
 
@@ -68,6 +71,7 @@ module.exports = function opportunityRoutes(auth) {
   const publicOpp = (o, fit) => ({
     id: o._id, title: o.title, organization: o.organization, type: o.type, workplaceMode: o.workplaceMode, locationText: o.locationText,
     description: o.description, applicationDeadline: o.applicationDeadline, requiredSkills: o.requiredSkills,
+    companyId: o.organizationId, salaryMin: o.salaryMin, salaryMax: o.salaryMax, vacancies: o.vacancies, experienceLevel: o.experienceLevel, screeningQuestions: o.screeningQuestions || [], employmentType: o.employmentType,
     labels: { source: o.sourceLabel, organizationVerified: !!o.organizationId, listingReviewed: o.listingReviewed, noFeeDeclared: o.noFeeConfirmed }, fit,
   });
   const fitOf = (o, have) => {
@@ -124,6 +128,7 @@ module.exports = function opportunityRoutes(auth) {
     const o = await Opportunity.findOne({ _id: req.params.id, status: 'approved' });
     if (!o) throw notFound('This opportunity is not available.');
     const poster = await User.findById(o.postedBy).select('displayName').lean();
+    if (req.user.role === 'student') await Opportunity.updateOne({ _id: o._id }, { $inc: { views: 1 } }); // simple view counter for the employer's job stats
     let fit, breakdown = [], projectedFit = null;
     if (req.user.role === 'student') {
       const have = levelsFromEvidence(await SkillEvidence.find({ studentId: req.user._id }));
@@ -147,21 +152,49 @@ module.exports = function opportunityRoutes(auth) {
   });
 
   // ---- applications ----
-  const applySchema = z.object({ cvVersionId: z.string(), note: z.string().max(500).optional(), consent: z.literal(true), sharedFields: z.array(z.string().max(30)).max(10).default(['name', 'cv']) }).strict();
+  // Jobs like this one (shared skills first). Same visibility rules as the job board.
+  r.get('/opportunities/:id/similar', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
+    toObjectId(req.params.id);
+    const o = await Opportunity.findOne({ _id: req.params.id, status: 'approved' });
+    if (!o) throw notFound('This opportunity is not available.');
+    const pool = await Opportunity.find({ status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(300);
+    const now = new Date();
+    const list = jobtools.similarJobs(o, pool.filter((j) => !j.applicationDeadline || j.applicationDeadline > now));
+    res.json({ opportunities: list.map((j) => ({ id: j._id, title: j.title, organization: j.organization, type: j.type, workplaceMode: j.workplaceMode, locationText: j.locationText })) });
+  });
+  // Company page: public facts about a VERIFIED company, its open jobs, and how quickly it replies. Never the private proof.
+  r.get('/companies/:id', A, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
+    toObjectId(req.params.id);
+    const org = await Organization.findOne({ _id: req.params.id, verificationStatus: 'verified' });
+    if (!org) throw notFound('This company is not available.');
+    const now = new Date();
+    const jobs = (await Opportunity.find({ organizationId: org._id, status: 'approved', closed: { $ne: true } }).sort({ createdAt: -1 }).limit(50)).filter((j) => !j.applicationDeadline || j.applicationDeadline > now);
+    res.json({
+      company: { id: org._id, name: org.name, website: org.website, industry: org.industry, city: org.city, publicDescription: org.publicDescription, verified: true },
+      responsiveness: await jobtools.responseStats(org._id),
+      jobs: jobs.map((j) => ({ id: j._id, title: j.title, type: j.type, workplaceMode: j.workplaceMode, locationText: j.locationText, applicationDeadline: j.applicationDeadline })),
+    });
+  });
+
+  const applySchema = z.object({ cvVersionId: z.string().optional(), note: z.string().max(500).optional(), consent: z.literal(true), sharedFields: z.array(z.string().max(30)).max(10).default(['name', 'cv', 'skills']), answers: z.array(z.string().trim().max(400)).max(3).default([]) }).strict();
   r.post('/opportunities/:id/apply', ...student, validate(applySchema), async (req, res) => {
     toObjectId(req.params.id);
     const opp = await Opportunity.findOne({ _id: req.params.id, status: 'approved', closed: { $ne: true } });
     if (!opp) throw notFound('This opportunity is not available.');
     if (opp.applicationDeadline && opp.applicationDeadline < new Date()) throw conflict('DEADLINE_PASSED', 'The deadline has passed.');
     if (await isPoster(req.user, opp)) throw forbidden('You cannot apply to a job you run.');
-    toObjectId(req.body.cvVersionId, 'cv id');
-    const cv = await CvVersion.findOne({ _id: req.body.cvVersionId, studentId: req.user._id });
-    if (!cv) throw bad('CV_REQUIRED', 'Choose one of your CV versions.');
+    const qs = opp.screeningQuestions || [];
+    if (qs.length && (req.body.answers.length !== qs.length || req.body.answers.some((a) => !a))) throw bad('ANSWERS_REQUIRED', `Please answer all ${qs.length} question(s) from the employer.`);
+    // One-tap apply: with no cvVersionId, the latest CV version is used. The consent box is still required every time.
+    let cv;
+    if (req.body.cvVersionId) { toObjectId(req.body.cvVersionId, 'cv id'); cv = await CvVersion.findOne({ _id: req.body.cvVersionId, studentId: req.user._id }); }
+    else cv = await CvVersion.findOne({ studentId: req.user._id }).sort({ version: -1 });
+    if (!cv) throw bad('CV_REQUIRED', req.body.cvVersionId ? 'Choose one of your CV versions.' : 'Build a CV first, then apply with one tap.');
     // One application per job. A withdrawn one can be re-sent; otherwise a clear message instead of a database error.
     const prior = await Application.findOne({ studentId: req.user._id, opportunityId: opp._id });
     if (prior && prior.stage !== 'Withdrawn') throw conflict('ALREADY_APPLIED', 'You already applied to this job. Track it in My applications.');
     if (prior) {
-      prior.stage = 'Applied'; prior.cvVersionId = cv._id; prior.applicantNote = req.body.note;
+      prior.stage = 'Applied'; prior.cvVersionId = cv._id; prior.applicantNote = req.body.note; prior.answers = req.body.answers; prior.nudgedAt = undefined;
       prior.consentSnapshot = { sharedFields: req.body.sharedFields, consentedAt: new Date() };
       prior.stageHistory.push({ stage: 'Applied', by: req.user._id });
       await prior.save();
@@ -169,7 +202,7 @@ module.exports = function opportunityRoutes(auth) {
       return res.status(201).json({ application: { id: prior._id, stage: uiStage(prior.stage) } });
     }
     const app = await Application.create({
-      studentId: req.user._id, opportunityId: opp._id, cvVersionId: cv._id, applicantNote: req.body.note,
+      studentId: req.user._id, opportunityId: opp._id, cvVersionId: cv._id, applicantNote: req.body.note, answers: req.body.answers,
       consentSnapshot: { sharedFields: req.body.sharedFields, consentedAt: new Date() },
       stageHistory: [{ stage: 'Applied', by: req.user._id }],
     });
@@ -178,7 +211,7 @@ module.exports = function opportunityRoutes(auth) {
   });
   r.get('/me/applications', ...student, async (req, res) => {
     const apps = await Application.find({ studentId: req.user._id }).sort({ createdAt: -1 }).populate('opportunityId', 'title organization').populate('cvVersionId', 'version');
-    res.json({ applications: apps.map((a) => ({ id: a._id, opportunity: a.opportunityId, stage: uiStage(a.stage), backendStage: a.stage, withdrawn: a.stage === 'Withdrawn', statusMessage: a.statusMessage, outcomeFeedback: a.outcomeFeedback, appliedAt: a.createdAt, cvVersion: a.cvVersionId ? a.cvVersionId.version : null })) });
+    res.json({ applications: apps.map((a) => ({ id: a._id, opportunity: a.opportunityId, stage: uiStage(a.stage), nextStep: nextForStage(uiStage(a.stage)), backendStage: a.stage, withdrawn: a.stage === 'Withdrawn', statusMessage: a.statusMessage, outcomeFeedback: a.outcomeFeedback, appliedAt: a.createdAt, cvVersion: a.cvVersionId ? a.cvVersionId.version : null })) });
   });
   r.post('/applications/:id/withdraw', ...student, async (req, res) => {
     toObjectId(req.params.id);
@@ -194,7 +227,7 @@ module.exports = function opportunityRoutes(auth) {
     res.json({ ok: true });
   });
   // The poster sees applicants and moves them through stages. Only consented fields are shown.
-  r.get('/opportunities/:id/applications', A, async (req, res) => {
+  r.get('/opportunities/:id/applications', A, requireRole('employer', 'admin'), async (req, res) => {
     toObjectId(req.params.id);
     const opp = await Opportunity.findById(req.params.id);
     if (!opp || (req.user.role !== 'admin' && !(await isPoster(req.user, opp)))) throw notFound();
@@ -204,7 +237,7 @@ module.exports = function opportunityRoutes(auth) {
       return { id: a._id, stage: a.stage, name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote };
     }) });
   });
-  r.patch('/applications/:id/stage', A, validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
+  r.patch('/applications/:id/stage', A, requireRole('employer', 'admin'), validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
     toObjectId(req.params.id);
     const a = await Application.findById(req.params.id);
     const opp = a && (await Opportunity.findById(a.opportunityId));

@@ -38,6 +38,11 @@ async function runReminders(now = new Date()) {
       tasks += 1;
     } catch (e) { await release(Task, _id); throw e; }
   }
-  return { sessions, tasks };
+  // job portal upkeep: close expired jobs, remind about saved jobs closing soon, nudge employers whose applicants wait too long
+  const jt = require('./jobtools');
+  const closedJobs = await jt.closeExpiredJobs(now);
+  const savedJobs = await jt.remindSavedJobs(now);
+  const nudges = await jt.nudgeSlowEmployers(now);
+  return { sessions, tasks, closedJobs, savedJobs, nudges };
 }
 module.exports = { runReminders };

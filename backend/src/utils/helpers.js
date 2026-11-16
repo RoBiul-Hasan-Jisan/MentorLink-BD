@@ -18,8 +18,17 @@ async function notify(userId, title, body = '', kind = 'info', target) {
   if (kind === 'reminder' && u && u.remindersOn === false) return null;
   const t = buildTarget(target);
   const n = await Notification.create({ userId, title, body, kind, ...(t ? { targetType: t.type, ...(t.id ? { targetId: t.id } : {}) } : {}) });
+  // The number on the phone's app icon: computed first, so it is right even when live delivery below fails.
+  let unreadCount = 0;
+  try { unreadCount = await Notification.countDocuments({ userId, read: { $ne: true } }); } catch { /* best effort */ }
+  // Live: the app is told the moment this is saved, so the badge and banner appear without waiting for a refresh.
   try {
-    if (u && u.deviceTokens && u.deviceTokens.length && !inQuietHours(u.quietHours)) require('../config/firebase').sendPush(u.deviceTokens, title, body);
+    const { emitToUser } = require('../realtime');
+    const { targetType, targetId, ...rest } = n.toObject();
+    emitToUser(userId, 'notification', { notification: { ...rest, target: targetType ? { type: targetType, ...(targetId ? { id: targetId } : {}) } : null }, unreadCount });
+  } catch { /* live delivery is best effort */ }
+  try {
+    if (u && u.deviceTokens && u.deviceTokens.length && !inQuietHours(u.quietHours)) require('../config/firebase').sendPush(u.deviceTokens, title, body, unreadCount, { kind: String(kind), ...(t ? { targetType: String(t.type), ...(t.id ? { targetId: String(t.id) } : {}) } : {}) }, userId);
   } catch { /* push is best effort */ }
   return n;
 }

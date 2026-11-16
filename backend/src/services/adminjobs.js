@@ -3,7 +3,7 @@
 const { bad } = require('../utils/httpError');
 const { matchesText, paginate } = require('./jobsearch');
 
-const STATUSES = ['pending', 'approved', 'hidden', 'removed'];
+const STATUSES = ['draft', 'pending', 'approved', 'hidden', 'removed'];
 const STAGE_ORDER = ['Applied', 'Under Review', 'Shortlisted', 'Interview', 'Offer', 'Hired', 'Rejected', 'Withdrawn'];
 
 function parseAdminParams(query = {}) {
@@ -40,7 +40,7 @@ function jobRow(job, apps = [], saves = 0, posterName = '') {
   return {
     id: job._id, title: job.title, organization: job.organization, type: job.type, workplaceMode: job.workplaceMode, status: job.status,
     closed: !!job.closed, sourceLabel: job.sourceLabel, postedByName: posterName, createdAt: job.createdAt, applicationDeadline: job.applicationDeadline,
-    suspiciousFlags: job.suspiciousFlags || [], reportCount: job.reportCount || 0,
+    suspiciousFlags: job.suspiciousFlags || [], reportCount: job.reportCount || 0, views: job.views || 0, reviewDueAt: job.reviewDueAt, overdue: job.status === 'pending' && !!job.reviewDueAt && new Date(job.reviewDueAt) < new Date(),
     applications: { total: apps.length, active: active.length, byStage: countByStage(apps) },
     saved: saves,
   };

@@ -8,26 +8,17 @@ const { bad, notFound, forbidden, conflict } = require('../utils/httpError');
 const { audit, notify, toObjectId } = require('../utils/helpers');
 const { normalizeCv, stripContact } = require('../services/cv');
 const { scamFlags, uiStage, canMove } = require('../services/scam');
-const { STAGES } = require('../models');
+const { STAGES, SkillEvidence, Skill } = require('../models');
+const { levelsFromEvidence } = require('../services/readiness');
+const jobtools = require('../services/jobtools');
 
 module.exports = function employerRoutes(auth) {
   const r = express.Router();
   const A = auth.authenticate;
 
-  // ---- any student-level user can ask to register a company. Role is NOT changed here. ----
-  const orgSchema = z.object({
-    name: z.string().trim().min(2).max(120), website: z.string().url().max(200).optional(), industry: z.string().max(80).optional(),
-    city: z.string().max(80).optional(), publicDescription: z.string().max(600).optional(),
-    workEmail: z.string().email().max(120), verificationEvidence: z.string().trim().min(5).max(500),
-  }).strict();
-  r.post('/orgs/register', A, requireRole('student'), validate(orgSchema), async (req, res) => {
-    if (await OrganizationMember.findOne({ userId: req.user._id, status: { $in: ['pending', 'active'] } })) throw conflict('ALREADY_REQUESTED', 'You already have a company request.');
-    let org;
-    try { org = await Organization.create(req.body); } catch (e) { if (e.code === 11000) throw conflict('ORG_EXISTS', 'A company with this name already exists.'); throw e; }
-    await OrganizationMember.create({ organizationId: org._id, userId: req.user._id, membershipRole: 'owner', status: 'pending' });
-    res.status(201).json({ id: org._id, verificationStatus: org.verificationStatus });
-  });
-  r.get('/me/organization', A, requireRole('student', 'employer'), async (req, res) => {
+  // A company is registered ONLY together with a recruiter account (POST /api/auth/register-recruiter in core.js).
+  // Students cannot register a company: their role is fixed to student.
+  r.get('/me/organization', A, requireRole('employer'), async (req, res) => {
     const m = await OrganizationMember.findOne({ userId: req.user._id, status: { $in: ['pending', 'active'] } });
     const org = m && (await Organization.findById(m.organizationId));
     res.json({ organization: org ? { id: org._id, name: org.name, verificationStatus: org.verificationStatus, membershipStatus: m.status } : null });
@@ -44,32 +35,56 @@ module.exports = function employerRoutes(auth) {
 
   r.get('/employer/org', ...emp, async (req, res) => {
     const { name, website, industry, city, publicDescription, verificationStatus } = req.org;
-    res.json({ organization: { id: req.org._id, name, website, industry, city, publicDescription, verificationStatus } }); // never the private evidence
+    res.json({ organization: { id: req.org._id, name, website, industry, city, publicDescription, verificationStatus }, responsiveness: await jobtools.responseStats(req.org._id) }); // never the private evidence
   });
   r.patch('/employer/org', ...emp, validate(z.object({ website: z.string().url().max(200).optional(), publicDescription: z.string().max(600).optional(), industry: z.string().max(80).optional(), city: z.string().max(80).optional() }).strict()), async (req, res) => {
     Object.assign(req.org, req.body); await req.org.save(); res.json({ ok: true });
   });
 
-  const jobSchema = z.object({
+  const skillItem = z.object({ skillKey: z.string(), requiredLevel: z.number().int().min(1).max(3).default(2), weight: z.number().min(0).default(1) });
+  const jobFields = {
     title: z.string().trim().min(3).max(120), type: z.enum(['job', 'internship', 'other']).default('job'),
     employmentType: z.enum(['full_time', 'part_time', 'internship', 'contract', 'freelance']).optional(),
     workplaceMode: z.enum(['onsite', 'hybrid', 'remote']).default('onsite'), locationText: z.string().max(120).optional(),
     description: z.string().trim().min(20).max(4000), applicationDeadline: z.coerce.date().optional(),
-    requiredSkills: z.array(z.object({ skillKey: z.string(), requiredLevel: z.number().int().min(1).max(3).default(2), weight: z.number().min(0).default(1) })).max(10).default([]),
-    noFeeConfirmed: z.boolean(),
-  }).strict();
+    requiredSkills: z.array(skillItem).max(10).default([]),
+    salaryMin: z.number().int().min(0).max(10000000).optional(), salaryMax: z.number().int().min(0).max(10000000).optional(), // BDT per month
+    vacancies: z.number().int().min(1).max(500).default(1),
+    experienceLevel: z.enum(['fresher', 'junior', 'mid']).optional(),
+    screeningQuestions: z.array(z.string().trim().min(3).max(200)).max(3).default([]),
+  };
+  const salaryOk = (b) => !(b.salaryMin !== undefined && b.salaryMax !== undefined && b.salaryMax < b.salaryMin);
+  const jobSchema = z.object({ ...jobFields, noFeeConfirmed: z.boolean(), saveAsDraft: z.boolean().optional() }).strict();
+  const editSchema = z.object({ ...Object.fromEntries(Object.entries(jobFields).map(([k, v]) => [k, v.optional()])), applicationDeadline: z.coerce.date().nullable().optional() }).strict(); // null = no deadline
+  const pastDeadline = (d) => d && new Date(d) < new Date();
+
+  // Every new post (and every repost) waits for an admin to approve it. Students only see it after approval. Money words are still flagged for the admin.
+  async function publishStatus(org, text) {
+    const flags = scamFlags(text);
+    return { flags, auto: false, fields: { status: 'pending', listingReviewed: false, reviewDueAt: jobtools.reviewDue() } };
+  }
+  async function afterPublish(job) { if (job.status === 'approved') await jobtools.alertMatchingStudents(job); }
+
   r.post('/employer/jobs', ...emp, validate(jobSchema), async (req, res) => {
-    if (!req.body.noFeeConfirmed) throw bad('NO_FEE_REQUIRED', 'You must confirm that this post never asks applicants for money.');
-    const flags = scamFlags(`${req.body.title} ${req.body.description}`);
-    const hasApproved = await Opportunity.exists({ organizationId: req.org._id, status: 'approved' });
-    const auto = !!hasApproved && !flags.length; // the FIRST post of a company is always reviewed by an admin
-    const job = await Opportunity.create({ ...req.body, postedBy: req.user._id, organizationId: req.org._id, organization: req.org.name, sourceLabel: 'employer', suspiciousFlags: flags, status: auto ? 'approved' : 'pending', listingReviewed: auto });
+    const { saveAsDraft, ...body } = req.body;
+    if (!salaryOk(body)) throw bad('BAD_SALARY', 'The highest salary cannot be below the lowest.');
+    if (pastDeadline(body.applicationDeadline)) throw bad('BAD_DEADLINE', 'The deadline must be a future date.');
+    if (!saveAsDraft && !body.noFeeConfirmed) throw bad('NO_FEE_REQUIRED', 'You must confirm that this post never asks applicants for money.');
+    const base = { ...body, postedBy: req.user._id, organizationId: req.org._id, organization: req.org.name, sourceLabel: 'employer', suspiciousFlags: scamFlags(`${body.title} ${body.description}`) };
+    if (saveAsDraft) return res.status(201).json({ job: await Opportunity.create({ ...base, status: 'draft', listingReviewed: false }) }); // a draft is private to the company
+    const pub = await publishStatus(req.org, `${body.title} ${body.description}`);
+    const job = await Opportunity.create({ ...base, suspiciousFlags: pub.flags, ...pub.fields });
+    await afterPublish(job);
     res.status(201).json({ job });
   });
   r.get('/employer/jobs', ...emp, async (req, res) => {
+    await jobtools.closeExpiredJobs();
     const jobs = await Opportunity.find({ organizationId: req.org._id }).sort({ createdAt: -1 });
-    const counts = await Application.aggregate([{ $match: { opportunityId: { $in: jobs.map((j) => j._id) } } }, { $group: { _id: '$opportunityId', n: { $sum: 1 } } }]);
-    res.json({ jobs: jobs.map((j) => ({ ...j.toObject(), applicants: (counts.find((c) => String(c._id) === String(j._id)) || { n: 0 }).n })) });
+    const ids = jobs.map((j) => j._id);
+    const counts = await Application.aggregate([{ $match: { opportunityId: { $in: ids } } }, { $group: { _id: '$opportunityId', n: { $sum: 1 } } }]);
+    const saves = await require('../models').SavedJob.aggregate([{ $match: { opportunityId: { $in: ids } } }, { $group: { _id: '$opportunityId', n: { $sum: 1 } } }]);
+    const num = (arr, j) => (arr.find((c) => String(c._id) === String(j._id)) || { n: 0 }).n;
+    res.json({ jobs: jobs.map((j) => ({ ...j.toObject(), applicants: num(counts, j), saves: num(saves, j) })) });
   });
   async function ownJob(req) {
     toObjectId(req.params.id);
@@ -78,13 +93,99 @@ module.exports = function employerRoutes(auth) {
     return j;
   }
   r.post('/employer/jobs/:id/close', ...emp, async (req, res) => { const j = await ownJob(req); j.closed = true; await j.save(); res.json({ ok: true }); });
+  // Reopen a closed job. If its deadline has passed, send a new future deadline in the same call (or null for no deadline).
+  r.post('/employer/jobs/:id/reopen', ...emp, validate(z.object({ applicationDeadline: z.coerce.date().nullable().optional() }).strict()), async (req, res) => {
+    const j = await ownJob(req);
+    if (['hidden', 'removed'].includes(j.status)) throw forbidden('An admin hid or removed this job, so it cannot be reopened.');
+    const body = req.body || {};
+    if (body.applicationDeadline !== undefined) {
+      if (pastDeadline(body.applicationDeadline)) throw bad('BAD_DEADLINE', 'The deadline must be a future date.');
+      j.applicationDeadline = body.applicationDeadline; // null clears it
+    }
+    if (pastDeadline(j.applicationDeadline)) throw conflict('DEADLINE_PASSED', 'The deadline has passed. Pick a new deadline first.');
+    j.closed = false; await j.save(); res.json({ ok: true, job: j });
+  });
+  // Edit a job. Admin-removed or hidden jobs cannot be edited. If an edit adds money words, a live job goes back to review.
+  r.patch('/employer/jobs/:id', ...emp, validate(editSchema), async (req, res) => {
+    const j = await ownJob(req);
+    if (['hidden', 'removed'].includes(j.status)) throw forbidden('An admin hid or removed this job, so it cannot be edited.');
+    if (!salaryOk({ salaryMin: req.body.salaryMin !== undefined ? req.body.salaryMin : j.salaryMin, salaryMax: req.body.salaryMax !== undefined ? req.body.salaryMax : j.salaryMax })) throw bad('BAD_SALARY', 'The highest salary cannot be below the lowest.');
+    if (pastDeadline(req.body.applicationDeadline)) throw bad('BAD_DEADLINE', 'The deadline must be a future date.');
+    Object.assign(j, req.body);
+    // Giving a closed job a new future deadline (or removing the deadline) opens it again, so students see it right away.
+    if (j.closed && req.body.applicationDeadline !== undefined) j.closed = false;
+    j.suspiciousFlags = scamFlags(`${j.title} ${j.description}`);
+    if (j.status === 'approved' && j.suspiciousFlags.length) { j.status = 'pending'; j.listingReviewed = false; j.reviewDueAt = jobtools.reviewDue(); }
+    await j.save();
+    res.json({ job: j });
+  });
+  // Delete a job for good (for example extra copies made by Repost). A job that already has applicants needs ?force=true,
+  // which also removes those applications and everything attached to them.
+  r.delete('/employer/jobs/:id', ...emp, async (req, res) => {
+    const j = await ownJob(req);
+    const applicants = await Application.countDocuments({ opportunityId: j._id });
+    if (applicants && req.query.force !== 'true') throw conflict('HAS_APPLICANTS', `This job has ${applicants} applicant(s). Deleting it removes their applications too.`);
+    const { Interview, AppMessage, DocumentRequest, Offer } = require('../models/hiring');
+    const by = { opportunityId: j._id };
+    await Promise.all([Application.deleteMany(by), require('../models').SavedJob.deleteMany(by), Interview.deleteMany(by), AppMessage.deleteMany(by), DocumentRequest.deleteMany(by), Offer.deleteMany(by)]);
+    await require('../models').DeletedDemoJob.updateOne({ key: j.demoKey || j.title }, { $set: { key: j.demoKey || j.title } }, { upsert: true }); // the demo seed must not bring it back
+    await Opportunity.deleteOne({ _id: j._id });
+    res.json({ ok: true, removedApplications: applicants });
+  });
+  // Send a draft for publishing (same rules as a new post).
+  r.post('/employer/jobs/:id/submit', ...emp, validate(z.object({ noFeeConfirmed: z.literal(true) }).strict()), async (req, res) => {
+    const j = await ownJob(req);
+    if (j.status !== 'draft') throw conflict('NOT_A_DRAFT', 'Only a draft can be sent for publishing.');
+    const pub = await publishStatus(req.org, `${j.title} ${j.description}`);
+    Object.assign(j, { noFeeConfirmed: true, suspiciousFlags: pub.flags, ...pub.fields });
+    await j.save(); await afterPublish(j);
+    res.json({ job: j });
+  });
+  // Post the same job again as a new post (new deadline optional). Goes through the same review rules.
+  r.post('/employer/jobs/:id/repost', ...emp, validate(z.object({ applicationDeadline: z.coerce.date().optional() }).strict()), async (req, res) => {
+    const old = await ownJob(req);
+    if (['hidden', 'removed'].includes(old.status)) throw forbidden('An admin hid or removed this job, so it cannot be reposted.');
+    if (pastDeadline(req.body.applicationDeadline)) throw bad('BAD_DEADLINE', 'The deadline must be a future date.');
+    const o = old.toObject();
+    const pub = await publishStatus(req.org, `${o.title} ${o.description}`);
+    const job = await Opportunity.create({ postedBy: req.user._id, organizationId: req.org._id, organization: req.org.name, sourceLabel: 'employer', noFeeConfirmed: true,
+      title: o.title, type: o.type, employmentType: o.employmentType, workplaceMode: o.workplaceMode, locationText: o.locationText, description: o.description, requiredSkills: o.requiredSkills,
+      salaryMin: o.salaryMin, salaryMax: o.salaryMax, vacancies: o.vacancies, experienceLevel: o.experienceLevel, screeningQuestions: o.screeningQuestions, applicationDeadline: req.body.applicationDeadline, suspiciousFlags: pub.flags, ...pub.fields });
+    await afterPublish(job);
+    res.status(201).json({ job });
+  });
+  // Numbers for one job: how many looked, saved, applied, and where applicants are now.
+  r.get('/employer/jobs/:id/stats', ...emp, async (req, res) => {
+    const j = await ownJob(req);
+    const apps = await Application.find({ opportunityId: j._id }).select('stage').lean();
+    const byStage = {}; for (const a of apps) byStage[a.stage] = (byStage[a.stage] || 0) + 1;
+    const saves = await require('../models').SavedJob.countDocuments({ opportunityId: j._id });
+    res.json({ views: j.views || 0, saves, applications: apps.length, byStage, applyRatePercent: j.views ? Math.round((100 * apps.length) / j.views) : null });
+  });
+  // Applicants, ranked. sort=fit|newest|stage, stage=<one stage>. Fit uses the student's verified skill levels and appears ONLY when the student agreed to share "skills".
   r.get('/employer/jobs/:id/applicants', ...emp, async (req, res) => {
     const j = await ownJob(req);
-    const apps = await Application.find({ opportunityId: j._id }).populate('studentId', 'displayName department').populate('cvVersionId');
-    res.json({ applicants: apps.map((a) => {
+    const filter = { opportunityId: j._id };
+    if (req.query.stage) { if (!STAGES.includes(String(req.query.stage))) throw bad('BAD_QUERY', 'Unknown stage.'); filter.stage = String(req.query.stage); }
+    const sort = String(req.query.sort || 'fit');
+    if (!['fit', 'newest', 'stage'].includes(sort)) throw bad('BAD_QUERY', 'sort must be fit, newest or stage.');
+    const apps = await Application.find(filter).populate('studentId', 'displayName department').populate('cvVersionId');
+    const evidence = await SkillEvidence.find({ studentId: { $in: apps.map((a) => a.studentId._id) } }).lean();
+    const skillName = new Map((await Skill.find({ key: { $in: (j.requiredSkills || []).map((x) => x.skillKey) } }).lean()).map((x) => [x.key, x.nameEn || x.key]));
+    const ev = new Map(); for (const e of evidence) { const k = String(e.studentId); if (!ev.has(k)) ev.set(k, []); ev.get(k).push(e); }
+    const rows = apps.map((a) => {
       const f = a.consentSnapshot.sharedFields; // only what the student agreed to share
-      return { id: a._id, stage: a.stage, studentSees: uiStage(a.stage), name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote, sharedFields: f, consentedAt: a.consentSnapshot.consentedAt };
-    }) });
+      const fit = f.includes('skills') ? jobtools.fitOf(j, levelsFromEvidence(ev.get(String(a.studentId._id)) || [])) : undefined;
+      // "Skill endorsed by a mentor": only for skills this job asks for, only when the student shares skills, and never the mentor's name.
+      const wanted = new Set((j.requiredSkills || []).map((x) => x.skillKey));
+      const endorsedSkills = f.includes('skills') ? [...new Set((ev.get(String(a.studentId._id)) || []).filter((e) => e.type === 'endorsement' && wanted.has(e.skillKey)).map((e) => skillName.get(e.skillKey) || e.skillKey))] : undefined;
+      return { id: a._id, stage: a.stage, studentSees: uiStage(a.stage), appliedAt: a.createdAt, fit, endorsedSkills, mentorEndorsed: endorsedSkills ? endorsedSkills.length > 0 : undefined, name: f.includes('name') ? a.studentId.displayName : undefined, department: f.includes('department') ? a.studentId.department : undefined, cv: f.includes('cv') ? (f.includes('contact') ? normalizeCv(a.cvVersionId.data) : stripContact(normalizeCv(a.cvVersionId.data))) : undefined, note: a.applicantNote, answers: a.answers || [], sharedFields: f, consentedAt: a.consentSnapshot.consentedAt };
+    });
+    const order = (x) => STAGES.indexOf(x.stage);
+    rows.sort(sort === 'fit' ? (x, y) => (y.fit === undefined ? -1 : y.fit) - (x.fit === undefined ? -1 : x.fit) || new Date(y.appliedAt) - new Date(x.appliedAt)
+      : sort === 'stage' ? (x, y) => order(x) - order(y) || new Date(y.appliedAt) - new Date(x.appliedAt)
+      : (x, y) => new Date(y.appliedAt) - new Date(x.appliedAt));
+    res.json({ applicants: rows, job: { title: j.title, screeningQuestions: j.screeningQuestions || [] } });
   });
   r.patch('/employer/applications/:id/stage', ...emp, validate(z.object({ stage: z.enum(STAGES), message: z.string().max(200).optional() }).strict()), async (req, res) => {
     toObjectId(req.params.id);

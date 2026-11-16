@@ -16,7 +16,7 @@ module.exports = function learningRoutes(auth) {
   const r = express.Router();
   const student = [auth.authenticate, requireRole('student')];
 
-  r.get('/roles', auth.authenticate, async (_q, res) => res.json({ roles: await RoleTemplate.find().sort({ titleEn: 1 }) }));
+  r.get('/roles', auth.authenticate, requireRole('student', 'mentor', 'department', 'admin'), async (_q, res) => res.json({ roles: await RoleTemplate.find().sort({ titleEn: 1 }) }));
   r.get('/skills', auth.authenticate, async (_q, res) => res.json({ skills: await Skill.find().sort({ nameEn: 1 }) }));
 
   const goalSchema = z.object({
@@ -100,7 +100,7 @@ module.exports = function learningRoutes(auth) {
   });
 
   // ---- learning resource hub ----
-  r.get('/resources', auth.authenticate, async (req, res) => {
+  r.get('/resources', auth.authenticate, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
     const filter = { status: 'approved' };
     if (req.query.skillKey) filter.skillKey = String(req.query.skillKey);
     if (req.query.language) filter.language = String(req.query.language);
@@ -136,7 +136,7 @@ module.exports = function learningRoutes(auth) {
   });
 
   // ---- roadmaps: where a beginner starts in a skill ----
-  r.get('/roadmaps', auth.authenticate, async (req, res) => {
+  r.get('/roadmaps', auth.authenticate, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
     const [maps, skills] = await Promise.all([Roadmap.find().lean(), Skill.find().lean()]);
     const names = new Map(skills.map((s) => [s.key, s]));
     let done = new Map();
@@ -146,7 +146,7 @@ module.exports = function learningRoutes(auth) {
       return { skillKey: m.skillKey, nameEn: names.get(m.skillKey)?.nameEn || m.skillKey, nameBn: names.get(m.skillKey)?.nameBn || m.skillKey, summaryEn: m.summaryEn, summaryBn: m.summaryBn, topicCount: topics.length, totalHours: topics.reduce((t, x) => t + x.hours, 0), doneCount: done.get(m.skillKey) || 0 };
     }).sort((a, b) => a.nameEn.localeCompare(b.nameEn)) });
   });
-  r.get('/roadmaps/:skillKey', auth.authenticate, async (req, res) => {
+  r.get('/roadmaps/:skillKey', auth.authenticate, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
     const m = await Roadmap.findOne({ skillKey: String(req.params.skillKey) }).lean();
     if (!m) throw notFound('No roadmap for this skill yet.');
     const sk = await Skill.findOne({ key: m.skillKey }).lean();
@@ -166,7 +166,7 @@ module.exports = function learningRoutes(auth) {
     });
   });
   // One topic: reading notes you can study inside the app, links chosen for this topic, and your own done state.
-  r.get('/roadmaps/:skillKey/topics/:topicKey', auth.authenticate, async (req, res) => {
+  r.get('/roadmaps/:skillKey/topics/:topicKey', auth.authenticate, requireRole('student', 'mentor', 'department', 'admin'), async (req, res) => {
     const m = await Roadmap.findOne({ skillKey: String(req.params.skillKey) }).lean();
     if (!m) throw notFound('No roadmap for this skill yet.');
     let stage = null, topic = null, idx = 0;

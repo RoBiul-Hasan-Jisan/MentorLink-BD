@@ -35,7 +35,7 @@ function createApp({ verify } = {}) {
   app.use('/api', require('./routes/core')(auth));
   // Every route module is REQUIRED. A missing file or a missing dependency inside one must stop startup with a clear error;
   // it used to be skipped silently, which left whole features returning 404 with no explanation.
-  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'hiring', 'admin', 'extras', 'journey', 'hub', 'community', 'loop', 'lab', 'career', 'analytics']) {
+  for (const name of ['learning', 'mentoring', 'opportunities', 'employer', 'hiring', 'admin', 'extras', 'journey', 'hub', 'community', 'loop', 'lab', 'career', 'analytics', 'ready']) {
     app.use('/api', require(`./routes/${name}`)(auth));
   }
   // Launch features (passport, sprints, brief, talent pool). The public passport page lives at /p/:slug.

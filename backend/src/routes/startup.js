@@ -196,7 +196,7 @@ module.exports = function startupRoutes(auth) {
     if (!(await M.MentorRequest.findOne({ studentId: req.user._id, mentorId, status: 'accepted' }))) throw bad('NO_MENTOR', 'Choose a mentor who accepted your request.');
     sp.mentorId = mentorId; sp.proofUrl = req.body.proofUrl; sp.proofNote = req.body.note || ''; sp.status = 'submitted';
     await sp.save();
-    await notify(mentorId, 'A sprint is ready for your review', `${sp.titleEn}`, 'review');
+    await notify(mentorId, 'A sprint is ready for your review', `${sp.titleEn}`, 'review', { type: 'sprint' });
     res.json(sprintOut(sp));
   });
 
@@ -243,7 +243,7 @@ module.exports = function startupRoutes(auth) {
       sp.status = 'needs_work'; sp.review = { decision: 'needs_work', note, at: new Date() };
     }
     await sp.save();
-    await notify(sp.studentId, req.body.decision === 'endorse' ? 'Sprint complete: your mentor endorsed your work' : 'Your mentor asked for a little more work', note || sp.titleEn, 'review');
+    await notify(sp.studentId, req.body.decision === 'endorse' ? 'Sprint complete: your mentor endorsed your work' : 'Your mentor asked for a little more work', note || sp.titleEn, 'review', { type: 'sprint' });
     await audit(req.user._id, `sprint_${req.body.decision}`, 'sprint', sp._id);
     res.json(sprintOut(sp));
   });

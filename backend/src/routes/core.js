@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { User, University, StudentProfile } = require('../models');
+const { User, University, StudentProfile, Organization, OrganizationMember } = require('../models');
 const { requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/guards');
 const { bad, notFound, conflict, forbidden } = require('../utils/httpError');
@@ -47,6 +47,26 @@ module.exports = function coreRoutes(auth) {
     res.status(201).json({ user: await me(user) });
   });
 
+  // Sign-up for RECRUITERS: a recruiter account plus the company it belongs to, in one step.
+  // The account can do NOTHING until an admin verifies the company (every employer tool checks that). A client never chooses any other role.
+  const recruiterSchema = z.object({
+    displayName: z.string().trim().min(2).max(80),
+    language: z.enum(['bn', 'en']).optional(),
+    company: z.object({
+      name: z.string().trim().min(2).max(120), website: z.string().url().max(200).optional(), industry: z.string().max(80).optional(),
+      city: z.string().max(80).optional(), publicDescription: z.string().max(600).optional(),
+      workEmail: z.string().email().max(120), verificationEvidence: z.string().trim().min(5).max(500),
+    }).strict(),
+  }).strict();
+  r.post('/auth/register-recruiter', auth.firebaseOnly, validate(recruiterSchema), async (req, res) => {
+    if (await User.findOne({ firebaseUid: req.firebase.uid })) throw conflict('PROFILE_EXISTS', 'Profile already exists.');
+    let org;
+    try { org = await Organization.create(req.body.company); } catch (e) { if (e.code === 11000) throw conflict('ORG_EXISTS', 'A company with this name already exists. Ask its owner to add you.'); throw e; }
+    const user = await User.create({ firebaseUid: req.firebase.uid, email: req.firebase.email || `${req.firebase.uid}@unknown.local`, displayName: req.body.displayName, role: 'employer', language: req.body.language || 'bn' });
+    await OrganizationMember.create({ organizationId: org._id, userId: user._id, membershipRole: 'owner', status: 'pending' });
+    res.status(201).json({ user: await me(user), organization: { id: org._id, verificationStatus: org.verificationStatus } });
+  });
+
   r.get('/me', auth.authenticate, async (req, res) => res.json({ user: await me(req.user) }));
 
   const privacySchema = z.object({
@@ -57,6 +77,7 @@ module.exports = function coreRoutes(auth) {
     quietHours: z.object({ from: z.number().int().min(0).max(23), to: z.number().int().min(0).max(23) }).strict().optional(),
     shareProgressWithDept: z.boolean().optional(),
     shareProgressWithMentors: z.boolean().optional(),
+    jobAlertsOn: z.boolean().optional(),
   }).strict();
   r.patch('/me/privacy', auth.authenticate, validate(privacySchema), async (req, res) => {
     Object.assign(req.user, req.body);
@@ -130,7 +151,7 @@ async function me(user) {
     department: user.department, batchYear: user.batchYear, language: user.language,
     verificationStatus: user.verificationStatus, showInDirectory: user.showInDirectory,
     lowDataMode: user.lowDataMode, mentorApplication: user.mentorApplication, departmentApplication: user.departmentApplication,
-    remindersOn: user.remindersOn, quietHours: user.quietHours, shareProgressWithDept: user.shareProgressWithDept, shareProgressWithMentors: user.shareProgressWithMentors,
+    jobAlertsOn: user.jobAlertsOn, remindersOn: user.remindersOn, quietHours: user.quietHours, shareProgressWithDept: user.shareProgressWithDept, shareProgressWithMentors: user.shareProgressWithMentors,
     emailDomainMatch: user.emailDomainMatch, affiliationStatus: user.affiliationStatus,
     university: uni ? publicUniversity(uni) : null,
   };

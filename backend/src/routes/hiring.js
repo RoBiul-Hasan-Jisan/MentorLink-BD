@@ -57,7 +57,7 @@ module.exports = function hiringRoutes(auth) {
     return Opportunity.find({ $or: [{ postedBy: user._id }, ...(orgs.length ? [{ organizationId: { $in: orgs } }] : [])] }).sort({ createdAt: -1 }).limit(200);
   }
   // Every job I run, with how many people are at each stage. Works for a student, mentor, employer or admin who posted jobs.
-  r.get('/me/jobs', A, async (req, res) => {
+  r.get('/me/jobs', A, requireRole('employer'), async (req, res) => {
     const jobs = await jobsOf(req.user);
     const apps = await Application.find({ opportunityId: { $in: jobs.map((j) => j._id) } }).select('opportunityId stage').lean();
     const by = new Map();
@@ -71,14 +71,14 @@ module.exports = function hiringRoutes(auth) {
       };
     }) });
   });
-  r.post('/jobs/:id/close', A, async (req, res) => {
+  r.post('/jobs/:id/close', A, requireRole('employer'), async (req, res) => {
     toObjectId(req.params.id);
     const j = await Opportunity.findById(req.params.id);
     if (!j || !(await isPoster(req.user, j))) throw notFound();
     j.closed = true; await j.save();
     res.json({ ok: true });
   });
-  r.post('/jobs/:id/reopen', A, async (req, res) => {
+  r.post('/jobs/:id/reopen', A, requireRole('employer'), async (req, res) => {
     toObjectId(req.params.id);
     const j = await Opportunity.findById(req.params.id);
     if (!j || !(await isPoster(req.user, j))) throw notFound();
@@ -88,7 +88,7 @@ module.exports = function hiringRoutes(auth) {
   });
 
   // Applicants of one job, each with what is going on (interviews, papers, offer, unread messages).
-  r.get('/jobs/:id/pipeline', A, async (req, res) => {
+  r.get('/jobs/:id/pipeline', A, requireRole('employer'), async (req, res) => {
     toObjectId(req.params.id);
     const job = await Opportunity.findById(req.params.id);
     if (!job || !(await isPoster(req.user, job))) throw notFound();

@@ -33,6 +33,9 @@ function parseParams(query = {}) {
     mode: oneOf(query.mode, MODES, 'mode'),
     sort: oneOf(query.sort, SORTS, 'sort') || 'newest',
     minFit: intIn(query.minFit, 'minFit', 0, 100, 0),
+    minSalary: intIn(query.minSalary, 'minSalary', 0, 10000000, 0),
+    city: norm(query.city).slice(0, 40),
+    experience: oneOf(query.experience, ['fresher', 'junior', 'mid'], 'experience'),
     closingSoon: flag(query.closingSoon),
     hideApplied: flag(query.hideApplied),
     savedOnly: flag(query.savedOnly),
@@ -67,6 +70,10 @@ function filterJobs(jobs, p, ctx = {}) {
     if (p.type && j.type !== p.type) return false;
     if (p.mode && j.workplaceMode !== p.mode) return false;
     if (!matchesText(j, p.q)) return false;
+    if (p.city && !norm(j.locationText).includes(p.city)) return false;
+    if (p.experience && j.experienceLevel !== p.experience) return false;
+    // A salary filter keeps only jobs that list a salary at or above it (jobs with no salary shown are not guessed).
+    if (p.minSalary > 0 && !((j.salaryMax || j.salaryMin || 0) >= p.minSalary)) return false;
     if (p.savedOnly && !saved.has(id)) return false;
     if (p.hideApplied && applied.has(id)) return false;
     if (p.closingSoon) {
