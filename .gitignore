@@ -30,3 +30,15 @@ backend/study/demo-output/
 .DS_Store
 .idea/
 *.iml
+
+# Local Firebase and API configuration
+mobile/lib/core/api copy.dart
+mobile/lib/firebase_options.dart
+
+# Backend local files
+/backend/
+
+# Documentation
+/docs/
+# Local API configuration
+/api copy.txt
