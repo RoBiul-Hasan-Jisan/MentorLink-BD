@@ -6,6 +6,7 @@ import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
 import 'hiring.dart';
+import 'action_center.dart';
 import 'widgets.dart';
 
 // Recruiter dashboard: only for role=employer (the server also checks membership in a verified company).
@@ -36,6 +37,7 @@ class EmployerHome extends ConsumerWidget {
       ])),
       Padding(padding: const EdgeInsets.all(16), child: Column(children: [
         const HiringInboxCard(),
+        const EmployerAnalyticsCard(),
         BigButton(tr(context, 'Post a job', 'চাকরি পোস্ট করুন'), onPressed: () => _post(context, ref)),
         const SizedBox(height: 12),
         AsyncBody(value: ref.watch(employerJobsProvider), onRetry: () => ref.invalidate(employerJobsProvider), builder: (d) {

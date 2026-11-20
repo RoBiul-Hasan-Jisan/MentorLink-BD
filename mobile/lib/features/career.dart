@@ -68,6 +68,7 @@ class CareerHub extends ConsumerWidget {
         _tile(context, Icons.fact_check_outlined, tr(context, 'Skill gaps', 'দক্ষতার ঘাটতি'), tr(context, 'What is missing for your goal', 'লক্ষ্যের জন্য কী বাকি'), '/skill-gap'),
         _tile(context, Icons.bolt_outlined, tr(context, 'Mentor Sprint', 'মেন্টর স্প্রিন্ট'), tr(context, '7 days on one skill, then a mentor review', '৭ দিনে একটি দক্ষতা, তারপর মেন্টর রিভিউ'), '/sprints'),
         _tile(context, Icons.menu_book_outlined, tr(context, 'Free resources', 'বিনামূল্যে রিসোর্স'), tr(context, 'Vetted learning links', 'যাচাই করা শেখার লিংক'), '/resources'),
+        _tile(context, Icons.view_column_outlined, tr(context, 'Application tracker', 'আবেদন ট্র্যাকার'), tr(context, 'Saved, applied, interview, offer', 'সংরক্ষিত, আবেদন, ইন্টারভিউ, অফার'), '/tracker'),
         _tile(context, Icons.mic_none, tr(context, 'Mock interviews', 'মক ইন্টারভিউ'), tr(context, 'Practice with a mentor', 'মেন্টরের সঙ্গে অনুশীলন'), '/mock-interviews'),
         _tile(context, Icons.badge_outlined, tr(context, 'Career Passport', 'ক্যারিয়ার পাসপোর্ট'), tr(context, 'Your proof in one shareable link', 'আপনার প্রমাণ এক শেয়ারযোগ্য লিংকে'), '/passport'),
         Theme(
