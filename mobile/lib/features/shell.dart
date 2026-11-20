@@ -228,6 +228,7 @@ class ProfileScreen extends ConsumerWidget {
       return [
         (Icons.badge_outlined, tr(context, 'My Career Passport', 'আমার ক্যারিয়ার পাসপোর্ট'), '/passport'),
         (Icons.mail_outline, tr(context, 'Company invitations', 'কোম্পানির আমন্ত্রণ'), '/invites'),
+        (Icons.view_column_outlined, tr(context, 'Application tracker', 'আবেদন ট্র্যাকার'), '/tracker'),
         (Icons.description_outlined, tr(context, 'My CV', 'আমার সিভি'), '/cv'),
         (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
         (Icons.forum_outlined, tr(context, 'Pathways & Q&A', 'পথ ও প্রশ্নোত্তর'), '/pathways'),
@@ -239,6 +240,7 @@ class ProfileScreen extends ConsumerWidget {
     }
     return [
       if (role == 'mentor') (Icons.fact_check_outlined, tr(context, 'Review mentees’ work', 'মেন্টিদের কাজ রিভিউ'), '/mentor/reviews'),
+      if (role == 'mentor') (Icons.mic_none, tr(context, 'Interview practice requests', 'ইন্টারভিউ অনুশীলনের অনুরোধ'), '/mentor/practice'),
       if (role == 'mentor') (Icons.event_note_outlined, tr(context, 'My sessions', 'আমার সেশন'), '/sessions'),
       if (role == 'mentor') (Icons.checklist, tr(context, 'Plan reviews', 'পরিকল্পনা রিভিউ'), '/mentor/plan-reviews'),
       if (role == 'mentor') (Icons.bolt_outlined, tr(context, 'Sprint reviews', 'স্প্রিন্ট রিভিউ'), '/mentor/sprint-reviews'),

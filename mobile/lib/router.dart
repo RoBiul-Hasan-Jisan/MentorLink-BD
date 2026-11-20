@@ -30,6 +30,7 @@ import 'features/career.dart';
 import 'features/launch.dart';
 import 'features/hiring.dart';
 import 'features/ready.dart';
+import 'features/action_center.dart';
 
 // The router only decides WHERE you land. The server still checks the role on every API call.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -67,6 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ...loopRoutes,
       ...jobGapRoutes,
       ...readyRoutes,
+      ...actionCenterRoutes, // '/mentor/practice' must come before '/mentor/:id'
       ...decisionLabRoutes,
       ...launchRoutes, // '/mentor/sprint-reviews' must come before '/mentor/:id'
       ...careerRoutes, // before '/mentor/:id' so '/mentor/plan-reviews' is not read as a mentor id
