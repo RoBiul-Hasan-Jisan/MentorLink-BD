@@ -415,3 +415,30 @@ Three items from `docs/IMPROVEMENT_ROADMAP.md` (P1 "complete data export and del
 - New admin tab **Jobs** (app: admin bottom bar). Lists every job post in any status (pending, approved, hidden, removed) with search and a status filter, totals (jobs, applications, pending), and per job: how many applied (and per stage), how many saved it, report count, scam flags, who posted it. Admin can Approve, Restore or Remove from the card. Tap a job (or "Who applied") for the applicant list.
 - Privacy: the applicant list shows name, department, stage and date only. Never the CV, the note or contact details; those stay with what the student agreed to share with the poster.
 - API: `GET /api/admin/jobs?status=&q=&page=&limit=` and `GET /api/admin/jobs/:id/applications` (admin only). Rules: `backend/src/services/adminjobs.js`; tests: `tests/adminjobs.test.js` (11, pass with the same Jest-compatible runner; routes not run against a database). Flutter: `mobile/lib/features/admin_jobs.dart`, tab added in `shell.dart` (not compiled; run `flutter analyze`).
+
+
+## Update: free hosting, no paid server needed
+- **Reminders on Render free plan:** the free service sleeps, so `setInterval` alone does not run. `.github/workflows/keepalive-and-tick.yml` (free GitHub scheduler, every 10 min) wakes the API and calls `POST /internal/tick`, which runs reminders, job alerts, auto-close and employer nudges. Setup: set `CRON_SECRET` on Render and as a GitHub Actions secret (same value). Without `CRON_SECRET` the endpoint is off. Free alternative: cron-job.org with the header `x-cron-secret`. Nothing is sent twice (atomic claims).
+- **Admin sign-in revocation:** admin requests also check that the Firebase sign-in was not revoked. Other roles do not pay for the extra call.
+- **Fixes:** finished applications (Hired / Rejected / Withdrawn) cannot be withdrawn (409); admin accounts cannot be verified/rejected through `/admin/users/:id/verify` (403); applicant lists skip deleted students instead of returning 500.
+- **Rate limits (per IP per minute):** register 10, verification upload 6, reports 10, apply 20, chat send 40.
+- **Admin panel:** removed the stale `.js` twins (`page.js`, `layout.js`, `lib/api.js`, `lib/firebase.js`); the `.tsx`/`.ts` files are canonical.
+- **CI:** `.github/workflows/ci.yml` runs backend tests (real MongoDB service), `next build`, `flutter analyze` and `flutter test`. Free for public repos.
+- Tests added: `free_scheduler.test.js` (passes, no database), `audit_fixes.test.js` (needs MongoDB; not run here, run `npm test` or push to see CI).
+
+
+## Update: four new career tools (free, no AI, no paid service)
+| Tool | Who | Where | API |
+|---|---|---|---|
+| **Career Action Center** | student | Home card "Do this next" + `/actions` | `GET /api/me/actions` |
+| **Application tracker** | student | Career tab, Profile, `/tracker` | `GET /api/me/tracker` |
+| **Interview practice feedback** | student + mentor | `/interview-practice` (ask), `/my-practice-feedback` (read), mentor menu "Interview practice requests" (`/mentor/practice`) | `POST /me/interview-practice/request-feedback`, `GET /me/practice-feedback`, `GET /mentor/practice-requests`, `POST /mentor/practice-requests/:id/feedback` |
+| **Hiring analytics** | employer | Recruiter dashboard card, `/employer/analytics` | `GET /api/employer/analytics` |
+
+- **Action Center rules (fixed, explainable):** unanswered offer > interview within 3 days > employer papers > session within 24 h > due task > unread mentor feedback > no goal > job closing in 3 days that fits 50%+ > biggest gap (quiz if no proof, else roadmap) > applications silent for 7+ days > no CV > no mentor. Shows the top 5, each with a reason in English and Bangla.
+- **Tracker:** columns Saved / Applied / Interview / Offer / Finished. An application with no movement for 7 days in Applied or Under Review is flagged "No reply". Saved jobs are sorted by deadline; closed ones are hidden.
+- **Practice feedback:** the mentor sees only the number of answers and the self-rated average (never the student's private notes), gives a score 1-5 plus one thing to improve. One answer per request; asking again before an answer refreshes the same request.
+- **Hiring analytics:** funnel counts everyone who *reached* a stage (a later rejection does not remove them), median days to first reply and to hire, per-job views / saves / applications / hired. Counts only, no student names; fewer than 3 applicants is marked "a hint".
+- **Privacy fix found on the way:** private interview-practice answers were missing from "download my data" and "delete my account". Added (`PracticeAnswer`, `PracticeReview`).
+- **Tests:** `actions.test.js`, `tracker.test.js`, `employerstats.test.js` (pass, no database); `new_features_api.test.js` (needs MongoDB, run in CI or `npm test`).
+- **Honest status:** the new Flutter code (`mobile/lib/features/action_center.dart` and the small edits in `home.dart`, `employer.dart`, `shell.dart`, `career.dart`, `ready.dart`, `router.dart`) has not been compiled (no Flutter SDK here); brackets and strings were machine-checked only. Run `flutter analyze` and send me any message.
