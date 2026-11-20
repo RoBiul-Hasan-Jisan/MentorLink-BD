@@ -30,4 +30,4 @@ backend/study/demo-output/
 .DS_Store
 .idea/
 *.iml
-api copy.txt
+api copy.txtmobile/lib/firebase_options.dart
