@@ -31,3 +31,5 @@ backend/study/demo-output/
 .idea/
 *.iml
 api copy.txtmobile/lib/firebase_options.dart
+mobile/lib/firebase_options.dart
+api copy.txt
