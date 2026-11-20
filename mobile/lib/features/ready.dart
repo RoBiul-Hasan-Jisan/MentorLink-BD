@@ -233,6 +233,8 @@ class InterviewPracticeScreen extends ConsumerWidget {
               BigButton(tr(context, 'Book a real mock interview with a mentor', 'মেন্টরের সাথে আসল মক ইন্টারভিউ বুক করুন'), onPressed: () => context.push('/mock-interviews')),
               const SizedBox(height: 8),
               BigButton(tr(context, 'Ask a mentor to review my practice', 'মেন্টরকে আমার অনুশীলন দেখতে বলুন'), outlined: true, onPressed: () => _askMentor(context, ref)),
+              const SizedBox(height: 8),
+              BigButton(tr(context, 'See mentor feedback on my practice', 'আমার অনুশীলনে মেন্টরের মতামত দেখুন'), outlined: true, onPressed: () => context.push('/my-practice-feedback')),
             ])),
           ]);
         },

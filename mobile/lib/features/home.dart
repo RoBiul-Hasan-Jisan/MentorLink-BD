@@ -12,6 +12,7 @@ import 'feed.dart';
 import 'launch.dart';
 import 'hiring.dart';
 import 'ready.dart';
+import 'action_center.dart';
 import 'widgets.dart';
 
 
@@ -89,6 +90,7 @@ class StudentHome extends ConsumerWidget {
         ])),
         Transform.translate(offset: const Offset(0, -64), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
           _nextSession(context, sessions),
+          const ActionCenterCard(),
           const NextStepCard(),
           const BriefCard(),
           const HiringInboxCard(),

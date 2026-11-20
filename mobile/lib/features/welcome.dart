@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -10,12 +12,20 @@ import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/ui.dart';
 
-/// Welcome screen — "Your future deserves proof."
+/// Welcome screen — "Your future deserves proof."  (WILD edition)
 ///
-/// A forest-green stage with a golden path that draws itself through four
-/// milestones (Discover → Learn → Connect → Prove). The intro plays once
-/// (~3.4 s), can be skipped with a tap, and is replaced by the finished static
-/// state when the device asks for reduced motion.
+/// The screen is a toy. Things to try:
+///  • WATCH   – "proof." decodes from noise, the golden path draws itself with haptic ticks,
+///              a shockwave fires and a VERIFIED stamp slams in.
+///  • TOUCH   – drag: the whole stage tilts in 3D toward your finger, you write in
+///              fading golden ink, and the dust runs away from you.
+///  • HOLD    – press and hold: a BLACK HOLE grows under your finger and sucks the dust
+///              into a spiral. Let go: it detonates a shockwave through the dust (heavy haptic).
+///  • TAP     – tap a milestone: it flips in 3D, pings, and reveals a check mark.
+///  • POKE    – tap the headline: it GLITCHES (RGB split + scramble). It also glitches by itself every 6 s.
+///  • IDLE    – an aurora orbits the background and a comet laps the golden path forever.
+///
+/// Tap the journey to skip the intro. Reduced-motion shows the finished, static state.
 class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -24,12 +34,54 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  // Intro timeline.
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 3400),
   );
+  // Shockwave + stamp slam when the path lands.
+  late final AnimationController _burst = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+  // Endless clock: dust, aurora, comet, idle glitch (24 s loop).
+  late final AnimationController _tick = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 24),
+  );
+  // Headline poke-glitch.
+  late final AnimationController _poke = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  // Node flip.
+  late final AnimationController _flip = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+  // Black-hole charge while pressing (0 → 1 over 1.5 s).
+  late final AnimationController _hold = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
+  // Release shockwave.
+  late final AnimationController _shock = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  );
+
+  final ValueNotifier<Offset?> _touch = ValueNotifier<Offset?>(null);
+  final ValueNotifier<Offset> _shockAt = ValueNotifier<Offset>(Offset.zero);
+  final ValueNotifier<double> _shockPower = ValueNotifier<double>(0);
+  final ValueNotifier<int> _trailV = ValueNotifier<int>(0);
+  final List<Offset> _trail = [];
+  Timer? _fade;
+
   bool _started = false;
+  bool _reduce = false;
+  int _lit = 0;
+  int _flipIdx = -1;
 
   // The path is drawn between 16 % and 92 % of the timeline.
   static const _pathCurve = Interval(.16, .92, curve: Curves.easeInOutCubic);
@@ -39,16 +91,56 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    _reduce = MediaQuery.disableAnimationsOf(context);
+
+    _c.addListener(_onProgress);
+    _c.addStatusListener((s) {
+      if (s == AnimationStatus.completed && !_reduce) {
+        HapticFeedback.heavyImpact();
+        _burst.forward(from: 0);
+      }
+    });
+    _hold.addStatusListener((s) {
+      if (s == AnimationStatus.completed) HapticFeedback.mediumImpact();
+    });
+
+    if (_reduce) {
       _c.value = 1; // reduced motion: show the finished journey immediately
+      _burst.value = 1; // stamp shown, no burst
     } else {
+      _tick.repeat();
       _c.forward();
+    }
+  }
+
+  /// Haptic tick each time the golden path reaches a new milestone.
+  void _onProgress() {
+    if (_reduce) return;
+    final p = _pathCurve.transform(_c.value);
+    var lit = 0;
+    for (var i = 0; i < 4; i++) {
+      if (p >= i / 3 - .02) lit = i + 1;
+    }
+    if (lit > _lit) {
+      _lit = lit;
+      if (lit < 4) HapticFeedback.selectionClick();
     }
   }
 
   @override
   void dispose() {
+    _fade?.cancel();
     _c.dispose();
+    _burst.dispose();
+    _tick.dispose();
+    _poke.dispose();
+    _flip.dispose();
+    _hold.dispose();
+    _shock.dispose();
+    _touch.dispose();
+    _shockAt.dispose();
+    _shockPower.dispose();
+    _trailV.dispose();
     super.dispose();
   }
 
@@ -56,11 +148,71 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     if (_c.isAnimating) _c.value = 1;
   }
 
+  // ── pointer handling: tilt, ink trail, black hole, shockwave ──
+
+  void _addTrail(Offset p) {
+    _trail.add(p);
+    if (_trail.length > 28) _trail.removeAt(0);
+    _trailV.value++;
+  }
+
+  void _down(PointerEvent e) {
+    if (_reduce) return;
+    _fade?.cancel();
+    _touch.value = e.localPosition;
+    _addTrail(e.localPosition);
+    _hold.forward(from: 0);
+  }
+
+  void _move(PointerEvent e) {
+    if (_reduce) return;
+    _touch.value = e.localPosition;
+    _addTrail(e.localPosition);
+  }
+
+  void _up(PointerEvent e) {
+    if (_reduce) return;
+    final at = _touch.value;
+    final charge = _hold.value;
+    if (at != null && charge > .25) {
+      _shockAt.value = at;
+      _shockPower.value = charge;
+      HapticFeedback.heavyImpact();
+      _shock.forward(from: 0);
+    }
+    _hold.value = 0;
+    _touch.value = null;
+    // let the ink trail melt away
+    _fade?.cancel();
+    _fade = Timer.periodic(const Duration(milliseconds: 16), (t) {
+      if (_trail.isEmpty) {
+        t.cancel();
+        return;
+      }
+      _trail.removeAt(0);
+      _trailV.value++;
+    });
+  }
+
+  void _pokeHeadline() {
+    if (!_c.isCompleted || _reduce) return;
+    HapticFeedback.mediumImpact();
+    _poke.forward(from: 0);
+  }
+
+  void _onNode(int i) {
+    if (!_c.isCompleted) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _flipIdx = i);
+    _flip.forward(from: 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bn = ref.watch(localeProvider) == 'bn';
     final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
     final rowH = 76.0 * scale;
+    final screen = MediaQuery.sizeOf(context);
 
     final milestones = <_Milestone>[
       _Milestone(
@@ -101,74 +253,146 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: Brand.forest,
-      body: Stack(
-        children: [
-          // Brand diamond pattern on forest green (existing component) + soft lighting.
-          const Positioned.fill(
-            child: DiamondPanel(
-              padding: EdgeInsets.zero,
-              child: SizedBox.expand(),
-            ),
-          ),
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: RepaintBoundary(
-                child: CustomPaint(painter: _AmbientPainter()),
-              ),
-            ),
-          ),
-          SafeArea(
+    // The content that tilts in 3D (built once, animated inside).
+    final stage = LayoutBuilder(
+      // Everything fits on one screen: if the phone is short (or the
+      // text is large) the content scales down instead of scrolling.
+      builder: (context, box) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: box.maxWidth,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Header(
+                _Hero(
                   bn: bn,
-                  onLang: (code) =>
-                      ref.read(localeProvider.notifier).state = code,
+                  anim: _c,
+                  tick: _tick,
+                  poke: _poke,
+                  onPoke: _pokeHeadline,
                 ),
-                Expanded(
-                  // Everything fits on one screen: if the phone is short (or the
-                  // text is large) the content scales down instead of scrolling.
-                  child: LayoutBuilder(
-                    builder: (context, box) => FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: box.maxWidth,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _Hero(bn: bn, anim: _c),
-                              const SizedBox(height: 18),
-                              _JourneyHeader(bn: bn, anim: _c, onSkip: _skip),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onTap: _skip,
-                                child: _Journey(
-                                  anim: _c,
-                                  items: milestones,
-                                  rowH: rowH,
-                                  bn: bn,
-                                  pathCurve: _pathCurve,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                const SizedBox(height: 18),
+                _JourneyHeader(
+                  bn: bn,
+                  anim: _c,
+                  burst: _burst,
+                  onSkip: _skip,
+                ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _skip,
+                  child: _Journey(
+                    anim: _c,
+                    burst: _burst,
+                    tick: _tick,
+                    flip: _flip,
+                    flipIdx: _flipIdx,
+                    onNode: _onNode,
+                    reduce: _reduce,
+                    items: milestones,
+                    rowH: rowH,
+                    bn: bn,
+                    pathCurve: _pathCurve,
                   ),
                 ),
-                _Actions(bn: bn),
               ],
             ),
           ),
-        ],
+        ),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Brand.forest,
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _down,
+        onPointerMove: _move,
+        onPointerUp: _up,
+        onPointerCancel: _up,
+        child: Stack(
+          children: [
+            // Brand diamond pattern on forest green + orbiting aurora.
+            const Positioned.fill(
+              child: DiamondPanel(
+                padding: EdgeInsets.zero,
+                child: SizedBox.expand(),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(painter: _AmbientPainter(tick: _tick)),
+                ),
+              ),
+            ),
+            // Dust, black hole, shockwave and golden ink.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _DustPainter(
+                      tick: _tick,
+                      touch: _touch,
+                      trail: _trail,
+                      trailV: _trailV,
+                      hold: _hold,
+                      shock: _shock,
+                      shockAt: _shockAt,
+                      shockPower: _shockPower,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  _Header(
+                    bn: bn,
+                    onLang: (code) =>
+                        ref.read(localeProvider.notifier).state = code,
+                  ),
+                  Expanded(
+                    // 3D tilt toward the finger, eased.
+                    child: ValueListenableBuilder<Offset?>(
+                      valueListenable: _touch,
+                      child: stage,
+                      builder: (context, tp, child) {
+                        final target = tp == null
+                            ? Offset.zero
+                            : Offset(
+                                (tp.dx / screen.width - .5) * 2,
+                                (tp.dy / screen.height - .5) * 2,
+                              );
+                        return TweenAnimationBuilder<Offset>(
+                          tween: Tween<Offset>(end: target),
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOut,
+                          child: child,
+                          builder: (context, o, child) => Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, .0012)
+                              ..rotateX(-o.dy * .10)
+                              ..rotateY(o.dx * .14),
+                            child: child,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  _Actions(bn: bn),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -201,6 +425,22 @@ TextStyle _ui(
   Color color = Colors.white,
   FontWeight w = FontWeight.w700,
 }) => bn ? body(size, color: color, w: w) : display(size, color: color, w: w);
+
+/// "Decrypt" effect: every glyph flickers through random characters, then locks
+/// onto the real one, left to right. [t] is 0..1, [frame] changes ~20x per second.
+String _decode(String target, double t, int frame) {
+  const pool = 'abcdefghkmnopqrstuvwxyz#%&?*+<>01';
+  final b = StringBuffer();
+  for (var i = 0; i < target.length; i++) {
+    final at = i / target.length * .7;
+    if (t >= at + .3 || target[i] == '.') {
+      b.write(target[i]);
+    } else {
+      b.write(pool[math.Random(frame * 13 + i * 5).nextInt(pool.length)]);
+    }
+  }
+  return b.toString();
+}
 
 // ───────────────────────── header ─────────────────────────
 
@@ -341,77 +581,141 @@ class _Logo extends StatelessWidget {
 // ───────────────────────── hero ─────────────────────────
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.bn, required this.anim});
+  const _Hero({
+    required this.bn,
+    required this.anim,
+    required this.tick,
+    required this.poke,
+    required this.onPoke,
+  });
   final bool bn;
-  final Animation<double> anim;
+  final Animation<double> anim, tick, poke;
+  final VoidCallback onPoke;
+
+  static const _cyan = Color(0xFF2BF0FF);
+  static const _magenta = Color(0xFFFF2BD6);
 
   @override
   Widget build(BuildContext context) {
     final big = bn ? 34.0 : 38.0;
-    final hi = Brand.saffron;
-    final line1 = _head(bn, big);
-    final line2 = _head(bn, big, color: hi);
+
+    Widget headline(Color c1, Color c2, String proofEn) {
+      final line1 = _head(bn, big, color: c1);
+      final line2 = _head(bn, big, color: c2);
+      return Text.rich(
+        TextSpan(
+          style: line1,
+          children: bn
+              ? [
+                  const TextSpan(text: 'আপনার ভবিষ্যৎ চায় '),
+                  TextSpan(text: 'প্রমাণ।', style: line2),
+                ]
+              : [
+                  const TextSpan(text: 'Your future\ndeserves '),
+                  TextSpan(text: proofEn, style: line2),
+                ],
+        ),
+      );
+    }
 
     return AnimatedBuilder(
-      animation: anim,
-      builder: (context, child) {
+      animation: Listenable.merge([anim, tick, poke]),
+      builder: (context, _) {
         final t = const Interval(
           0,
           .22,
           curve: Curves.easeOutCubic,
         ).transform(anim.value);
+
+        // Intro: "proof." decodes from noise.
+        final dt = const Interval(.04, .42).transform(anim.value);
+        final introFrame = (anim.value * 3400 / 50).floor();
+        var proofEn = dt >= 1 ? 'proof.' : _decode('proof.', dt, introFrame);
+
+        // Glitch: every 6 s by itself, or whenever the headline is poked.
+        final secs = tick.value * 24;
+        final live = anim.isCompleted && tick.isAnimating;
+        final glitch = live && ((secs % 6) < .35 || poke.isAnimating);
+        final gFrame = (secs * 30).floor();
+        if (glitch) {
+          proofEn = _decode('proof.', .15 + (gFrame % 5) * .1, gFrame);
+        }
+
+        final Widget text = glitch
+            ? Transform.translate(
+                offset: Offset(math.sin(gFrame * 7.0) * 2.5, 0),
+                child: Stack(
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(-3.5, 0),
+                      child: headline(
+                        Colors.transparent,
+                        _cyan.withValues(alpha: .8),
+                        proofEn,
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(3.5, 1),
+                      child: headline(
+                        Colors.transparent,
+                        _magenta.withValues(alpha: .8),
+                        proofEn,
+                      ),
+                    ),
+                    headline(Colors.white, Brand.saffron, proofEn),
+                  ],
+                ),
+              )
+            : headline(Colors.white, Brand.saffron, proofEn);
+
         return Opacity(
           opacity: t,
           child: Transform.translate(
             offset: Offset(0, (1 - t) * 14),
-            child: child,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: onPoke,
+                  child: Semantics(
+                    header: true,
+                    label: tr(
+                      context,
+                      'Your future deserves proof.',
+                      'আপনার ভবিষ্যৎ চায় প্রমাণ।',
+                    ),
+                    excludeSemantics: true,
+                    child: text,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: 44,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: Brand.saffron,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  tr(
+                    context,
+                    'Find your direction, learn with guidance, prove your skills, and discover your next opportunity.',
+                    'দিক খুঁজে নিন, গাইডেন্স নিয়ে শিখুন, দক্ষতা প্রমাণ করুন এবং পরের সুযোগ খুঁজে নিন।',
+                  ),
+                  style: body(
+                    16,
+                    color: Colors.white.withValues(alpha: .82),
+                    w: FontWeight.w500,
+                  ).copyWith(height: 1.45),
+                ),
+              ],
+            ),
           ),
         );
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Semantics(
-            header: true,
-            child: Text.rich(
-              TextSpan(
-                style: line1,
-                children: bn
-                    ? [
-                        const TextSpan(text: 'আপনার ভবিষ্যৎ চায় '),
-                        TextSpan(text: 'প্রমাণ।', style: line2),
-                      ]
-                    : [
-                        const TextSpan(text: 'Your future\ndeserves '),
-                        TextSpan(text: 'proof.', style: line2),
-                      ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: 44,
-            height: 3,
-            decoration: BoxDecoration(
-              color: Brand.saffron,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            tr(
-              context,
-              'Find your direction, learn with guidance, prove your skills, and discover your next opportunity.',
-              'দিক খুঁজে নিন, গাইডেন্স নিয়ে শিখুন, দক্ষতা প্রমাণ করুন এবং পরের সুযোগ খুঁজে নিন।',
-            ),
-            style: body(
-              16,
-              color: Colors.white.withValues(alpha: .82),
-              w: FontWeight.w500,
-            ).copyWith(height: 1.45),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -428,10 +732,12 @@ class _JourneyHeader extends StatelessWidget {
   const _JourneyHeader({
     required this.bn,
     required this.anim,
+    required this.burst,
     required this.onSkip,
   });
   final bool bn;
   final Animation<double> anim;
+  final Animation<double> burst;
   final VoidCallback onSkip;
 
   @override
@@ -446,55 +752,131 @@ class _JourneyHeader extends StatelessWidget {
           color: Brand.saffron,
         ).copyWith(letterSpacing: bn ? 0 : 1.6),
       ),
-      AnimatedBuilder(
-        animation: anim,
-        builder: (context, _) {
-          final running = anim.isAnimating;
-          return IgnorePointer(
-            ignoring: !running,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: running ? 1 : 0,
-              child: Semantics(
-                button: true,
-                excludeSemantics: !running,
-                label: tr(context, 'Skip animation', 'অ্যানিমেশন এড়িয়ে যান'),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: onSkip,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 12,
-                    ),
-                    child: Text(
-                      tr(context, 'Skip', 'এড়িয়ে যান'),
-                      style: body(
-                        13,
-                        color: Colors.white.withValues(alpha: .75),
-                        w: FontWeight.w600,
+      SizedBox(
+        height: 40,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([anim, burst]),
+          builder: (context, _) {
+            final running = anim.isAnimating;
+            return Stack(
+              alignment: Alignment.centerRight,
+              clipBehavior: Clip.none,
+              children: [
+                // Skip fades out while the stamp slams in on the same spot.
+                IgnorePointer(
+                  ignoring: !running,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: running ? 1 : 0,
+                    child: Semantics(
+                      button: true,
+                      excludeSemantics: !running,
+                      label: tr(
+                        context,
+                        'Skip animation',
+                        'অ্যানিমেশন এড়িয়ে যান',
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: onSkip,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            tr(context, 'Skip', 'এড়িয়ে যান'),
+                            style: body(
+                              13,
+                              color: Colors.white.withValues(alpha: .75),
+                              w: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
+                ExcludeSemantics(child: _Stamp(t: burst.value, bn: bn)),
+              ],
+            );
+          },
+        ),
       ),
     ],
   );
 }
 
+/// Rubber-stamp "VERIFIED": scales down from huge, hits, then shakes and settles.
+class _Stamp extends StatelessWidget {
+  const _Stamp({required this.t, required this.bn});
+  final double t;
+  final bool bn;
+
+  @override
+  Widget build(BuildContext context) {
+    if (t <= 0) return const SizedBox.shrink();
+    final slam = Curves.easeInQuart.transform((t / .3).clamp(0.0, 1.0));
+    final scale = lerpDouble(2.6, 1, slam)!;
+    final opacity = (t / .18).clamp(0.0, 1.0);
+    final shake = t > .3 ? math.sin(t * 60) * (1 - t) * 3 : 0.0;
+
+    return Transform.translate(
+      offset: Offset(0, shake),
+      child: Transform.rotate(
+        angle: -.1,
+        child: Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Brand.saffron.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Brand.saffron, width: 2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_rounded, size: 14, color: Brand.saffron),
+                  const SizedBox(width: 4),
+                  Text(
+                    tr(context, 'VERIFIED', 'যাচাইকৃত'),
+                    style: _ui(
+                      bn,
+                      11.5,
+                      color: Brand.saffron,
+                    ).copyWith(letterSpacing: bn ? 0 : 1.8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Journey extends StatelessWidget {
   const _Journey({
     required this.anim,
+    required this.burst,
+    required this.tick,
+    required this.flip,
+    required this.flipIdx,
+    required this.onNode,
+    required this.reduce,
     required this.items,
     required this.rowH,
     required this.bn,
     required this.pathCurve,
   });
-  final Animation<double> anim;
+  final Animation<double> anim, burst, tick, flip;
+  final int flipIdx;
+  final ValueChanged<int> onNode;
+  final bool reduce;
   final List<_Milestone> items;
   final double rowH;
   final bool bn;
@@ -525,9 +907,13 @@ class _Journey extends StatelessWidget {
       child: SizedBox(
         height: totalH,
         child: AnimatedBuilder(
-          animation: anim,
+          animation: Listenable.merge([anim, burst, tick, flip]),
           builder: (context, _) {
             final p = pathCurve.transform(anim.value);
+            // After the intro, a comet laps the path forever (4 s per lap).
+            final spark = (anim.isCompleted && !reduce)
+                ? (tick.value * 6) % 1.0
+                : null;
             return Stack(
               clipBehavior: Clip.none,
               children: [
@@ -544,22 +930,44 @@ class _Journey extends StatelessWidget {
                           points: pts,
                           progress: p,
                           drawing: anim.isAnimating,
+                          spark: spark,
                         ),
                       ),
                     ),
                   ),
                 ),
                 for (var i = 0; i < n; i++) ...[
-                  // node
+                  // node — tap to flip in 3D
                   Positioned(
                     left: pts[i].dx - _nodeD / 2,
                     top: pts[i].dy - _nodeD / 2,
                     child: ExcludeSemantics(
-                      child: _Node(
-                        icon: items[i].icon,
-                        t: _local(p, i / (n - 1), .04, .14),
-                        last: i == n - 1,
-                        size: _nodeD,
+                      child: Builder(
+                        builder: (context) {
+                          final ft = flipIdx == i ? flip.value : 0.0;
+                          final ang =
+                              Curves.easeInOutCubic.transform(ft) *
+                              math.pi *
+                              2;
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => onNode(i),
+                            child: Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, .003)
+                                ..rotateY(ang),
+                              child: _Node(
+                                icon: items[i].icon,
+                                t: _local(p, i / (n - 1), .04, .14),
+                                last: i == n - 1,
+                                size: _nodeD,
+                                ping: ft,
+                                back: ang > math.pi / 2 && ang < math.pi * 1.5,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -569,49 +977,59 @@ class _Journey extends StatelessWidget {
                     right: 0,
                     top: rowH * i,
                     height: rowH,
-                    child: Builder(
-                      builder: (context) {
-                        final t = Curves.easeOutCubic.transform(
-                          _local(p, i / (n - 1), .0, .2),
-                        );
-                        return Opacity(
-                          opacity: t,
-                          child: Transform.translate(
-                            offset: Offset((1 - t) * 12, 0),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    items[i].title,
-                                    style: _head(bn, 19, w: FontWeight.w700)
-                                        .copyWith(
-                                          height: 1.15,
-                                          letterSpacing: bn ? 0 : -.2,
+                    child: IgnorePointer(
+                      child: Builder(
+                        builder: (context) {
+                          final t = Curves.easeOutCubic.transform(
+                            _local(p, i / (n - 1), .0, .2),
+                          );
+                          return Opacity(
+                            opacity: t,
+                            child: Transform.translate(
+                              offset: Offset((1 - t) * 12, 0),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      items[i].title,
+                                      style: _head(bn, 19, w: FontWeight.w700)
+                                          .copyWith(
+                                            height: 1.15,
+                                            letterSpacing: bn ? 0 : -.2,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      items[i].desc,
+                                      style: body(
+                                        13.5,
+                                        color: Colors.white.withValues(
+                                          alpha: .78,
                                         ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    items[i].desc,
-                                    style: body(
-                                      13.5,
-                                      color: Colors.white.withValues(
-                                        alpha: .78,
-                                      ),
-                                      w: FontWeight.w500,
-                                    ).copyWith(height: 1.35),
-                                  ),
-                                ],
+                                        w: FontWeight.w500,
+                                      ).copyWith(height: 1.35),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
+                // shockwave + sparks from the final node
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _BurstPainter(center: pts.last, t: burst.value),
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -631,10 +1049,12 @@ class _Node extends StatelessWidget {
     required this.t,
     required this.last,
     required this.size,
+    required this.ping,
+    required this.back,
   });
   final IconData icon;
-  final double t, size;
-  final bool last;
+  final double t, size, ping;
+  final bool last, back;
 
   @override
   Widget build(BuildContext context) {
@@ -667,6 +1087,19 @@ class _Node extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (ping > 0 && ping < 1)
+                // tap ping
+                Container(
+                  width: size + ping * 46,
+                  height: size + ping * 46,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Brand.saffron.withValues(alpha: .65 * (1 - ping)),
+                      width: 2.5 * (1 - ping) + .5,
+                    ),
+                  ),
+                ),
               Container(
                 width: size,
                 height: size,
@@ -685,7 +1118,16 @@ class _Node extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(icon, size: 22, color: iconColor),
+                child: back
+                    ? Transform.flip(
+                        flipX: true,
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 24,
+                          color: iconColor,
+                        ),
+                      )
+                    : Icon(icon, size: 22, color: iconColor),
               ),
             ],
           ),
@@ -696,15 +1138,18 @@ class _Node extends StatelessWidget {
 }
 
 /// Draws the faint full track, then the golden path (with a soft glow and a leading spark) up to [progress].
+/// When [spark] is set (intro finished) a bright comet keeps lapping the path.
 class _PathPainter extends CustomPainter {
   _PathPainter({
     required this.points,
     required this.progress,
     required this.drawing,
+    required this.spark,
   });
   final List<Offset> points;
   final double progress;
   final bool drawing;
+  final double? spark;
 
   Path _full() {
     final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -766,24 +1211,111 @@ class _PathPainter extends CustomPainter {
         canvas.drawCircle(tip, 4, Paint()..color = const Color(0xFFFFF3D6));
       }
     }
+
+    // idle comet
+    final s = spark;
+    if (s != null && p >= 1) {
+      final len = metric.length;
+      if (s > .1) {
+        canvas.drawPath(
+          metric.extractPath(len * (s - .1), len * s),
+          Paint()
+            ..color = const Color(0xFFFFF3D6).withValues(alpha: .55)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+        );
+      }
+      final pos = metric.getTangentForOffset(len * s)?.position;
+      if (pos != null) {
+        canvas.drawCircle(
+          pos,
+          10,
+          Paint()
+            ..color = Brand.saffron.withValues(alpha: .55)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+        canvas.drawCircle(pos, 3.6, Paint()..color = Colors.white);
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant _PathPainter old) =>
       old.progress != progress ||
       old.drawing != drawing ||
-      old.points != points;
+      old.points != points ||
+      old.spark != spark;
+}
+
+/// Shockwave ring + radial sparks, fired from the "Prove" node when the path lands.
+class _BurstPainter extends CustomPainter {
+  _BurstPainter({required this.center, required this.t});
+  final Offset center;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t <= 0 || t >= 1) return;
+    final e = Curves.easeOutCubic.transform(t);
+
+    if (t < .3) {
+      canvas.drawCircle(
+        center,
+        34 * (1 - t / .3) + 10,
+        Paint()
+          ..color = Brand.saffron.withValues(alpha: .35 * (1 - t / .3))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+      );
+    }
+    canvas.drawCircle(
+      center,
+      22 + e * 120,
+      Paint()
+        ..color = Brand.saffron.withValues(alpha: .6 * (1 - t))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5 * (1 - t) + .5,
+    );
+    const count = 18;
+    for (var i = 0; i < count; i++) {
+      final a = i / count * math.pi * 2 + (i % 2) * .17;
+      final dist = e * (70 + (i % 3) * 34);
+      final pos = center + Offset(math.cos(a), math.sin(a)) * dist;
+      final r = (4 - 3 * t) * (i.isEven ? 1.0 : .7);
+      canvas.drawCircle(
+        pos,
+        r,
+        Paint()
+          ..color = (i % 3 == 0 ? const Color(0xFFFFF3D6) : Brand.saffron)
+              .withValues(alpha: 1 - t),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BurstPainter old) =>
+      old.t != t || old.center != center;
 }
 
 // ───────────────────────── background lighting ─────────────────────────
 
-/// Static, one-time paint: a green glow top-right, the M-logo ring, and a faint golden glow behind the journey.
+/// Aurora: the two glows slowly orbit (integer loops of the 24 s clock, so it never jumps),
+/// plus the M-logo ring and a fine golden arc.
 class _AmbientPainter extends CustomPainter {
-  const _AmbientPainter();
+  _AmbientPainter({required this.tick}) : super(repaint: tick);
+  final Animation<double> tick;
+
   @override
   void paint(Canvas canvas, Size s) {
+    final a = tick.value * math.pi * 2 * 2; // 12 s orbit
+    final b = tick.value * math.pi * 2; // 24 s orbit
+
     final top = Rect.fromCircle(
-      center: Offset(s.width * .85, s.height * .08),
+      center: Offset(
+        s.width * (.85 + .12 * math.sin(a)),
+        s.height * (.08 + .05 * math.cos(a)),
+      ),
       radius: s.width * 1.05,
     );
     canvas.drawRect(
@@ -798,7 +1330,10 @@ class _AmbientPainter extends CustomPainter {
     );
 
     final gold = Rect.fromCircle(
-      center: Offset(s.width * .12, s.height * .72),
+      center: Offset(
+        s.width * (.12 + .14 * math.cos(b)),
+        s.height * (.72 + .07 * math.sin(b)),
+      ),
       radius: s.width * .8,
     );
     canvas.drawRect(
@@ -806,7 +1341,7 @@ class _AmbientPainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: [
-            Brand.saffron.withValues(alpha: .10),
+            Brand.saffron.withValues(alpha: .12),
             Brand.saffron.withValues(alpha: 0),
           ],
         ).createShader(gold),
@@ -844,6 +1379,204 @@ class _AmbientPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// The playground layer:
+///  • 72 golden dust motes drifting upward in seamless loops
+///  • tap/drag  → motes flee your finger, you write fading golden ink
+///  • hold      → a black hole charges and spirals the motes inward
+///  • release   → the black hole detonates a shockwave that blasts the motes outward
+class _DustPainter extends CustomPainter {
+  _DustPainter({
+    required this.tick,
+    required this.touch,
+    required this.trail,
+    required this.trailV,
+    required this.hold,
+    required this.shock,
+    required this.shockAt,
+    required this.shockPower,
+  }) : super(repaint: Listenable.merge([tick, touch, trailV, hold, shock]));
+
+  final Animation<double> tick, hold, shock;
+  final ValueNotifier<Offset?> touch;
+  final List<Offset> trail;
+  final ValueNotifier<int> trailV;
+  final ValueNotifier<Offset> shockAt;
+  final ValueNotifier<double> shockPower;
+
+  // x, y, rise cycles, sway phase, radius, sway cycles
+  static final List<List<double>> _seeds = List.generate(72, (i) {
+    final r = math.Random(i * 7 + 3);
+    return [
+      r.nextDouble(),
+      r.nextDouble(),
+      (r.nextInt(3) + 1).toDouble(),
+      r.nextDouble() * math.pi * 2,
+      1 + r.nextDouble() * 2.4,
+      (r.nextInt(3) + 1).toDouble(),
+    ];
+  });
+
+  static const _cream = Color(0xFFFFF3D6);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = tick.value;
+    final tp = touch.value;
+    final charge = hold.value;
+    final sv = shock.value;
+    final shocking = sv > 0 && sv < 1;
+    final sc = shockAt.value;
+    final sp = shockPower.value;
+    final shockR = Curves.easeOutCubic.transform(sv) * 520;
+
+    // How far the press has turned from "flee" into "black hole".
+    final k = (charge / .2).clamp(0.0, 1.0);
+    final reach = 130 + 100 * charge;
+
+    final paint = Paint();
+    for (final s in _seeds) {
+      final x = s[0] + math.sin(t * math.pi * 2 * s[5] + s[3]) * .025;
+      final y = (s[1] - t * s[2]) % 1.0;
+      var pos = Offset(x * size.width, y * size.height);
+      var glow = 0.0;
+
+      if (tp != null) {
+        final d = pos - tp;
+        final dist = d.distance;
+        if (dist < reach && dist > .01) {
+          final g = 1 - dist / reach;
+          final u = d / dist;
+          final radial = lerpDouble(g * g * 70, -g * (40 + 60 * charge), k)!;
+          final tangential = g * 55 * charge * k;
+          pos += u * radial + Offset(-u.dy, u.dx) * tangential;
+          glow = g;
+        }
+      }
+
+      if (shocking) {
+        final d = pos - sc;
+        final dist = d.distance;
+        final band = (1 - (dist - shockR).abs() / 70).clamp(0.0, 1.0);
+        if (band > 0 && dist > .01) {
+          pos += d / dist * (band * band * 110 * sp * (1 - sv));
+          glow = math.max(glow, band * (1 - sv));
+        }
+      }
+
+      final edge = math.sin(y * math.pi); // fade at top/bottom
+      final alpha = ((.20 + .6 * glow) * edge).clamp(0.0, 1.0);
+      paint.color = Color.lerp(
+        Brand.saffron,
+        _cream,
+        glow,
+      )!.withValues(alpha: alpha);
+      canvas.drawCircle(pos, s[4] * (1 + glow * 1.2), paint);
+    }
+
+    // shockwave rings
+    if (shocking) {
+      canvas.drawCircle(
+        sc,
+        shockR,
+        Paint()
+          ..color = Brand.saffron.withValues(alpha: .55 * (1 - sv) * sp)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4 * (1 - sv) + .5,
+      );
+      canvas.drawCircle(
+        sc,
+        shockR * .8,
+        Paint()
+          ..color = _cream.withValues(alpha: .25 * (1 - sv) * sp)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+    }
+
+    // golden ink trail
+    if (trail.length > 1) {
+      final path = Path()..moveTo(trail.first.dx, trail.first.dy);
+      for (var i = 1; i < trail.length; i++) {
+        path.lineTo(trail[i].dx, trail[i].dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Brand.saffron.withValues(alpha: .28)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 12
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      final seg = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      for (var i = 1; i < trail.length; i++) {
+        final a = i / trail.length;
+        seg
+          ..strokeWidth = 1 + 5 * a
+          ..color = Color.lerp(
+            Brand.saffron,
+            _cream,
+            a,
+          )!.withValues(alpha: .75 * a);
+        canvas.drawLine(trail[i - 1], trail[i], seg);
+      }
+    }
+
+    if (tp != null) {
+      // soft glow following the finger
+      canvas.drawCircle(
+        tp,
+        70 + 40 * charge,
+        Paint()
+          ..color = Brand.saffron.withValues(alpha: .14 + .12 * charge)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30),
+      );
+      canvas.drawCircle(
+        tp,
+        22,
+        Paint()
+          ..color = Colors.white.withValues(alpha: .22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+
+      // black hole core + spinning accretion arcs
+      if (charge > .12) {
+        final r = 12 + 26 * charge;
+        canvas.drawCircle(
+          tp,
+          r + 4,
+          Paint()
+            ..color = Brand.forest.withValues(alpha: .9)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        );
+        for (var i = 0; i < 3; i++) {
+          final ang = t * math.pi * 2 * (40 + 8 * i) * (i.isEven ? 1 : -1);
+          canvas.drawArc(
+            Rect.fromCircle(center: tp, radius: r + 8 + i * 7),
+            ang,
+            1.5 + .3 * i,
+            false,
+            Paint()
+              ..color = (i == 1 ? _cream : Brand.saffron).withValues(
+                alpha: (.9 - .22 * i) * charge.clamp(.3, 1.0),
+              )
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.6 - .4 * i
+              ..strokeCap = StrokeCap.round,
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DustPainter old) => false;
 }
 
 // ───────────────────────── actions ─────────────────────────
