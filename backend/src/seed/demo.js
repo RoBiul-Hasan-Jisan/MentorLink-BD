@@ -1,0 +1,100 @@
+// Demo accounts. Idempotent: run it as often as you like. Refuses to run unless DEMO_MODE=true.
+// Works against real Firebase (service account) or the Firebase Auth Emulator (FIREBASE_AUTH_EMULATOR_HOST).
+const env = require('../config/env');
+const { User, University, StudentProfile, MentorProfile, SkillEvidence, Opportunity, CvVersion, Organization, OrganizationMember, DeletedDemoJob } = require('../models');
+const { seedLearning } = require('./learning');
+const { seedUniversities } = require('./universities');
+
+const PW = 'Demo@12345';
+const ACCOUNTS = [
+  { email: 'student.edu@demo.mentorlink.bd', name: 'Robiul', role: 'student', uni: 'East Delta University', dept: 'CSE', batch: 2023, pw: PW },
+  { email: 'student.su@demo.mentorlink.bd', name: 'Demo Student (Southern)', role: 'student', uni: 'Southern University Bangladesh', dept: 'BBA', batch: 2022, pw: PW },
+  { email: 'mentor1@demo.mentorlink.bd', name: 'Abrar', role: 'mentor', uni: 'East Delta University', dept: 'CSE', batch: 2016, pw: PW },
+  { email: 'mentor2@demo.mentorlink.bd', name: 'Demo Mentor (Southern)', role: 'mentor', uni: 'Southern University Bangladesh', dept: 'BBA', batch: 2014, pw: PW },
+  { email: 'dept@demo.mentorlink.bd', name: 'Dayan', role: 'department', uni: 'East Delta University', dept: 'CSE', pw: PW },
+  { email: 'admin@demo.mentorlink.bd', name: 'Ayesha', role: 'admin', pw: 'Admin@12345' },
+  { email: 'employer@demo.mentorlink.bd', name: 'Demo Employer (Phase 2)', role: 'employer', pw: PW },
+];
+
+async function ensureFirebaseUser(auth, a) {
+  try {
+    const u = await auth.getUserByEmail(a.email);
+    await auth.updateUser(u.uid, { password: a.pw, displayName: a.name, emailVerified: true });
+    return u.uid;
+  } catch (e) {
+    if (e.code !== 'auth/user-not-found') throw e;
+    return (await auth.createUser({ email: a.email, password: a.pw, displayName: a.name, emailVerified: true })).uid;
+  }
+}
+
+async function seedDemo({ auth }) {
+  if (!env.demoMode) throw new Error('Refusing to seed demo accounts: set DEMO_MODE=true.');
+  process.env.ALLOW_PLACEHOLDER_COORDS = 'true';
+  env.allowPlaceholderCoords = true;
+  await seedUniversities();
+  await seedLearning();
+  const ids = {};
+  for (const a of ACCOUNTS) {
+    const uid = await ensureFirebaseUser(auth, a);
+    const uni = a.uni ? await University.findOne({ name: a.uni }) : null;
+    const u = await User.findOneAndUpdate({ firebaseUid: uid }, { $set: {
+      firebaseUid: uid, email: a.email, displayName: a.name, role: a.role, universityId: uni && uni._id, department: a.dept, batchYear: a.batch,
+      verificationStatus: 'verified', showInDirectory: true, isDemo: true, language: 'en',
+    } }, { upsert: true, returnDocument: 'after' });
+    ids[a.email] = u;
+  }
+  const stu = ids['student.edu@demo.mentorlink.bd'];
+  await StudentProfile.updateOne({ userId: stu._id }, { $set: { careerGoalRoleKey: 'data-analyst', goalText: 'I want to become a data analyst in fintech', weeklyHours: 6, languages: ['bn', 'en'], requestedSlots: ['sun-20', 'tue-21'] } }, { upsert: true });
+  await SkillEvidence.deleteMany({ studentId: stu._id });
+  await SkillEvidence.insertMany([
+    { studentId: stu._id, skillKey: 'excel', type: 'project', level: 3 }, { studentId: stu._id, skillKey: 'sql', type: 'quiz', level: 2 },
+    { studentId: stu._id, skillKey: 'communication', type: 'self', level: 2 }, { studentId: stu._id, skillKey: 'python', type: 'self', level: 1 },
+  ]);
+  await StudentProfile.updateOne({ userId: ids['student.su@demo.mentorlink.bd']._id }, { $set: { careerGoalRoleKey: 'management-trainee', weeklyHours: 4 } }, { upsert: true });
+  const m1 = ids['mentor1@demo.mentorlink.bd'], m2 = ids['mentor2@demo.mentorlink.bd'];
+  await MentorProfile.updateOne({ userId: m1._id }, { $set: { roleKey: 'data-analyst', relatedRoleKeys: ['junior-developer'], roleTitle: 'Senior Data Analyst', industry: 'Fintech', yearsExperience: 8, expertiseSkills: [{ skillKey: 'sql', level: 3 }, { skillKey: 'python', level: 2 }, { skillKey: 'excel', level: 3 }, { skillKey: 'dashboard', level: 3 }, { skillKey: 'statistics', level: 2 }], languages: ['bn', 'en'], weeklyCapacity: 12, availableSlots: ['sun-20', 'tue-21'], acceptedRequests: 8, sessionsCompleted: 7, paused: false } }, { upsert: true });
+  await MentorProfile.updateOne({ userId: m2._id }, { $set: { roleKey: 'management-trainee', relatedRoleKeys: ['banking-trainee'], roleTitle: 'Management Trainee Lead', industry: 'FMCG', yearsExperience: 3, expertiseSkills: [{ skillKey: 'communication', level: 3 }, { skillKey: 'leadership', level: 2 }], languages: ['bn'], weeklyCapacity: 4, availableSlots: ['wed-20'], isRising: true, paused: false } }, { upsert: true });
+  await CvVersion.updateOne({ studentId: stu._id, version: 1 }, { $set: { data: require('../services/cv').sampleCv() } }, { upsert: true }); // demo CV in the v2 layout (no phone or email)
+  const adm = ids['admin@demo.mentorlink.bd'];
+  // Phase 2: a verified demo company with an ACTIVE membership for the employer demo account, plus one reviewed job.
+  const emp = ids['employer@demo.mentorlink.bd'];
+  const org = await Organization.findOneAndUpdate({ name: 'Demo Tech Ltd' }, { $set: { website: 'https://demo-tech.example', industry: 'Software', city: 'Chattogram', publicDescription: 'Demo company for MentorLink BD.', workEmail: 'hr@demo-tech.example', verificationStatus: 'verified', verificationEvidence: 'Demo seed', reviewedBy: adm._id, reviewedAt: new Date() } }, { upsert: true, returnDocument: 'after' });
+  await OrganizationMember.updateOne({ organizationId: org._id, userId: emp._id }, { $set: { membershipRole: 'owner', status: 'active' } }, { upsert: true });
+  if (!(await DeletedDemoJob.exists({ key: 'Junior Backend Developer (Demo)' })) && !(await Opportunity.findOne({ $or: [{ demoKey: 'Junior Backend Developer (Demo)' }, { title: 'Junior Backend Developer (Demo)' }] }))) {
+    await Opportunity.create({ demoKey: 'Junior Backend Developer (Demo)', postedBy: emp._id, organizationId: org._id, organization: org.name, title: 'Junior Backend Developer (Demo)', type: 'job', employmentType: 'full_time', workplaceMode: 'hybrid', locationText: 'Chattogram', description: 'Build and test REST APIs with Node.js and MongoDB. No fee is ever asked from applicants.', requiredSkills: [{ skillKey: 'backend', requiredLevel: 2, weight: 3 }, { skillKey: 'sql', requiredLevel: 2, weight: 2 }, { skillKey: 'git', requiredLevel: 1, weight: 1 }], noFeeConfirmed: true, sourceLabel: 'employer', listingReviewed: true, status: 'approved' });
+  }
+  await require('./cleanup_non_employer_jobs').removeNonEmployerJobs(); // old demo databases: drop jobs posted by anyone who is not an employer
+  await require('./demo_jobs').seedMoreJobs();
+  // richer job details for the demo (salary, vacancies, level), safe to repeat
+  await Opportunity.updateMany({ organization: 'Demo Tech Ltd', salaryMin: { $exists: false } }, { $set: { salaryMin: 25000, salaryMax: 40000, vacancies: 2, experienceLevel: 'junior' } });
+  await Opportunity.updateMany({ organization: { $ne: 'Demo Tech Ltd' }, salaryMin: { $exists: false } }, { $set: { salaryMin: 15000, salaryMax: 25000, experienceLevel: 'fresher' } }); // more demo jobs posted by employers only (one pending, one closed)
+  await require('./demo_more').seedMoreDemo({ auth }); // extra students and mentors from other universities
+  await require('./demo_study').seedStudyMentors({ auth }); // 13 more mentors so the matching study has enough variety
+  await require('./demo_coverage').seedCoverageMentors({ auth }); // mentors for every skill of every career goal (machine learning, maths, web, design, security, cloud...)
+  await require('./demo_extras').seedExtras(); // workshop, Q&A, progress history, pending approvals
+  await require('./journeys').seedJourneys(); // Path Twin demo journeys
+  await require('./demo_community').seedCommunity(); // Community feed: posts, comments, reactions, follows, two moderation examples
+  await require('./demo_portfolio').seedPortfolioDemo(); // portfolio projects, a verified demo GitHub link and a plan review request
+  await require('./demo_startup').seedStartupDemo(); // shared Career Passport, sprints, a company invitation
+  await require('./demo_hiring').seedHiringDemo({ auth }); // more employers and companies, student-posted jobs, applicants with interviews, papers, offers and chat
+  return ACCOUNTS.map((a) => ({ role: a.role, email: a.email, password: a.pw, university: a.uni || '-' }));
+}
+module.exports = { seedDemo, ACCOUNTS };
+
+if (require.main === module) {
+  require('dotenv').config();
+  (async () => {
+    const { connect, mongoose } = require('../config/db');
+    const { getAuth } = require('firebase-admin/auth');
+    const { getApps, getApp, initializeApp, cert } = require('firebase-admin/app');
+    const fs = require('fs'), path = require('path');
+    const file = path.join(__dirname, '..', '..', 'serviceAccount.json');
+    const opts = { projectId: env.firebaseProjectId || 'demo-mentorlink' };
+    if (fs.existsSync(file)) opts.credential = cert(JSON.parse(fs.readFileSync(file, 'utf8')));
+    else if (!process.env.FIREBASE_AUTH_EMULATOR_HOST && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error('Missing backend/serviceAccount.json. In Firebase Console: Project settings > Service accounts > Generate new private key, save it as backend/serviceAccount.json (never commit it).');
+    const app = getApps().length ? getApp() : initializeApp(opts);
+    await connect(env.mongoUri);
+    console.table(await seedDemo({ auth: getAuth(app) }));
+    await mongoose.disconnect();
+  })().catch((e) => { console.error(e.message); process.exit(1); });
+}
